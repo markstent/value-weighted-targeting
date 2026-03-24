@@ -11,7 +11,8 @@ hillstrom:
 	$(PYTHON) src/hillstrom_analysis.py
 
 manuscript:
-	$(PYTHON) scripts/generate_paper_v3.py --source docs/manuscript_v4.md --output outputs/bonus_allocation_v4.docx
+	cd docs && tectonic manuscript_v4.tex
+	cp docs/manuscript_v4.pdf outputs/bonus_allocation_v4.pdf
 
 paper: manuscript
 
