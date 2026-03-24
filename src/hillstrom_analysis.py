@@ -122,7 +122,9 @@ def compute_qini_curve(df_test, scores, outcome_col='outcome_visit'):
     CumulativeGain(p) = N*p * [Y_bar_t(top_p) - Y_bar_c(top_p)]
 
     AUUC is the area between the model curve and the random diagonal,
-    normalized by the area of the perfect model.
+    computed via trapezoidal integration. This is NOT normalized by
+    the perfect model area - it is an absolute measure in units of
+    cumulative incremental conversions.
     """
     df_eval = df_test.copy()
     df_eval['score'] = scores
@@ -194,7 +196,7 @@ def compute_qini_curve(df_test, scores, outcome_col='outcome_visit'):
     return curve_points, auuc, overall_ate
 
 
-def compare_strategies(df_test, uplift_scores, feature_cols, outcome_col='outcome_visit'):
+def compare_strategies(df_train, df_test, uplift_scores, feature_cols, outcome_col='outcome_visit'):
     """Compare uplift, response model, and random targeting."""
     n_total = len(df_test)
     budget_frac = 0.30
@@ -212,6 +214,8 @@ def compare_strategies(df_test, uplift_scores, feature_cols, outcome_col='outcom
         results['Random'] = {
             'uplift_pp': round((t_r[outcome_col].mean() - c_r[outcome_col].mean()) * 100, 2),
             'n_targeted': n_target,
+            'n_treated_in_target': len(t_r),
+            'n_control_in_target': len(c_r),
         }
 
     # Strategy 2: Uplift targeting
@@ -223,16 +227,18 @@ def compare_strategies(df_test, uplift_scores, feature_cols, outcome_col='outcom
         results['Uplift Model'] = {
             'uplift_pp': round((t_u[outcome_col].mean() - c_u[outcome_col].mean()) * 100, 2),
             'n_targeted': n_target,
+            'n_treated_in_target': len(t_u),
+            'n_control_in_target': len(c_u),
         }
 
     # Strategy 3: Response model (predict P(visit | treated))
-    treated_train = df_test[df_test['treatment'] == 1]
+    # Trained on TRAINING set to avoid data leakage
+    treated_train = df_train[df_train['treatment'] == 1]
     resp_model = GradientBoostingClassifier(
-        n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42
+        n_estimators=100, max_depth=3, learning_rate=0.1,
+        min_samples_leaf=50, random_state=42
     )
-    # Use a subset for training response model to avoid data leakage
-    resp_train, resp_eval = train_test_split(treated_train, test_size=0.5, random_state=42)
-    resp_model.fit(resp_train[feature_cols], resp_train[outcome_col])
+    resp_model.fit(treated_train[feature_cols], treated_train[outcome_col])
     response_scores = resp_model.predict_proba(df_test[feature_cols])[:, 1]
 
     top_resp_idx = np.argsort(-response_scores)[:n_target]
@@ -243,6 +249,8 @@ def compare_strategies(df_test, uplift_scores, feature_cols, outcome_col='outcom
         results['Response Model'] = {
             'uplift_pp': round((t_resp[outcome_col].mean() - c_resp[outcome_col].mean()) * 100, 2),
             'n_targeted': n_target,
+            'n_treated_in_target': len(t_resp),
+            'n_control_in_target': len(c_resp),
         }
 
     return results
@@ -307,6 +315,10 @@ def main():
     # Score
     uplift_scores = score_uplift(model_t, model_c, df_test, feature_cols)
 
+    # Feature importance
+    feat_imp_t = dict(zip(feature_cols, model_t.feature_importances_))
+    feat_imp_c = dict(zip(feature_cols, model_c.feature_importances_))
+
     print(f"\nUplift score distribution:")
     print(f"  Mean: {np.mean(uplift_scores):.4f}")
     print(f"  Std:  {np.std(uplift_scores):.4f}")
@@ -337,7 +349,7 @@ def main():
     print("STRATEGY COMPARISON (30% budget, Visit outcome)")
     print("=" * 70)
 
-    strategies = compare_strategies(df_test, uplift_scores, feature_cols, 'outcome_visit')
+    strategies = compare_strategies(df_train, df_test, uplift_scores, feature_cols, 'outcome_visit')
     for name, result in strategies.items():
         print(f"  {name}: {result['uplift_pp']:.2f} pp observed uplift in targeted group")
 
@@ -362,16 +374,37 @@ def main():
             'n_records': len(df),
             'n_treated': int(df['treatment'].sum()),
             'n_control': int((1 - df['treatment']).sum()),
+            'treatment_control_ratio': round(df['treatment'].sum() / (1 - df['treatment']).sum(), 1),
             'visit_rate_treated': round(df[df['treatment']==1]['outcome_visit'].mean(), 4),
             'visit_rate_control': round(df[df['treatment']==0]['outcome_visit'].mean(), 4),
             'overall_ate_visit': round(overall_ate * 100, 2),
+        },
+        'feature_importance': {
+            'treatment_model': {k: round(v, 3) for k, v in feat_imp_t.items()},
+            'control_model': {k: round(v, 3) for k, v in feat_imp_c.items()},
         },
         'uplift_curve_visit': qini_points,
         'auuc_visit': round(auuc, 1),
         'top_decile_ci': {'lower': ci_low, 'upper': ci_high},
         'strategy_comparison': strategies,
-        'conversion_auuc': round(auuc_conv, 1),
-        'conversion_ate': round(ate_conv * 100, 2),
+        'strategy_comparison_note': (
+            'Strategy comparison uses observed uplift in the targeted subgroup. '
+            'With a 2:1 treatment-to-control ratio, the control group in any targeted '
+            'subset may be small, leading to noisier uplift estimates.'
+        ),
+        'conversion_analysis': {
+            'auuc': round(auuc_conv, 1),
+            'overall_ate_pp': round(ate_conv * 100, 2),
+            'note': (
+                'Negative AUUC indicates the uplift model performs worse than random for '
+                'the conversion outcome. Conversion is much rarer than visits (base rate '
+                '~0.9% vs ~15%), making uplift estimation substantially noisier.'
+            ),
+            'top_deciles': [
+                {'decile': p['decile'], 'observed_uplift_pp': p['observed_uplift_pp']}
+                for p in qini_conv[:3]
+            ],
+        },
     }
 
     output_path = os.path.join(DATA_DIR, 'outputs', 'hillstrom_results.json')

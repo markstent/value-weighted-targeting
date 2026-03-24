@@ -152,15 +152,21 @@
   "strategy_comparison": {
     "Random": {
       "uplift_pp": 6.82,
-      "n_targeted": 5760
+      "n_targeted": 5760,
+      "n_treated_in_target": 3806,
+      "n_control_in_target": 1954
     },
     "Uplift Model": {
       "uplift_pp": 9.06,
-      "n_targeted": 5760
+      "n_targeted": 5760,
+      "n_treated_in_target": 3814,
+      "n_control_in_target": 1946
     },
     "Response Model": {
       "uplift_pp": 8.45,
-      "n_targeted": 5760
+      "n_targeted": 5760,
+      "n_treated_in_target": 3792,
+      "n_control_in_target": 1968
     }
   },
   "strategy_comparison_note": "Strategy comparison uses observed uplift in the targeted subgroup. With a 2:1 treatment-to-control ratio, the control group in any targeted subset may be small, leading to noisier uplift estimates.",
