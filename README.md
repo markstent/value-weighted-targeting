@@ -108,7 +108,7 @@ bonus-allocation-framework/
 ├── src/
 │   ├── simulation_analysis.py
 │   └── hillstrom_analysis.py
-├── outputs/               # Generated results (gitignored)
+├── outputs/               # Generated results (JSON tracked, .docx ignored)
 ├── data/                  # Downloaded datasets (gitignored)
 ├── figures/               # Visualisations
 ├── pyproject.toml
