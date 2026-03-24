@@ -30,6 +30,8 @@ def load_hillstrom_data():
     if not os.path.exists(csv_path):
         print("Downloading Hillstrom dataset...")
         # The dataset is publicly available
+        # NOTE: No checksum verification. If the upstream CSV changes,
+        # results may differ. Pin to a local copy for exact reproducibility.
         url = "http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv"
         try:
             df = pd.read_csv(url)

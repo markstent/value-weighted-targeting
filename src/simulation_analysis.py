@@ -79,6 +79,10 @@ def generate_population(n, seed=None):
     segment_idx = np.array([rng.choice(4, p=probs[i]) for i in range(n)])
     segments = [segment_names[idx] for idx in segment_idx]
 
+    # NOTE: LTV and churn_prob are generated directly from the DGP, not
+    # predicted by trained models. The simulation validates the scoring
+    # rule (uplift x LTV x f(churn)) given known values, not end-to-end
+    # model pipeline performance.
     # Step 3: Generate LTV (correlated with spend and login)
     ltv = weekly_spend * 12 + login_freq * 50 + rng.normal(0, 100, n)
     ltv = np.clip(ltv, 50, 10000)
@@ -114,7 +118,9 @@ def generate_population(n, seed=None):
     y1 = rng.binomial(1, y1_prob)
     y_obs = treatment * y1 + (1 - treatment) * y0
 
-    # Responsible gaming flag: ~2% of players with high spend AND high login
+    # Responsible gaming flag: synthetic proxy for demonstration only.
+    # Production systems require validated vulnerability models, not
+    # simple percentile thresholds.
     spend_90th = np.percentile(weekly_spend, 90)
     login_90th = np.percentile(login_freq, 90)
     rg_flag = ((weekly_spend > spend_90th) & (login_freq > login_90th)).astype(int)
