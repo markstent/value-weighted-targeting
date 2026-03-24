@@ -6,17 +6,9 @@ from pathlib import Path
 
 
 class ManuscriptGenerationTests(unittest.TestCase):
-    @unittest.skipUnless(
-        Path("docs/manuscript_v3.md").exists(),
-        "Manuscript v4 source pending creation",
-    )
     def test_markdown_source_exists(self):
-        self.assertTrue(Path("docs/manuscript_v3.md").exists())
+        self.assertTrue(Path("docs/manuscript_v4.md").exists())
 
-    @unittest.skipUnless(
-        Path("docs/manuscript_v3.md").exists(),
-        "Manuscript source required for DOCX generation",
-    )
     def test_docx_generation_smoke(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "paper.docx"
@@ -24,6 +16,8 @@ class ManuscriptGenerationTests(unittest.TestCase):
                 [
                     sys.executable,
                     "scripts/generate_paper_v3.py",
+                    "--source",
+                    "docs/manuscript_v4.md",
                     "--output",
                     str(output_path),
                 ],

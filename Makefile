@@ -11,7 +11,7 @@ hillstrom:
 	$(PYTHON) src/hillstrom_analysis.py
 
 manuscript:
-	@if [ -f docs/manuscript_v3.md ]; then $(PYTHON) scripts/generate_paper_v3.py; else echo "No manuscript source found. Create docs/manuscript_v4.md first."; fi
+	$(PYTHON) scripts/generate_paper_v3.py --source docs/manuscript_v4.md --output outputs/bonus_allocation_v4.docx
 
 paper: manuscript
 
