@@ -1,7 +1,8 @@
 """
 Enhanced simulation analysis for the bonus allocation paper.
-Generates synthetic data with known treatment effects, trains T-Learner,
-and compares targeting strategies with bootstrap CIs and hypothesis tests.
+Generates synthetic data with known treatment effects, trains uplift
+baselines, and compares targeting strategies with bootstrap CIs and
+permutation tests.
 """
 
 import numpy as np
@@ -39,9 +40,9 @@ def generate_population(n, seed=None):
     """
     Generate synthetic player population with known causal structure.
 
-    Key design: features are PREDICTIVE of segment membership, so the
-    T-Learner can learn to identify persuadable players from observables.
-    Segment assignment uses a softmax over feature-based propensity scores.
+    Key design: segments are assigned by direct multinomial sampling at stated
+    prevalences, then features are modulated conditional on segment. This
+    preserves exact prevalences while giving the T-Learner predictive signal.
     """
     rng = np.random.RandomState(seed)
 
@@ -51,33 +52,46 @@ def generate_population(n, seed=None):
     login_freq = rng.poisson(lam=4, size=n).astype(float)
     bonus_redeem = rng.beta(2, 5, size=n)
 
-    # Step 2: Compute segment propensity scores from features
-    # Each segment has a different feature profile
-    z_spend = (np.log1p(weekly_spend) - 3.9) / 0.8
-    z_login = (login_freq - 4.0) / 2.0
-    z_redeem = (bonus_redeem - 0.28) / 0.15
-    z_age = (account_age - 18) / 10.0
-
-    # Sure Things: high login, high spend, high engagement
-    logit_st = 0.8 + 1.2 * z_login + 0.8 * z_spend + 0.3 * z_age
-    # Persuadables: moderate engagement, higher bonus redemption, some recency
-    logit_p = -0.8 + 1.5 * z_redeem + 0.5 * z_login - 0.3 * z_spend
-    # Lost Causes: low engagement, low spend, low redemption
-    logit_lc = 0.3 - 1.0 * z_login - 0.8 * z_spend - 0.5 * z_redeem
-    # Sleeping Dogs: high spend but low redemption, longer tenure
-    logit_sd = -1.2 + 0.6 * z_spend - 1.0 * z_redeem + 0.4 * z_age
-
-    # Softmax to get segment probabilities
-    logits = np.column_stack([logit_st, logit_p, logit_lc, logit_sd])
-    # Apply target prevalence weighting
-    prevalence_weights = np.log([0.40, 0.15, 0.35, 0.10])
-    logits += prevalence_weights
-    exp_logits = np.exp(logits - logits.max(axis=1, keepdims=True))
-    probs = exp_logits / exp_logits.sum(axis=1, keepdims=True)
-
-    segment_names = ['Sure Things', 'Persuadables', 'Lost Causes', 'Sleeping Dogs']
-    segment_idx = np.array([rng.choice(4, p=probs[i]) for i in range(n)])
+    # Step 2: Assign segments by direct multinomial sampling
+    segment_names = list(SEGMENTS.keys())
+    segment_probs = [SEGMENTS[s][0] for s in segment_names]
+    segment_idx = rng.choice(len(segment_names), size=n, p=segment_probs)
     segments = [segment_names[idx] for idx in segment_idx]
+
+    # Step 3: Modulate features by segment to preserve predictive signal.
+    # Each segment gets shifts on MULTIPLE features so the T-Learner can
+    # distinguish segments from observables.
+    seg_array = np.array(segment_idx)
+
+    # Sure Things (idx=0): high login, high spend, moderate redeem
+    mask_st = seg_array == 0
+    login_freq[mask_st] += rng.poisson(3, mask_st.sum())
+    weekly_spend[mask_st] *= rng.uniform(1.2, 1.8, mask_st.sum())
+    bonus_redeem[mask_st] += rng.normal(0.05, 0.02, mask_st.sum())
+
+    # Persuadables (idx=1): high bonus_redeem, moderate login, lower spend
+    mask_p = seg_array == 1
+    bonus_redeem[mask_p] += rng.normal(0.20, 0.05, mask_p.sum())
+    login_freq[mask_p] += rng.poisson(1, mask_p.sum())
+    weekly_spend[mask_p] *= rng.uniform(0.7, 1.0, mask_p.sum())
+
+    # Lost Causes (idx=2): low login, low spend, low redeem
+    mask_lc = seg_array == 2
+    login_freq[mask_lc] = np.maximum(0, login_freq[mask_lc] - rng.poisson(2, mask_lc.sum()))
+    weekly_spend[mask_lc] *= rng.uniform(0.4, 0.7, mask_lc.sum())
+    bonus_redeem[mask_lc] -= rng.normal(0.08, 0.03, mask_lc.sum())
+
+    # Sleeping Dogs (idx=3): high spend, low redeem, longer tenure
+    mask_sd = seg_array == 3
+    weekly_spend[mask_sd] *= rng.uniform(1.3, 2.0, mask_sd.sum())
+    bonus_redeem[mask_sd] -= rng.normal(0.12, 0.04, mask_sd.sum())
+    account_age[mask_sd] += rng.uniform(5, 15, mask_sd.sum())
+
+    bonus_redeem = np.clip(bonus_redeem, 0, 1)
+    login_freq = np.maximum(0, login_freq)
+
+    # Recompute z_login after feature modulation (used for baseline modulation)
+    z_login = (login_freq - 4.0) / 2.0
 
     # NOTE: LTV and churn_prob are generated directly from the DGP, not
     # predicted by trained models. The simulation validates the scoring
@@ -96,15 +110,8 @@ def generate_population(n, seed=None):
     treatment = rng.binomial(1, TREATMENT_PROB, n)
 
     # Step 6: Generate potential outcomes from segment parameters
-    seg_params = {
-        'Sure Things':   (0.85, +0.03),
-        'Persuadables':  (0.40, +0.35),
-        'Lost Causes':   (0.15, +0.05),
-        'Sleeping Dogs': (0.70, -0.15),
-    }
-
-    baselines = np.array([seg_params[s][0] for s in segments])
-    taus = np.array([seg_params[s][1] for s in segments])
+    baselines = np.array([SEGMENTS[s][1] for s in segments])
+    taus = np.array([SEGMENTS[s][2] for s in segments])
 
     # Add within-segment heterogeneity (SD=0.10 makes uplift estimation realistic)
     tau_noise = rng.normal(0, 0.10, n)
@@ -505,6 +512,12 @@ def run_misspecification_test(all_run_data, n_runs=20):
     }
 
 
+def expected_segment_mean_ate_pp():
+    """Return the population ATE implied by the mean segment effects."""
+    mean_ate = sum(prevalence * tau for prevalence, _, tau in SEGMENTS.values())
+    return round(mean_ate * 100, 2)
+
+
 def main():
     print("=" * 70)
     print("SIMULATION ANALYSIS: Uplift-Based Bonus Allocation Framework")
@@ -516,10 +529,14 @@ def main():
     all_results = {s: [] for s in STRATEGIES}
     all_gains = []
     all_run_data = []
+    all_seg_shares = {}
 
     for run in range(N_RUNS):
         if (run + 1) % 10 == 0:
             print(f"  Run {run + 1}/{N_RUNS}...")
+        df_run = generate_population(N_PLAYERS, seed=run * 7 + 13)
+        for seg in SEGMENTS:
+            all_seg_shares.setdefault(seg, []).append((df_run['segment'] == seg).mean())
         results, gains, run_artifacts = run_single_simulation(seed=run * 7 + 13)
         for r in results:
             all_results[r['strategy']].append(r)
@@ -693,7 +710,12 @@ def main():
 
     # --- RG exclusion stats ---
     avg_rg_excluded = np.mean([r['n_rg_excluded'] for r in all_results['Uplift Only']])
-    print(f"\nResponsible gaming: avg {avg_rg_excluded:.0f} players excluded per run")
+    avg_test_size = np.mean([len(rd['df_test']) for rd in all_run_data])
+    avg_rg_excluded_pct_test = (avg_rg_excluded / avg_test_size) * 100
+    print(
+        f"\nResponsible gaming: avg {avg_rg_excluded:.0f} players excluded per run "
+        f"({avg_rg_excluded_pct_test:.2f}% of the held-out sample)"
+    )
 
     # Save summary for paper generation
     output = {
@@ -734,7 +756,29 @@ def main():
     output['permutation_tests'] = perm_results
     output['responsible_gaming'] = {
         'avg_excluded_per_run': round(avg_rg_excluded, 0),
+        'avg_excluded_pct_test': round(avg_rg_excluded_pct_test, 2),
         'exclusion_criteria': 'Players with weekly_spend > 90th percentile AND login_freq > 90th percentile',
+    }
+    output['simulation_design'] = {
+        'segment_parameters': {
+            name: {
+                'prevalence': prevalence,
+                'baseline_prob': baseline,
+                'mean_treatment_effect': tau,
+            }
+            for name, (prevalence, baseline, tau) in SEGMENTS.items()
+        },
+        'actual_segment_shares': {
+            seg: round(float(np.mean(shares)), 4)
+            for seg, shares in all_seg_shares.items()
+        },
+        'expected_segment_mean_ate_pp': expected_segment_mean_ate_pp(),
+        'note': (
+            'This DGP is a favourable proof-of-concept design rather than a direct '
+            'computational instantiation of the pedagogical four-segment table. '
+            'Sure Things and Lost Causes have small positive mean effects, so the '
+            'population ATE is positive across most score deciles.'
+        ),
     }
     output['methodology_notes'] = {
         'bootstrap_method': 'CIs computed by bootstrapping over run-level means. This captures simulation-to-simulation variability.',
@@ -808,7 +852,7 @@ def main():
     with open(output_path, 'w') as f:
         json.dump(output, f, indent=2)
 
-    print("\n\nResults saved to simulation_results.json")
+    print(f"\n\nResults saved to {output_path}")
     print("Done.")
 
 
