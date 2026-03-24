@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from scipy import stats
+import hashlib
 import json
 import os
 import warnings
@@ -17,6 +18,8 @@ warnings.filterwarnings('ignore')
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..')
 BOOTSTRAP_SAMPLES = 1000
 ALPHA = 0.05
+REPEATED_SPLIT_RUNS = 50
+HILLSTROM_SHA256 = "00a6a868e05a9ffe7382da51629f6d6dce88c5acfc945e79d314ebc78fd3a2c0"
 
 
 def load_hillstrom_data():
@@ -29,26 +32,27 @@ def load_hillstrom_data():
 
     if not os.path.exists(csv_path):
         print("Downloading Hillstrom dataset...")
-        # The dataset is publicly available
-        # NOTE: No checksum verification. If the upstream CSV changes,
-        # results may differ. Pin to a local copy for exact reproducibility.
         url = "http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv"
         try:
             df = pd.read_csv(url)
             df.to_csv(csv_path, index=False)
             print(f"Downloaded {len(df)} records")
         except Exception as e:
-            print(f"Download failed: {e}")
-            print("Trying alternative source...")
-            # Alternative: create from known structure
-            url2 = "https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html"
             raise RuntimeError(
                 f"Could not download Hillstrom dataset. "
                 f"Please manually download from MineThatData blog and save as {csv_path}"
-            )
+            ) from e
     else:
         df = pd.read_csv(csv_path)
         print(f"Loaded {len(df)} records from {csv_path}")
+
+    # Verify checksum
+    with open(csv_path, 'rb') as f:
+        actual = hashlib.sha256(f.read()).hexdigest()
+    if actual != HILLSTROM_SHA256:
+        print(f"WARNING: Hillstrom CSV checksum mismatch. "
+              f"Expected {HILLSTROM_SHA256[:16]}..., got {actual[:16]}... "
+              f"Results may differ from published values.")
 
     return df
 
@@ -106,6 +110,29 @@ def train_t_learner(df_train, feature_cols, outcome_col='outcome_visit'):
     model_c.fit(control[feature_cols], control[outcome_col])
 
     return model_t, model_c
+
+
+def train_s_learner(df_train, feature_cols, outcome_col='outcome_visit'):
+    """Train S-Learner: single model with treatment as an additional feature."""
+    s_features = feature_cols + ['treatment']
+    model = GradientBoostingClassifier(
+        n_estimators=100, max_depth=3, learning_rate=0.1,
+        min_samples_leaf=50, random_state=42
+    )
+    model.fit(df_train[s_features], df_train[outcome_col])
+    return model
+
+
+def score_s_learner(model, df, feature_cols):
+    """Score S-Learner uplift: P(Y|X, T=1) - P(Y|X, T=0)."""
+    s_features = feature_cols + ['treatment']
+    df_t1 = df[feature_cols].copy()
+    df_t1['treatment'] = 1
+    df_t0 = df[feature_cols].copy()
+    df_t0['treatment'] = 0
+    pred_t1 = model.predict_proba(df_t1[s_features])[:, 1]
+    pred_t0 = model.predict_proba(df_t0[s_features])[:, 1]
+    return pred_t1 - pred_t0
 
 
 def score_uplift(model_t, model_c, df, feature_cols):
@@ -181,8 +208,8 @@ def compute_qini_curve(df_test, scores, outcome_col='outcome_visit'):
             'gain_over_random': round(cum_gain - random_gain, 1),
         })
 
-    # AUUC: normalized area between model curve and random diagonal
-    # Using trapezoidal integration
+    # AUUC: absolute area between model curve and random diagonal.
+    # Using trapezoidal integration.
     model_area = 0
     random_area = 0
     for i in range(len(curve_points)):
@@ -198,43 +225,98 @@ def compute_qini_curve(df_test, scores, outcome_col='outcome_visit'):
     return curve_points, auuc, overall_ate
 
 
-def compare_strategies(df_train, df_test, uplift_scores, feature_cols, outcome_col='outcome_visit'):
-    """Compare uplift, response model, and random targeting."""
+def summarize_repeated_splits(df, feature_cols, outcome_col='outcome_visit', n_runs=REPEATED_SPLIT_RUNS):
+    """Estimate split sensitivity for AUUC and top-decile uplift."""
+    auucs = []
+    s_learner_auucs = []
+    top_deciles = []
+    strategy_uplifts = []
+
+    for run in range(n_runs):
+        df_train, df_test = train_test_split(
+            df,
+            test_size=0.30,
+            random_state=42 + run,
+            stratify=df['treatment'],
+        )
+        model_t, model_c = train_t_learner(df_train, feature_cols, outcome_col)
+        uplift_scores = score_uplift(model_t, model_c, df_test, feature_cols)
+        qini_points, auuc, _ = compute_qini_curve(df_test, uplift_scores, outcome_col)
+
+        # S-Learner
+        s_model = train_s_learner(df_train, feature_cols, outcome_col)
+        s_scores = score_s_learner(s_model, df_test, feature_cols)
+        _, s_auuc, _ = compute_qini_curve(df_test, s_scores, outcome_col)
+        s_learner_auucs.append(s_auuc)
+
+        strategies = compare_strategies(
+            df_train, df_test, uplift_scores, feature_cols, outcome_col,
+            s_learner_scores=s_scores,
+        )
+
+        auucs.append(auuc)
+        top_deciles.append(qini_points[0]['observed_uplift_pp'])
+        strategy_uplifts.append(strategies['Uplift Model']['uplift_pp'])
+
+    return {
+        'n_runs': n_runs,
+        'auuc_mean': round(float(np.mean(auucs)), 1),
+        'auuc_sd': round(float(np.std(auucs)), 1),
+        'auuc_ci_lower': round(float(np.percentile(auucs, 2.5)), 1),
+        'auuc_ci_upper': round(float(np.percentile(auucs, 97.5)), 1),
+        's_learner_auuc_mean': round(float(np.mean(s_learner_auucs)), 1),
+        's_learner_auuc_sd': round(float(np.std(s_learner_auucs)), 1),
+        'top_decile_uplift_pp_mean': round(float(np.mean(top_deciles)), 2),
+        'top_decile_uplift_pp_sd': round(float(np.std(top_deciles)), 2),
+        'top_decile_uplift_pp_ci_lower': round(float(np.percentile(top_deciles, 2.5)), 2),
+        'top_decile_uplift_pp_ci_upper': round(float(np.percentile(top_deciles, 97.5)), 2),
+        'targeted_policy_uplift_pp_mean': round(float(np.mean(strategy_uplifts)), 2),
+        'targeted_policy_uplift_pp_sd': round(float(np.std(strategy_uplifts)), 2),
+    }
+
+
+def compare_strategies(df_train, df_test, uplift_scores, feature_cols,
+                       outcome_col='outcome_visit', s_learner_scores=None):
+    """Compare uplift, S-Learner, response model, and random targeting."""
     n_total = len(df_test)
     budget_frac = 0.30
     n_target = int(n_total * budget_frac)
 
     results = {}
 
+    def _eval_targeted(targeted):
+        t = targeted[targeted['treatment'] == 1]
+        c = targeted[targeted['treatment'] == 0]
+        if len(t) > 0 and len(c) > 0:
+            return {
+                'uplift_pp': round((t[outcome_col].mean() - c[outcome_col].mean()) * 100, 2),
+                'n_targeted': n_target,
+                'n_treated_in_target': len(t),
+                'n_control_in_target': len(c),
+            }
+        return None
+
     # Strategy 1: Random
     rng = np.random.RandomState(42)
     random_idx = rng.choice(n_total, n_target, replace=False)
-    random_targeted = df_test.iloc[random_idx]
-    t_r = random_targeted[random_targeted['treatment'] == 1]
-    c_r = random_targeted[random_targeted['treatment'] == 0]
-    if len(t_r) > 0 and len(c_r) > 0:
-        results['Random'] = {
-            'uplift_pp': round((t_r[outcome_col].mean() - c_r[outcome_col].mean()) * 100, 2),
-            'n_targeted': n_target,
-            'n_treated_in_target': len(t_r),
-            'n_control_in_target': len(c_r),
-        }
+    r = _eval_targeted(df_test.iloc[random_idx])
+    if r:
+        results['Random'] = r
 
-    # Strategy 2: Uplift targeting
+    # Strategy 2: T-Learner uplift targeting
     top_uplift_idx = np.argsort(-uplift_scores)[:n_target]
-    uplift_targeted = df_test.iloc[top_uplift_idx]
-    t_u = uplift_targeted[uplift_targeted['treatment'] == 1]
-    c_u = uplift_targeted[uplift_targeted['treatment'] == 0]
-    if len(t_u) > 0 and len(c_u) > 0:
-        results['Uplift Model'] = {
-            'uplift_pp': round((t_u[outcome_col].mean() - c_u[outcome_col].mean()) * 100, 2),
-            'n_targeted': n_target,
-            'n_treated_in_target': len(t_u),
-            'n_control_in_target': len(c_u),
-        }
+    r = _eval_targeted(df_test.iloc[top_uplift_idx])
+    if r:
+        results['Uplift Model'] = r
 
-    # Strategy 3: Response model (predict P(visit | treated))
-    # Trained on TRAINING set to avoid data leakage
+    # Strategy 3: S-Learner targeting
+    if s_learner_scores is not None:
+        top_s_idx = np.argsort(-s_learner_scores)[:n_target]
+        r = _eval_targeted(df_test.iloc[top_s_idx])
+        if r:
+            results['S-Learner'] = r
+
+    # Strategy 4: Response model (predict P(visit | treated))
     treated_train = df_train[df_train['treatment'] == 1]
     resp_model = GradientBoostingClassifier(
         n_estimators=100, max_depth=3, learning_rate=0.1,
@@ -244,16 +326,9 @@ def compare_strategies(df_train, df_test, uplift_scores, feature_cols, outcome_c
     response_scores = resp_model.predict_proba(df_test[feature_cols])[:, 1]
 
     top_resp_idx = np.argsort(-response_scores)[:n_target]
-    resp_targeted = df_test.iloc[top_resp_idx]
-    t_resp = resp_targeted[resp_targeted['treatment'] == 1]
-    c_resp = resp_targeted[resp_targeted['treatment'] == 0]
-    if len(t_resp) > 0 and len(c_resp) > 0:
-        results['Response Model'] = {
-            'uplift_pp': round((t_resp[outcome_col].mean() - c_resp[outcome_col].mean()) * 100, 2),
-            'n_targeted': n_target,
-            'n_treated_in_target': len(t_resp),
-            'n_control_in_target': len(c_resp),
-        }
+    r = _eval_targeted(df_test.iloc[top_resp_idx])
+    if r:
+        results['Response Model'] = r
 
     return results
 
@@ -307,15 +382,25 @@ def main():
     print(f"  Overall ATE (visit): {df[df['treatment']==1]['outcome_visit'].mean() - df[df['treatment']==0]['outcome_visit'].mean():.4f}")
 
     # Train/test split
-    df_train, df_test = train_test_split(df, test_size=0.30, random_state=42)
+    df_train, df_test = train_test_split(
+        df,
+        test_size=0.30,
+        random_state=42,
+        stratify=df['treatment'],
+    )
     print(f"\nTrain: {len(df_train)}, Test: {len(df_test)}")
 
     # Train T-Learner
     print("\nTraining T-Learner...")
     model_t, model_c = train_t_learner(df_train, feature_cols, 'outcome_visit')
 
+    # Train S-Learner
+    print("Training S-Learner...")
+    s_model = train_s_learner(df_train, feature_cols, 'outcome_visit')
+
     # Score
     uplift_scores = score_uplift(model_t, model_c, df_test, feature_cols)
+    s_learner_scores = score_s_learner(s_model, df_test, feature_cols)
 
     # Feature importance
     feat_imp_t = dict(zip(feature_cols, model_t.feature_importances_))
@@ -342,16 +427,31 @@ def main():
     print(f"\nOverall ATE: {overall_ate*100:.2f} pp")
     print(f"AUUC: {auuc:.1f}")
 
+    # S-Learner qini curve
+    s_qini_points, s_auuc, _ = compute_qini_curve(df_test, s_learner_scores, 'outcome_visit')
+    print(f"\nS-Learner AUUC: {s_auuc:.1f}")
+
     # Bootstrap CI for top decile
     ci_low, ci_high = bootstrap_uplift_ci(df_test, uplift_scores, 'outcome_visit')
     print(f"Top decile uplift 95% CI: [{ci_low:.2f}, {ci_high:.2f}] pp")
+
+    repeated_summary = summarize_repeated_splits(df, feature_cols, 'outcome_visit')
+    print(
+        "Repeated split summary "
+        f"(n={repeated_summary['n_runs']}): AUUC mean={repeated_summary['auuc_mean']:.1f} "
+        f"(SD={repeated_summary['auuc_sd']:.1f}), top decile mean="
+        f"{repeated_summary['top_decile_uplift_pp_mean']:.2f} pp"
+    )
 
     # Strategy comparison
     print("\n" + "=" * 70)
     print("STRATEGY COMPARISON (30% budget, Visit outcome)")
     print("=" * 70)
 
-    strategies = compare_strategies(df_train, df_test, uplift_scores, feature_cols, 'outcome_visit')
+    strategies = compare_strategies(
+        df_train, df_test, uplift_scores, feature_cols, 'outcome_visit',
+        s_learner_scores=s_learner_scores,
+    )
     for name, result in strategies.items():
         print(f"  {name}: {result['uplift_pp']:.2f} pp observed uplift in targeted group")
 
@@ -380,6 +480,7 @@ def main():
             'visit_rate_treated': round(df[df['treatment']==1]['outcome_visit'].mean(), 4),
             'visit_rate_control': round(df[df['treatment']==0]['outcome_visit'].mean(), 4),
             'overall_ate_visit': round(overall_ate * 100, 2),
+            'treatment_definition': 'Any campaign email (mens or womens) vs no email control',
         },
         'feature_importance': {
             'treatment_model': {k: round(v, 3) for k, v in feat_imp_t.items()},
@@ -387,7 +488,10 @@ def main():
         },
         'uplift_curve_visit': qini_points,
         'auuc_visit': round(auuc, 1),
+        's_learner_uplift_curve_visit': s_qini_points,
+        's_learner_auuc_visit': round(s_auuc, 1),
         'top_decile_ci': {'lower': ci_low, 'upper': ci_high},
+        'repeated_split_visit': repeated_summary,
         'strategy_comparison': strategies,
         'strategy_comparison_note': (
             'Strategy comparison uses observed uplift in the targeted subgroup. '
@@ -398,9 +502,10 @@ def main():
             'auuc': round(auuc_conv, 1),
             'overall_ate_pp': round(ate_conv * 100, 2),
             'note': (
-                'Negative AUUC indicates the uplift model performs worse than random for '
-                'the conversion outcome. Conversion is much rarer than visits (base rate '
-                '~0.9% vs ~15%), making uplift estimation substantially noisier.'
+                'Conversion is much rarer than visits (base rate ~0.9% vs ~15%), making '
+                'uplift estimation substantially noisier. The conversion AUUC should '
+                'therefore be treated as split-sensitive and illustrative rather than a '
+                'stable production-quality estimate.'
             ),
             'top_deciles': [
                 {'decile': p['decile'], 'observed_uplift_pp': p['observed_uplift_pp']}
@@ -408,6 +513,12 @@ def main():
             ],
         },
     }
+
+    output['top_decile_ci_note'] = (
+        'Bootstrap CI conditions on a single train/test split. It captures '
+        'outcome sampling variability but not model-fitting or split uncertainty. '
+        'See repeated_split_visit for split-level variability.'
+    )
 
     output_path = os.path.join(DATA_DIR, 'outputs', 'hillstrom_results.json')
     with open(output_path, 'w') as f:
