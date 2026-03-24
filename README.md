@@ -1,10 +1,6 @@
 <div align="center">
 
-# Bonus Allocation Framework
-
-**A Causal Machine Learning Framework for Optimising Player Bonus Allocation**
-
-*Integrating Uplift Modelling with Lifetime Value under Budget Constraints*
+# A Causal Framework for Churn-Regularised Bonus Targeting in Online Gaming
 
 Mark Stent | March 2026
 
@@ -12,115 +8,71 @@ Mark Stent | March 2026
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![uv](https://img.shields.io/badge/packaging-uv-blueviolet)
 
 </div>
 
-## The Problem
+## Overview
 
-Most bonus targeting systems give bonuses to players who would have stayed active anyway (*Sure Things*), while missing the players whose behaviour actually changes because of the bonus (*Persuadables*). Traditional response models can even target *Sleeping Dogs* - players who react negatively to bonuses.
+A modular, budget-constrained framework for targeting player retention bonuses using causal uplift modelling, lifetime value weighting, and a novel churn regularisation function.
 
-This repository provides a framework that shifts the question from **"who is most likely to engage?"** to **"whose engagement would change because of the bonus?"**
-
-## What This Repository Validates
-
-This repository validates **uplift-based targeting** for player bonus allocation using a T-Learner approach. The simulation study and Hillstrom cross-domain check validate the uplift ranking component. LTV weighting and churn regularization are proposed as theoretical extensions and tested in simulation with synthetic values - they are not trained as separate models and are not empirically validated on real gaming data.
-
-## Framework Components
-
-| Component | Purpose | Method |
-|---|---|---|
-| **Uplift Model** | Estimate per-player bonus impact | T-Learner (separate treatment/control models) |
-| **LTV Weighting** | Prioritise high-value persuadables | Multiply uplift by estimated lifetime value |
-| **Churn Regularisation** | Focus on actionable churn risk | Inverse-U penalty on churn probability |
-| **Budget Optimisation** | Allocate under constraints | Top-k ranking under uniform costs |
-
-## Scope of Validation
-
-| Component | Status |
-|---|---|
-| Uplift ranking (T-Learner) | Validated in simulation + Hillstrom |
-| S-Learner baseline | Validated in simulation |
-| LTV weighting | Tested with synthetic LTV in simulation |
-| Churn regularization | Tested with synthetic churn in simulation |
-| Budget optimization | Uniform-cost top-k ranking only |
-| End-to-end on gaming data | Not validated |
-
-## Quick Start
-
-<details>
-<summary><strong>Installation</strong></summary>
-
-```bash
-git clone https://github.com/markstent/bonus-allocation-framework.git
-cd bonus-allocation-framework
-```
-
-**With uv (recommended):**
-```bash
-uv sync
-```
-
-**With pip:**
-```bash
-pip install -e .
-```
-
-</details>
-
-## Notebooks
-
-| # | Notebook | Description |
-|---|---|---|
-| 01 | [Simulation Study](notebooks/01_simulation_study.ipynb) | Reproduces Section 7.1 - synthetic DGP, T-Learner training, four targeting strategies, cumulative gains |
-| 02 | [Hillstrom Analysis](notebooks/02_hillstrom_analysis.ipynb) | Reproduces Appendix A - cross-domain validation on 64k e-commerce records |
-| 03 | [Uplift Walkthrough](notebooks/03_uplift_walkthrough.ipynb) | Teaching notebook - step-by-step uplift concepts with a mini dataset |
+The composite scoring rule $s_i = \hat{\tau}_i \times \text{LTV}_i \times f(p_i^{\text{churn}})$ combines three independently interpretable components into a single targeting priority. The churn regularisation function $f$ implements an explicit, operator-configurable trade-off between expected value and targeting conservatism.
 
 ## Key Results
 
 **Simulation Study** (10,000 players, 30% budget, 50 replications):
 
-| Strategy | Inc. Revenue | ATE (pp) | Persuadables Targeted |
+| Strategy | ATE (pp) | Incr. Value | Persuadable % |
 |---|---|---|---|
-| Random | $39,666 | 5.7 | 9.5% |
-| Response Model | $23,366 | 2.8 | 9.7% |
-| S-Learner | $69,401 | 10.9 | 21.4% |
-| Uplift Only | $60,212 | 9.2 | 17.8% |
-| Uplift x LTV | $66,479 | 8.4 | 16.7% |
-| Full Framework | $59,249 | 9.1 | 15.6% |
+| Random | 5.5 | $29,299 | 15.1% |
+| Response Model | 3.1 | $24,360 | 15.6% |
+| **T-Learner pathway** | | | |
+| Uplift Only | 10.6 | $67,097 | 27.8% |
+| Uplift x LTV | 9.7 | $74,181 | 27.6% |
+| Full Framework (T) | 10.2 | $62,361 | 22.5% |
+| **S-Learner pathway** | | | |
+| S-Learner | 12.5 | $77,337 | 31.8% |
+| S-Learner x LTV | 11.4 | $88,566 | 31.5% |
+| Full Framework (S) | 10.7 | $66,584 | 24.2% |
 
-**Hillstrom Validation** (64,000 real customers):
-
-| Metric | Value |
-|---|---|
-| Top-decile uplift | 10.98 pp |
-| Overall ATE | 6.6 pp |
-| AUUC | 92.6 |
+The framework is meta-learner agnostic: both T-Learner and S-Learner CATE estimates work within the composite rule. Churn regularisation reduces value by 16-25% relative to unregularised targeting - a quantified cost of conservative targeting.
 
 ## Repository Structure
 
 ```
-bonus-allocation-framework/
-├── notebooks/
-│   ├── 01_simulation_study.ipynb
-│   ├── 02_hillstrom_analysis.ipynb
-│   └── 03_uplift_walkthrough.ipynb
+├── docs/
+│   ├── manuscript_v6.tex          # Current manuscript (LaTeX)
+│   ├── manuscript_v6.pdf          # Compiled PDF
+│   └── archive/                   # Previous versions and reviews
 ├── src/
-│   ├── simulation_analysis.py
-│   └── hillstrom_analysis.py
-├── outputs/               # Generated results (JSON tracked, .docx ignored)
-├── data/                  # Downloaded datasets (gitignored)
-├── figures/               # Visualisations
-├── pyproject.toml
+│   ├── simulation_analysis.py     # Main simulation (8 strategies, 50 runs)
+│   └── hillstrom_analysis.py      # Cross-domain validation
+├── tests/                         # Unit and regression tests
+├── notebooks/                     # Jupyter notebooks
+├── figures/                       # Generated figures
+├── outputs/                       # Simulation results (JSON)
+├── Makefile
 └── README.md
+```
+
+## Build
+
+```bash
+make simulation    # Run simulation analysis
+make hillstrom     # Run Hillstrom cross-domain validation
+make test          # Run test suite
+```
+
+Compile the manuscript:
+```bash
+cd docs && tectonic manuscript_v6.tex
 ```
 
 ## Data Sources
 
-| Dataset | Records | Source | Access |
-|---|---|---|---|
-| Simulation | 10,000 | Synthetic DGP | Generated by notebook 01 |
-| Hillstrom | 64,000 | [MineThatData](http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv) | Auto-downloaded by notebook 02 |
+| Dataset | Records | Source |
+|---|---|---|
+| Simulation | 10,000 | Synthetic DGP with known potential outcomes |
+| Hillstrom | 64,000 | [MineThatData](http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv) |
 
 ## License
 
