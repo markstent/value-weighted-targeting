@@ -25,7 +25,7 @@ BUDGET_FRACTION = 0.30
 TREATMENT_PROB = 0.50
 BOOTSTRAP_SAMPLES = 1000
 ALPHA = 0.05
-STRATEGIES = ['Random', 'Response Model', 'S-Learner', 'Uplift Only', 'Uplift x LTV', 'Full Framework']
+STRATEGIES = ['Random', 'Response Model', 'S-Learner', 'Uplift Only', 'Uplift x LTV', 'Full Framework', 'S-Learner x LTV', 'S-Learner Full']
 
 # Segment parameters: (prevalence, P0_baseline, tau_treatment_effect)
 SEGMENTS = {
@@ -305,6 +305,12 @@ def run_single_simulation(seed):
     s_model = train_s_learner(df_train, features)
     s_learner_scores = score_s_learner(s_model, df_test, features)
 
+    # S-Learner x LTV (no churn regularization)
+    s_learner_ltv_scores = s_learner_scores * df_test['ltv'].values
+
+    # S-Learner Full Framework: S-Learner uplift x LTV x f(churn)
+    s_learner_full_scores = s_learner_scores * df_test['ltv'].values * f_churn_scores
+
     # Uplift x LTV (no churn regularization) - central ablation
     uplift_ltv_scores = uplift_scores * df_test['ltv'].values
 
@@ -320,6 +326,8 @@ def run_single_simulation(seed):
     results.append(evaluate_strategy(df_test, uplift_scores, BUDGET_FRACTION, 'Uplift Only'))
     results.append(evaluate_strategy(df_test, uplift_ltv_scores, BUDGET_FRACTION, 'Uplift x LTV'))
     results.append(evaluate_strategy(df_test, full_scores, BUDGET_FRACTION, 'Full Framework'))
+    results.append(evaluate_strategy(df_test, s_learner_ltv_scores, BUDGET_FRACTION, 'S-Learner x LTV'))
+    results.append(evaluate_strategy(df_test, s_learner_full_scores, BUDGET_FRACTION, 'S-Learner Full'))
 
     # Also compute cumulative gain curve for uplift model
     gain_data = compute_cumulative_gains(df_test, uplift_scores)
@@ -640,6 +648,59 @@ def main():
     sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
     print(f"  Full Framework vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
     perm_results['Full Framework_vs_Uplift x LTV_Revenue'] = {
+        'diff': round(diff, 0),
+        'p_value': round(p_val, 4),
+    }
+
+    # S-Learner Full vs S-Learner (does composite framework add value to S-Learner?)
+    for metric_name, raw_key in [('ATE', 'ates_raw'), ('Revenue', 'revs_raw')]:
+        diff, p_val = paired_permutation_test(
+            summary['S-Learner Full'][raw_key],
+            summary['S-Learner'][raw_key],
+            seed=46,
+        )
+        sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
+        print(f"  S-Learner Full vs S-Learner ({metric_name}): diff={diff:+,.1f}, p={p_val:.4f} {sig}")
+        perm_results[f'S-Learner Full_vs_S-Learner_{metric_name}'] = {
+            'diff': round(diff, 1),
+            'p_value': round(p_val, 4),
+        }
+
+    # S-Learner Full vs Full Framework (T-Learner)
+    diff, p_val = paired_permutation_test(
+        summary['S-Learner Full']['revs_raw'],
+        summary['Full Framework']['revs_raw'],
+        seed=47,
+    )
+    sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
+    print(f"  S-Learner Full vs Full Framework (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    perm_results['S-Learner Full_vs_Full Framework_Revenue'] = {
+        'diff': round(diff, 0),
+        'p_value': round(p_val, 4),
+    }
+
+    # S-Learner x LTV vs Uplift x LTV (Value) - does S-Learner advantage persist under LTV weighting?
+    diff, p_val = paired_permutation_test(
+        summary['S-Learner x LTV']['revs_raw'],
+        summary['Uplift x LTV']['revs_raw'],
+        seed=48,
+    )
+    sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
+    print(f"  S-Learner x LTV vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    perm_results['S-Learner x LTV_vs_Uplift x LTV_Revenue'] = {
+        'diff': round(diff, 0),
+        'p_value': round(p_val, 4),
+    }
+
+    # S-Learner x LTV vs S-Learner (Value) - does LTV weighting improve S-Learner?
+    diff, p_val = paired_permutation_test(
+        summary['S-Learner x LTV']['revs_raw'],
+        summary['S-Learner']['revs_raw'],
+        seed=49,
+    )
+    sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
+    print(f"  S-Learner x LTV vs S-Learner (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    perm_results['S-Learner x LTV_vs_S-Learner_Revenue'] = {
         'diff': round(diff, 0),
         'p_value': round(p_val, 4),
     }

@@ -95,6 +95,38 @@
       "rev_ci_upper": 66201.0,
       "pers_mean": 22.5,
       "per_run_se": 0.23
+    },
+    "S-Learner x LTV": {
+      "ate_mean": 11.4,
+      "ate_sd": 2.0,
+      "ate_ci_lower": 10.8,
+      "ate_ci_upper": 11.9,
+      "inc_mean": 101.0,
+      "inc_sd": 18.0,
+      "inc_ci_lower": 96.0,
+      "inc_ci_upper": 106.0,
+      "rev_mean": 88566.0,
+      "rev_sd": 22305.0,
+      "rev_ci_lower": 82432.0,
+      "rev_ci_upper": 94721.0,
+      "pers_mean": 31.5,
+      "per_run_se": 0.28
+    },
+    "S-Learner Full": {
+      "ate_mean": 10.7,
+      "ate_sd": 1.6,
+      "ate_ci_lower": 10.3,
+      "ate_ci_upper": 11.2,
+      "inc_mean": 95.0,
+      "inc_sd": 14.0,
+      "inc_ci_lower": 91.0,
+      "inc_ci_upper": 99.0,
+      "rev_mean": 66584.0,
+      "rev_sd": 14427.0,
+      "rev_ci_lower": 62454.0,
+      "rev_ci_upper": 70602.0,
+      "pers_mean": 24.2,
+      "per_run_se": 0.23
     }
   },
   "cumulative_gains": [
@@ -275,6 +307,14 @@
       "diff": 4.8,
       "p_value": 0.0002
     },
+    "S-Learner x LTV_vs_Random_ATE": {
+      "diff": 5.9,
+      "p_value": 0.0002
+    },
+    "S-Learner Full_vs_Random_ATE": {
+      "diff": 5.3,
+      "p_value": 0.0002
+    },
     "Uplift Only_vs_Random_Revenue": {
       "diff": 37798.0,
       "p_value": 0.0002
@@ -286,6 +326,26 @@
     "Full Framework_vs_Uplift x LTV_Revenue": {
       "diff": -11821.0,
       "p_value": 1.0
+    },
+    "S-Learner Full_vs_S-Learner_ATE": {
+      "diff": -1.8,
+      "p_value": 1.0
+    },
+    "S-Learner Full_vs_S-Learner_Revenue": {
+      "diff": -10753.3,
+      "p_value": 1.0
+    },
+    "S-Learner Full_vs_Full Framework_Revenue": {
+      "diff": 4223.0,
+      "p_value": 0.0002
+    },
+    "S-Learner x LTV_vs_Uplift x LTV_Revenue": {
+      "diff": 14385.0,
+      "p_value": 0.0002
+    },
+    "S-Learner x LTV_vs_S-Learner_Revenue": {
+      "diff": 11229.0,
+      "p_value": 0.0002
     },
     "Response Model_vs_Random_ATE_twosided": {
       "diff": -2.4,

@@ -14,6 +14,8 @@ class SimulationAnalysisTests(unittest.TestCase):
                 "Uplift Only",
                 "Uplift x LTV",
                 "Full Framework",
+                "S-Learner x LTV",
+                "S-Learner Full",
             ],
         )
 
