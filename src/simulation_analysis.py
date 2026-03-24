@@ -824,11 +824,11 @@ def main():
         'control_model_auc': avg_auc_c,
     }
 
-    # Uplift calibration (predicted vs observed by decile, averaged over runs)
+    # Uplift calibration (predicted vs latent by decile, averaged over runs)
     calibration_data = []
     for d in range(10):
         pred_uplifts = []
-        obs_uplifts = []
+        latent_uplifts = []
         for rd in all_run_data:
             df_t = rd['df_test'].copy()
             df_t['pred_uplift'] = rd['uplift_scores']
@@ -836,11 +836,11 @@ def main():
             dec = df_t[df_t['decile'] == d]
             if len(dec) > 0:
                 pred_uplifts.append(dec['pred_uplift'].mean())
-                obs_uplifts.append(dec['true_tau'].mean())
+                latent_uplifts.append(dec['true_tau'].mean())
         calibration_data.append({
             'decile': d + 1,
             'mean_predicted_uplift': round(np.mean(pred_uplifts), 4),
-            'mean_observed_uplift': round(np.mean(obs_uplifts), 4),
+            'mean_latent_uplift': round(np.mean(latent_uplifts), 4),
         })
     output['uplift_calibration'] = calibration_data
 

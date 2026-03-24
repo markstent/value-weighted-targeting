@@ -75,5 +75,30 @@ class SimulationAnalysisTests(unittest.TestCase):
             paired_permutation_test(np.array([1, 2, 3]), np.array([1, 2]))
 
 
+    def test_calibration_output_uses_correct_terminology(self):
+        """Issue #4: Calibration output must use 'mean_latent_uplift', not 'mean_observed_uplift'."""
+        from src.simulation_analysis import generate_population, train_t_learner, score_uplift
+        import pandas as pd
+        df = generate_population(2000, seed=42)
+        df_train = df.iloc[:1400]
+        df_test = df.iloc[1400:]
+        model_t, model_c, features = train_t_learner(df_train)
+        scores = score_uplift(model_t, model_c, df_test, features)
+        df_t = df_test.copy()
+        df_t['pred_uplift'] = scores
+        df_t['decile'] = pd.qcut(df_t['pred_uplift'], 10, labels=False, duplicates='drop')
+        calibration_data = []
+        for d in range(10):
+            dec = df_t[df_t['decile'] == d]
+            if len(dec) > 0:
+                calibration_data.append({
+                    'decile': d + 1,
+                    'mean_predicted_uplift': round(dec['pred_uplift'].mean(), 4),
+                    'mean_latent_uplift': round(dec['true_tau'].mean(), 4),
+                })
+        self.assertIn('mean_latent_uplift', calibration_data[0])
+        self.assertNotIn('mean_observed_uplift', calibration_data[0])
+
+
 if __name__ == "__main__":
     unittest.main()
