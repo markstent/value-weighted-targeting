@@ -289,68 +289,102 @@
   "permutation_tests": {
     "Response Model_vs_Random_ATE": {
       "diff": -2.4,
-      "p_value": 1.0
+      "p_value": 1.0,
+      "cohens_d": -1.475
     },
     "S-Learner_vs_Random_ATE": {
       "diff": 7.0,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 4.0412
     },
     "Uplift Only_vs_Random_ATE": {
       "diff": 5.1,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 2.5008
     },
     "Uplift x LTV_vs_Random_ATE": {
       "diff": 4.2,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 2.0343
     },
     "Full Framework_vs_Random_ATE": {
       "diff": 4.8,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 2.6094
     },
     "S-Learner x LTV_vs_Random_ATE": {
       "diff": 5.9,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 2.8568
     },
     "S-Learner Full_vs_Random_ATE": {
       "diff": 5.3,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 2.8587
     },
     "Uplift Only_vs_Random_Revenue": {
       "diff": 37798.0,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 1.7607
     },
     "Full Framework_vs_Uplift Only_Revenue": {
       "diff": -4736.0,
-      "p_value": 0.9888
+      "p_value": 0.9888,
+      "cohens_d": -0.3232
     },
     "Full Framework_vs_Uplift x LTV_Revenue": {
       "diff": -11821.0,
-      "p_value": 1.0
+      "p_value": 0.0002,
+      "cohens_d": -0.584
     },
     "S-Learner Full_vs_S-Learner_ATE": {
       "diff": -1.8,
-      "p_value": 1.0
+      "p_value": 1.0,
+      "cohens_d": -1.3894
     },
     "S-Learner Full_vs_S-Learner_Revenue": {
       "diff": -10753.3,
-      "p_value": 1.0
+      "p_value": 1.0,
+      "cohens_d": -0.8721
     },
     "S-Learner Full_vs_Full Framework_Revenue": {
       "diff": 4223.0,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 0.5389
     },
     "S-Learner x LTV_vs_Uplift x LTV_Revenue": {
       "diff": 14385.0,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 0.706
     },
     "S-Learner x LTV_vs_S-Learner_Revenue": {
       "diff": 11229.0,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": 0.6097
     },
     "Response Model_vs_Random_ATE_twosided": {
       "diff": -2.4,
-      "p_value": 0.0002
+      "p_value": 0.0002,
+      "cohens_d": -1.475
     }
+  },
+  "corrected_p_values": {
+    "S-Learner_vs_Random_ATE": 0.0032,
+    "Uplift Only_vs_Random_ATE": 0.0032,
+    "Uplift x LTV_vs_Random_ATE": 0.0032,
+    "Full Framework_vs_Random_ATE": 0.0032,
+    "S-Learner x LTV_vs_Random_ATE": 0.0032,
+    "S-Learner Full_vs_Random_ATE": 0.0032,
+    "Uplift Only_vs_Random_Revenue": 0.0032,
+    "Full Framework_vs_Uplift x LTV_Revenue": 0.0032,
+    "S-Learner Full_vs_Full Framework_Revenue": 0.0032,
+    "S-Learner x LTV_vs_Uplift x LTV_Revenue": 0.0032,
+    "S-Learner x LTV_vs_S-Learner_Revenue": 0.0032,
+    "Response Model_vs_Random_ATE_twosided": 0.0032,
+    "Full Framework_vs_Uplift Only_Revenue": 1.0,
+    "Response Model_vs_Random_ATE": 1.0,
+    "S-Learner Full_vs_S-Learner_ATE": 1.0,
+    "S-Learner Full_vs_S-Learner_Revenue": 1.0
   },
   "responsible_gaming": {
     "avg_excluded_per_run": 36.0,

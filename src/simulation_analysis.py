@@ -395,11 +395,14 @@ def bootstrap_ci(data, statistic_func, n_bootstrap=BOOTSTRAP_SAMPLES, alpha=ALPH
     return lower, upper
 
 
-def paired_permutation_test(group_a, group_b, n_perms=5000, seed=42):
+def paired_permutation_test(group_a, group_b, n_perms=5000, seed=42, two_sided=False):
     """
     Paired permutation test (sign-flip) for difference in means.
     H0: the paired differences are symmetric around zero.
     Requires group_a and group_b to have the same length (matched pairs).
+
+    If two_sided=True, tests whether the absolute difference is extreme
+    in either direction.
     """
     if len(group_a) != len(group_b):
         raise ValueError(
@@ -413,11 +416,30 @@ def paired_permutation_test(group_a, group_b, n_perms=5000, seed=42):
     for _ in range(n_perms):
         signs = rng.choice([-1, 1], size=len(diffs))
         perm_mean = np.mean(diffs * signs)
-        if perm_mean >= observed_diff:
-            count_extreme += 1
+        if two_sided:
+            if abs(perm_mean) >= abs(observed_diff):
+                count_extreme += 1
+        else:
+            if perm_mean >= observed_diff:
+                count_extreme += 1
 
     p_value = (count_extreme + 1) / (n_perms + 1)
     return observed_diff, p_value
+
+
+def holm_bonferroni(p_values):
+    """Apply Holm-Bonferroni correction to a dict of {name: p_value}."""
+    sorted_tests = sorted(p_values.items(), key=lambda x: x[1])
+    n = len(sorted_tests)
+    corrected = {}
+    for rank, (name, p) in enumerate(sorted_tests):
+        corrected[name] = min(p * (n - rank), 1.0)
+    # Enforce monotonicity
+    prev = 0
+    for name, _ in sorted_tests:
+        corrected[name] = max(corrected[name], prev)
+        prev = corrected[name]
+    return corrected
 
 
 def run_threshold_sensitivity(all_run_data):
@@ -617,11 +639,14 @@ def main():
             summary['Random']['ates_raw'],
             seed=42,
         )
+        diffs_cd = summary[strategy]['ates_raw'] - summary['Random']['ates_raw']
+        cohens_d = np.mean(diffs_cd) / np.std(diffs_cd, ddof=1)
         sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-        print(f"  {strategy} vs Random (ATE): diff={diff:+.1f}pp, p={p_val:.4f} {sig}")
+        print(f"  {strategy} vs Random (ATE): diff={diff:+.1f}pp, p={p_val:.4f} {sig}, d={cohens_d:.2f}")
         perm_results[f'{strategy}_vs_Random_ATE'] = {
             'diff': round(diff, 1),
             'p_value': round(p_val, 4),
+            'cohens_d': round(cohens_d, 4),
         }
 
     # Revenue permutation tests
@@ -632,11 +657,14 @@ def main():
             summary[comparator]['revs_raw'],
             seed=43,
         )
+        diffs_cd = summary[strategy]['revs_raw'] - summary[comparator]['revs_raw']
+        cohens_d = np.mean(diffs_cd) / np.std(diffs_cd, ddof=1)
         sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-        print(f"  {strategy} vs {comparator} (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+        print(f"  {strategy} vs {comparator} (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}, d={cohens_d:.2f}")
         perm_results[f'{strategy}_vs_{comparator}_Revenue'] = {
             'diff': round(diff, 0),
             'p_value': round(p_val, 4),
+            'cohens_d': round(cohens_d, 4),
         }
 
     # Key ablation: does churn regularization add value over Uplift x LTV?
@@ -644,12 +672,16 @@ def main():
         summary['Full Framework']['revs_raw'],
         summary['Uplift x LTV']['revs_raw'],
         seed=44,
+        two_sided=True,
     )
+    diffs_cd = summary['Full Framework']['revs_raw'] - summary['Uplift x LTV']['revs_raw']
+    cohens_d = np.mean(diffs_cd) / np.std(diffs_cd, ddof=1)
     sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-    print(f"  Full Framework vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    print(f"  Full Framework vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}, d={cohens_d:.2f}")
     perm_results['Full Framework_vs_Uplift x LTV_Revenue'] = {
         'diff': round(diff, 0),
         'p_value': round(p_val, 4),
+        'cohens_d': round(cohens_d, 4),
     }
 
     # S-Learner Full vs S-Learner (does composite framework add value to S-Learner?)
@@ -659,11 +691,14 @@ def main():
             summary['S-Learner'][raw_key],
             seed=46,
         )
+        diffs_cd = summary['S-Learner Full'][raw_key] - summary['S-Learner'][raw_key]
+        cohens_d = np.mean(diffs_cd) / np.std(diffs_cd, ddof=1)
         sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-        print(f"  S-Learner Full vs S-Learner ({metric_name}): diff={diff:+,.1f}, p={p_val:.4f} {sig}")
+        print(f"  S-Learner Full vs S-Learner ({metric_name}): diff={diff:+,.1f}, p={p_val:.4f} {sig}, d={cohens_d:.2f}")
         perm_results[f'S-Learner Full_vs_S-Learner_{metric_name}'] = {
             'diff': round(diff, 1),
             'p_value': round(p_val, 4),
+            'cohens_d': round(cohens_d, 4),
         }
 
     # S-Learner Full vs Full Framework (T-Learner)
@@ -672,11 +707,14 @@ def main():
         summary['Full Framework']['revs_raw'],
         seed=47,
     )
+    diffs_cd = summary['S-Learner Full']['revs_raw'] - summary['Full Framework']['revs_raw']
+    cohens_d = np.mean(diffs_cd) / np.std(diffs_cd, ddof=1)
     sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-    print(f"  S-Learner Full vs Full Framework (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    print(f"  S-Learner Full vs Full Framework (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}, d={cohens_d:.2f}")
     perm_results['S-Learner Full_vs_Full Framework_Revenue'] = {
         'diff': round(diff, 0),
         'p_value': round(p_val, 4),
+        'cohens_d': round(cohens_d, 4),
     }
 
     # S-Learner x LTV vs Uplift x LTV (Value) - does S-Learner advantage persist under LTV weighting?
@@ -685,11 +723,14 @@ def main():
         summary['Uplift x LTV']['revs_raw'],
         seed=48,
     )
+    diffs_cd = summary['S-Learner x LTV']['revs_raw'] - summary['Uplift x LTV']['revs_raw']
+    cohens_d = np.mean(diffs_cd) / np.std(diffs_cd, ddof=1)
     sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-    print(f"  S-Learner x LTV vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    print(f"  S-Learner x LTV vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}, d={cohens_d:.2f}")
     perm_results['S-Learner x LTV_vs_Uplift x LTV_Revenue'] = {
         'diff': round(diff, 0),
         'p_value': round(p_val, 4),
+        'cohens_d': round(cohens_d, 4),
     }
 
     # S-Learner x LTV vs S-Learner (Value) - does LTV weighting improve S-Learner?
@@ -698,11 +739,14 @@ def main():
         summary['S-Learner']['revs_raw'],
         seed=49,
     )
+    diffs_cd = summary['S-Learner x LTV']['revs_raw'] - summary['S-Learner']['revs_raw']
+    cohens_d = np.mean(diffs_cd) / np.std(diffs_cd, ddof=1)
     sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-    print(f"  S-Learner x LTV vs S-Learner (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    print(f"  S-Learner x LTV vs S-Learner (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}, d={cohens_d:.2f}")
     perm_results['S-Learner x LTV_vs_S-Learner_Revenue'] = {
         'diff': round(diff, 0),
         'p_value': round(p_val, 4),
+        'cohens_d': round(cohens_d, 4),
     }
 
     # Two-sided paired test for Response Model
@@ -720,10 +764,19 @@ def main():
     p_2sided = (count_extreme_2s + 1) / (5000 + 1)
     diff_resp = observed_diff
     print(f"  Response Model vs Random (two-sided): diff={diff_resp:+.1f}pp, p={p_2sided:.4f}")
+    cohens_d_resp = np.mean(diffs) / np.std(diffs, ddof=1)
     perm_results['Response Model_vs_Random_ATE_twosided'] = {
         'diff': round(diff_resp, 1),
         'p_value': round(p_2sided, 4),
+        'cohens_d': round(cohens_d_resp, 4),
     }
+
+    # Holm-Bonferroni correction
+    raw_pvals = {k: v['p_value'] for k, v in perm_results.items()}
+    corrected_pvals = holm_bonferroni(raw_pvals)
+    print("\n  Holm-Bonferroni corrected p-values:")
+    for name, p in corrected_pvals.items():
+        print(f"    {name}: {p:.4f}")
 
     # --- Cumulative Gain Curve (averaged) ---
     print("\n" + "=" * 70)
@@ -823,6 +876,7 @@ def main():
     output['threshold_sensitivity'] = threshold_results
     output['budget_sensitivity'] = budget_sensitivity
     output['permutation_tests'] = perm_results
+    output['corrected_p_values'] = {k: round(v, 4) for k, v in corrected_pvals.items()}
     output['responsible_gaming'] = {
         'avg_excluded_per_run': round(avg_rg_excluded, 0),
         'avg_excluded_pct_test': round(avg_rg_excluded_pct_test, 2),
