@@ -24,6 +24,7 @@ BUDGET_FRACTION = 0.30
 TREATMENT_PROB = 0.50
 BOOTSTRAP_SAMPLES = 1000
 ALPHA = 0.05
+STRATEGIES = ['Random', 'Response Model', 'S-Learner', 'Uplift Only', 'Uplift x LTV', 'Full Framework']
 
 # Segment parameters: (prevalence, P0_baseline, tau_treatment_effect)
 SEGMENTS = {
@@ -204,6 +205,28 @@ def train_response_model(df_train):
     return model, features
 
 
+def train_s_learner(df_train, base_features):
+    """Train S-Learner: single model with treatment as a feature."""
+    features = base_features + ['treatment']
+    model = GradientBoostingClassifier(
+        n_estimators=100, max_depth=4, learning_rate=0.1, random_state=42
+    )
+    model.fit(df_train[features], df_train['y_obs'])
+    return model
+
+
+def score_s_learner(model, df, base_features):
+    """Score S-Learner uplift by differencing predictions with treatment=1 vs treatment=0."""
+    X = df[base_features].copy()
+    X1 = X.copy()
+    X1['treatment'] = 1
+    X0 = X.copy()
+    X0['treatment'] = 0
+    pred_t = model.predict_proba(X1)[:, 1]
+    pred_c = model.predict_proba(X0)[:, 1]
+    return pred_t - pred_c
+
+
 def evaluate_strategy(df_test, scores, budget_frac, strategy_name):
     """
     Evaluate a targeting strategy using true potential outcomes.
@@ -265,6 +288,13 @@ def run_single_simulation(seed):
     f_churn_scores = np.array([f_churn(p) for p in df_test['churn_prob'].values])
     full_scores = uplift_scores * df_test['ltv'].values * f_churn_scores
 
+    # S-Learner
+    s_model = train_s_learner(df_train, features)
+    s_learner_scores = score_s_learner(s_model, df_test, features)
+
+    # Uplift x LTV (no churn regularization) - central ablation
+    uplift_ltv_scores = uplift_scores * df_test['ltv'].values
+
     # Random scores
     rng = np.random.RandomState(seed)
     random_scores = rng.uniform(0, 1, len(df_test))
@@ -273,7 +303,9 @@ def run_single_simulation(seed):
     results = []
     results.append(evaluate_strategy(df_test, random_scores, BUDGET_FRACTION, 'Random'))
     results.append(evaluate_strategy(df_test, response_scores, BUDGET_FRACTION, 'Response Model'))
+    results.append(evaluate_strategy(df_test, s_learner_scores, BUDGET_FRACTION, 'S-Learner'))
     results.append(evaluate_strategy(df_test, uplift_scores, BUDGET_FRACTION, 'Uplift Only'))
+    results.append(evaluate_strategy(df_test, uplift_ltv_scores, BUDGET_FRACTION, 'Uplift x LTV'))
     results.append(evaluate_strategy(df_test, full_scores, BUDGET_FRACTION, 'Full Framework'))
 
     # Also compute cumulative gain curve for uplift model
@@ -419,7 +451,7 @@ def main():
     print(f"Bootstrap samples={BOOTSTRAP_SAMPLES}, alpha={ALPHA}")
 
     # Run simulations - store artifacts for budget sensitivity reuse
-    all_results = {s: [] for s in ['Random', 'Response Model', 'Uplift Only', 'Full Framework']}
+    all_results = {s: [] for s in STRATEGIES}
     all_gains = []
     all_run_data = []
 
@@ -440,7 +472,7 @@ def main():
     print("-" * 91)
 
     summary = {}
-    for strategy in ['Random', 'Response Model', 'Uplift Only', 'Full Framework']:
+    for strategy in STRATEGIES:
         ates = np.array([r['ate_pp'] for r in all_results[strategy]])
         incs = np.array([r['incremental_conversions'] for r in all_results[strategy]])
         revs = np.array([r['incremental_revenue'] for r in all_results[strategy]])
@@ -475,7 +507,7 @@ def main():
     print("\n" + "=" * 70)
     print("BOOTSTRAP 95% CONFIDENCE INTERVALS")
     print("=" * 70)
-    for strategy in ['Random', 'Response Model', 'Uplift Only', 'Full Framework']:
+    for strategy in STRATEGIES:
         s = summary[strategy]
         print(f"\n{strategy}:")
         print(f"  ATE:          {s['ate_mean']:>6.1f} pp  [{s['ate_ci'][0]:.1f}, {s['ate_ci'][1]:.1f}]")
@@ -488,7 +520,7 @@ def main():
     print("=" * 70)
 
     perm_results = {}
-    for strategy in ['Response Model', 'Uplift Only', 'Full Framework']:
+    for strategy in [s for s in STRATEGIES if s != 'Random']:
         diff, p_val = permutation_test(
             summary[strategy]['ates_raw'],
             summary['Random']['ates_raw']
@@ -513,6 +545,18 @@ def main():
             'diff': round(diff, 0),
             'p_value': round(p_val, 4),
         }
+
+    # Key ablation: does churn regularization add value over Uplift x LTV?
+    diff, p_val = permutation_test(
+        summary['Full Framework']['revs_raw'],
+        summary['Uplift x LTV']['revs_raw']
+    )
+    sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
+    print(f"  Full Framework vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+    perm_results['Full Framework_vs_Uplift x LTV_Revenue'] = {
+        'diff': round(diff, 0),
+        'p_value': round(p_val, 4),
+    }
 
     # Two-sided test for Response Model (is it significantly different from random?)
     resp_ates = summary['Response Model']['ates_raw']
@@ -594,7 +638,7 @@ def main():
         'main_results': {},
         'cumulative_gains': [],
     }
-    for strategy in ['Random', 'Response Model', 'Uplift Only', 'Full Framework']:
+    for strategy in STRATEGIES:
         s = summary[strategy]
         output['main_results'][strategy] = {
             'ate_mean': round(s['ate_mean'], 1),

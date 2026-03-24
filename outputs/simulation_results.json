@@ -32,6 +32,22 @@
       "pers_mean": 9.7,
       "per_run_se": 0.22
     },
+    "S-Learner": {
+      "ate_mean": 10.9,
+      "ate_sd": 1.9,
+      "ate_ci_lower": 10.4,
+      "ate_ci_upper": 11.5,
+      "inc_mean": 98.0,
+      "inc_sd": 17.0,
+      "inc_ci_lower": 93.0,
+      "inc_ci_upper": 103.0,
+      "rev_mean": 69401.0,
+      "rev_sd": 16624.0,
+      "rev_ci_lower": 64631.0,
+      "rev_ci_upper": 74009.0,
+      "pers_mean": 21.4,
+      "per_run_se": 0.27
+    },
     "Uplift Only": {
       "ate_mean": 9.2,
       "ate_sd": 1.9,
@@ -46,6 +62,22 @@
       "rev_ci_lower": 55458.0,
       "rev_ci_upper": 65133.0,
       "pers_mean": 17.8,
+      "per_run_se": 0.26
+    },
+    "Uplift x LTV": {
+      "ate_mean": 8.4,
+      "ate_sd": 1.8,
+      "ate_ci_lower": 7.9,
+      "ate_ci_upper": 8.9,
+      "inc_mean": 75.0,
+      "inc_sd": 16.0,
+      "inc_ci_lower": 71.0,
+      "inc_ci_upper": 80.0,
+      "rev_mean": 66479.0,
+      "rev_sd": 20273.0,
+      "rev_ci_lower": 60794.0,
+      "rev_ci_upper": 72624.0,
+      "pers_mean": 16.7,
       "per_run_se": 0.26
     },
     "Full Framework": {
@@ -227,8 +259,16 @@
       "diff": -2.9,
       "p_value": 1.0
     },
+    "S-Learner_vs_Random_ATE": {
+      "diff": 5.2,
+      "p_value": 0.0
+    },
     "Uplift Only_vs_Random_ATE": {
       "diff": 3.4,
+      "p_value": 0.0
+    },
+    "Uplift x LTV_vs_Random_ATE": {
+      "diff": 2.6,
       "p_value": 0.0
     },
     "Full Framework_vs_Random_ATE": {
@@ -242,6 +282,10 @@
     "Full Framework_vs_Uplift Only_Revenue": {
       "diff": -963.0,
       "p_value": 0.6164
+    },
+    "Full Framework_vs_Uplift x LTV_Revenue": {
+      "diff": -7230.0,
+      "p_value": 0.9764
     },
     "Response Model_vs_Random_ATE_twosided": {
       "diff": -2.9,
