@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 import json
 import os
@@ -100,17 +101,22 @@ def generate_population(n, seed=None):
     baselines = np.array([seg_params[s][0] for s in segments])
     taus = np.array([seg_params[s][1] for s in segments])
 
-    # Add some within-segment heterogeneity
-    tau_noise = rng.normal(0, 0.03, n)
+    # Add within-segment heterogeneity (SD=0.10 makes uplift estimation realistic)
+    tau_noise = rng.normal(0, 0.10, n)
     effective_tau = taus + tau_noise
 
-    # Baseline also varies slightly with features
-    y0_prob = np.clip(baselines + 0.05 * z_login * 0.1, 0.01, 0.99)
+    # Baseline varies with features (meaningful modulation)
+    y0_prob = np.clip(baselines + 0.1 * z_login, 0.01, 0.99)
     y1_prob = np.clip(y0_prob + effective_tau, 0.01, 0.99)
 
     y0 = rng.binomial(1, y0_prob)
     y1 = rng.binomial(1, y1_prob)
     y_obs = treatment * y1 + (1 - treatment) * y0
+
+    # Responsible gaming flag: ~2% of players with high spend AND high login
+    spend_90th = np.percentile(weekly_spend, 90)
+    login_90th = np.percentile(login_freq, 90)
+    rg_flag = ((weekly_spend > spend_90th) & (login_freq > login_90th)).astype(int)
 
     df = pd.DataFrame({
         'account_age': account_age,
@@ -125,6 +131,7 @@ def generate_population(n, seed=None):
         'true_tau': effective_tau,
         'y0': y0,
         'y1': y1,
+        'responsible_gaming_flag': rg_flag,
     })
     return df
 
@@ -141,6 +148,20 @@ def f_churn(p):
         return 1.0 - 0.8 * (p - 0.60) / 0.30
     else:
         return 0.2
+
+
+def f_churn_parameterized(p, low=0.05, mid_low=0.40, mid_high=0.60, high=0.90, floor=0.2):
+    """Churn regularization with configurable thresholds."""
+    if p < low:
+        return 0.0
+    elif p < mid_low:
+        return (p - low) / (mid_low - low)
+    elif p <= mid_high:
+        return 1.0
+    elif p < high:
+        return 1.0 - (1.0 - floor) * (p - mid_high) / (high - mid_high)
+    else:
+        return floor
 
 
 def train_t_learner(df_train):
@@ -186,13 +207,19 @@ def train_response_model(df_train):
 def evaluate_strategy(df_test, scores, budget_frac, strategy_name):
     """
     Evaluate a targeting strategy using true potential outcomes.
+    Excludes responsible-gaming-flagged players before targeting.
     Returns incremental conversions and ATE for treated group.
     """
-    n_treat = int(len(df_test) * budget_frac)
-    top_idx = np.argsort(-scores)[:n_treat]
+    # Exclude responsible gaming flagged players
+    eligible_mask = df_test['responsible_gaming_flag'] == 0
+    df_eligible = df_test[eligible_mask]
+    eligible_scores = scores[eligible_mask.values]
+
+    n_treat = int(len(df_eligible) * budget_frac)
+    top_idx = np.argsort(-eligible_scores)[:n_treat]
 
     # Using true potential outcomes (available in simulation)
-    targeted = df_test.iloc[top_idx]
+    targeted = df_eligible.iloc[top_idx]
     incremental = targeted['y1'].sum() - targeted['y0'].sum()
     ate = (targeted['y1'].mean() - targeted['y0'].mean()) * 100  # percentage points
 
@@ -212,6 +239,7 @@ def evaluate_strategy(df_test, scores, budget_frac, strategy_name):
         'persuadable_frac': persuadable_frac,
         'sleeping_dog_frac': sleeping_dog_frac,
         'n_targeted': n_treat,
+        'n_rg_excluded': int((~eligible_mask).sum()),
     }
 
 
@@ -251,7 +279,27 @@ def run_single_simulation(seed):
     # Also compute cumulative gain curve for uplift model
     gain_data = compute_cumulative_gains(df_test, uplift_scores)
 
-    return results, gain_data
+    # Feature importance
+    feat_imp_t = dict(zip(features, model_t.feature_importances_))
+    feat_imp_c = dict(zip(features, model_c.feature_importances_))
+
+    # Base learner AUC on test set
+    treated_test = df_test[df_test['treatment'] == 1]
+    control_test = df_test[df_test['treatment'] == 0]
+    auc_t = roc_auc_score(treated_test['y_obs'], model_t.predict_proba(treated_test[features])[:, 1])
+    auc_c = roc_auc_score(control_test['y_obs'], model_c.predict_proba(control_test[features])[:, 1])
+
+    run_artifacts = {
+        'df_test': df_test,
+        'uplift_scores': uplift_scores,
+        'random_scores': random_scores,
+        'feat_imp_t': feat_imp_t,
+        'feat_imp_c': feat_imp_c,
+        'auc_t': auc_t,
+        'auc_c': auc_c,
+    }
+
+    return results, gain_data, run_artifacts
 
 
 def compute_cumulative_gains(df_test, uplift_scores):
@@ -315,6 +363,54 @@ def permutation_test(group_a, group_b, n_perms=5000):
     return observed_diff, p_value
 
 
+def run_threshold_sensitivity(all_run_data):
+    """Test sensitivity of Full Framework to churn threshold choices."""
+    configs = {
+        'Default (0.05/0.40/0.60)': dict(low=0.05, mid_low=0.40, mid_high=0.60),
+        'Narrow (0.10/0.30/0.50)': dict(low=0.10, mid_low=0.30, mid_high=0.50),
+        'Wide (0.03/0.50/0.70)': dict(low=0.03, mid_low=0.50, mid_high=0.70),
+        'Shifted low (0.05/0.25/0.45)': dict(low=0.05, mid_low=0.25, mid_high=0.45),
+        'Shifted high (0.10/0.55/0.75)': dict(low=0.10, mid_low=0.55, mid_high=0.75),
+        'Lower ceiling (high=0.80)': dict(low=0.05, mid_low=0.40, mid_high=0.60, high=0.80),
+        'No floor (floor=0.0)': dict(low=0.05, mid_low=0.40, mid_high=0.60, floor=0.0),
+        'No regularization (f=1)': None,
+    }
+
+    results = {}
+
+    for config_name, params in configs.items():
+        ates = []
+        revs = []
+        pers = []
+        for rd in all_run_data:
+            df_test = rd['df_test']
+            uplift_scores = rd['uplift_scores']
+
+            if params is None:
+                f_scores = np.ones(len(df_test))
+            else:
+                f_scores = np.array([
+                    f_churn_parameterized(p, **params)
+                    for p in df_test['churn_prob'].values
+                ])
+
+            full_scores = uplift_scores * df_test['ltv'].values * f_scores
+            r = evaluate_strategy(df_test, full_scores, BUDGET_FRACTION, config_name)
+            ates.append(r['ate_pp'])
+            revs.append(r['incremental_revenue'])
+            pers.append(r['persuadable_frac'])
+
+        results[config_name] = {
+            'ate_mean': round(np.mean(ates), 1),
+            'ate_sd': round(np.std(ates), 1),
+            'rev_mean': round(np.mean(revs), 0),
+            'rev_sd': round(np.std(revs), 0),
+            'persuadable_pct': round(np.mean(pers) * 100, 1),
+        }
+
+    return results
+
+
 def main():
     print("=" * 70)
     print("SIMULATION ANALYSIS: Uplift-Based Bonus Allocation Framework")
@@ -322,23 +418,25 @@ def main():
     print(f"\nConfiguration: N={N_PLAYERS}, Runs={N_RUNS}, Budget={BUDGET_FRACTION*100:.0f}%")
     print(f"Bootstrap samples={BOOTSTRAP_SAMPLES}, alpha={ALPHA}")
 
-    # Run simulations
+    # Run simulations - store artifacts for budget sensitivity reuse
     all_results = {s: [] for s in ['Random', 'Response Model', 'Uplift Only', 'Full Framework']}
     all_gains = []
+    all_run_data = []
 
     for run in range(N_RUNS):
         if (run + 1) % 10 == 0:
             print(f"  Run {run + 1}/{N_RUNS}...")
-        results, gains = run_single_simulation(seed=run * 7 + 13)
+        results, gains, run_artifacts = run_single_simulation(seed=run * 7 + 13)
         for r in results:
             all_results[r['strategy']].append(r)
         all_gains.append(gains)
+        all_run_data.append(run_artifacts)
 
-    # --- Table 8: Main Results ---
+    # --- Main Results ---
     print("\n" + "=" * 70)
     print("TABLE: Simulation Results by Targeting Strategy")
     print("=" * 70)
-    print(f"{'Strategy':<20} {'ATE (pp)':<18} {'Inc. Conv.':<18} {'Inc. Revenue':<20} {'Persuadable %':<15}")
+    print(f"{'Strategy':<20} {'Inc. Revenue':<20} {'ATE (pp)':<18} {'Inc. Conv.':<18} {'Persuadable %':<15}")
     print("-" * 91)
 
     summary = {}
@@ -368,9 +466,9 @@ def main():
         }
 
         print(f"{strategy:<20} "
+              f"${np.mean(revs):>9,.0f} ({np.std(revs):,.0f})  "
               f"{np.mean(ates):>5.1f} ({np.std(ates):.1f})   "
               f"{np.mean(incs):>6.0f} ({np.std(incs):.0f})    "
-              f"${np.mean(revs):>9,.0f} ({np.std(revs):,.0f})  "
               f"{np.mean(pers)*100:>5.1f}%")
 
     # --- Bootstrap CIs ---
@@ -389,6 +487,7 @@ def main():
     print("PERMUTATION TESTS (one-sided: strategy > random)")
     print("=" * 70)
 
+    perm_results = {}
     for strategy in ['Response Model', 'Uplift Only', 'Full Framework']:
         diff, p_val = permutation_test(
             summary[strategy]['ates_raw'],
@@ -396,16 +495,43 @@ def main():
         )
         sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
         print(f"  {strategy} vs Random (ATE): diff={diff:+.1f}pp, p={p_val:.4f} {sig}")
+        perm_results[f'{strategy}_vs_Random_ATE'] = {
+            'diff': round(diff, 1),
+            'p_value': round(p_val, 4),
+        }
 
     # Revenue permutation tests
     for strategy in ['Uplift Only', 'Full Framework']:
+        comparator = 'Uplift Only' if strategy == 'Full Framework' else 'Random'
         diff, p_val = permutation_test(
             summary[strategy]['revs_raw'],
-            summary['Uplift Only' if strategy == 'Full Framework' else 'Random']['revs_raw']
+            summary[comparator]['revs_raw']
         )
         sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
-        comparator = 'Uplift Only' if strategy == 'Full Framework' else 'Random'
         print(f"  {strategy} vs {comparator} (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
+        perm_results[f'{strategy}_vs_{comparator}_Revenue'] = {
+            'diff': round(diff, 0),
+            'p_value': round(p_val, 4),
+        }
+
+    # Two-sided test for Response Model (is it significantly different from random?)
+    resp_ates = summary['Response Model']['ates_raw']
+    rand_ates = summary['Random']['ates_raw']
+    diff_resp = np.mean(resp_ates) - np.mean(rand_ates)
+    combined = np.concatenate([resp_ates, rand_ates])
+    rng_perm = np.random.RandomState(42)
+    count_extreme_2s = 0
+    for _ in range(5000):
+        rng_perm.shuffle(combined)
+        perm_diff = np.mean(combined[:len(resp_ates)]) - np.mean(combined[len(resp_ates):])
+        if abs(perm_diff) >= abs(diff_resp):
+            count_extreme_2s += 1
+    p_2sided = count_extreme_2s / 5000
+    print(f"  Response Model vs Random (two-sided): diff={diff_resp:+.1f}pp, p={p_2sided:.4f}")
+    perm_results['Response Model_vs_Random_ATE_twosided'] = {
+        'diff': round(diff_resp, 1),
+        'p_value': round(p_2sided, 4),
+    }
 
     # --- Cumulative Gain Curve (averaged) ---
     print("\n" + "=" * 70)
@@ -420,30 +546,48 @@ def main():
         prop = all_gains[0][d]['proportion']
         print(f"{d+1:<10} {prop:<15.2f} {np.mean(cum_incs):<20.0f} {np.mean(decile_ates):<15.1f}")
 
-    # --- Sensitivity: Budget fraction ---
+    # --- Budget Sensitivity (reusing same run data for consistency) ---
     print("\n" + "=" * 70)
     print("SENSITIVITY: Varying Budget Constraint")
     print("=" * 70)
 
+    budget_sensitivity = {}
     for budget in [0.10, 0.20, 0.30, 0.40, 0.50, 0.70, 0.90]:
         ates_uplift = []
         ates_random = []
-        for run in range(10):
-            df = generate_population(N_PLAYERS, seed=run * 7 + 200)
-            df_train, df_test = train_test_split(df, test_size=0.30, random_state=run)
-            model_t, model_c, features = train_t_learner(df_train)
-            uplift_scores = score_uplift(model_t, model_c, df_test, features)
-            rng = np.random.RandomState(run)
-            random_scores = rng.uniform(0, 1, len(df_test))
-
-            r_uplift = evaluate_strategy(df_test, uplift_scores, budget, 'Uplift')
-            r_random = evaluate_strategy(df_test, random_scores, budget, 'Random')
+        for rd in all_run_data:
+            r_uplift = evaluate_strategy(rd['df_test'], rd['uplift_scores'], budget, 'Uplift')
+            r_random = evaluate_strategy(rd['df_test'], rd['random_scores'], budget, 'Random')
             ates_uplift.append(r_uplift['ate_pp'])
             ates_random.append(r_random['ate_pp'])
 
-        advantage = np.mean(ates_uplift) - np.mean(ates_random)
-        print(f"  Budget={budget*100:.0f}%: Uplift ATE={np.mean(ates_uplift):.1f}pp, "
-              f"Random ATE={np.mean(ates_random):.1f}pp, Advantage={advantage:+.1f}pp")
+        uplift_mean = round(np.mean(ates_uplift), 1)
+        random_mean = round(np.mean(ates_random), 1)
+        if random_mean > 0:
+            improvement_pct = round((uplift_mean - random_mean) / random_mean * 100)
+        else:
+            improvement_pct = 0
+        budget_sensitivity[f'{int(budget*100)}%'] = {
+            'uplift_ate_mean': uplift_mean,
+            'random_ate_mean': random_mean,
+            'improvement_pct': improvement_pct,
+        }
+        print(f"  Budget={budget*100:.0f}%: Uplift ATE={uplift_mean}pp, "
+              f"Random ATE={random_mean}pp, Improvement=+{improvement_pct}%")
+
+    # --- Threshold Sensitivity ---
+    print("\n" + "=" * 70)
+    print("SENSITIVITY: Churn Threshold Parameters")
+    print("=" * 70)
+
+    threshold_results = run_threshold_sensitivity(all_run_data)
+    for config, res in threshold_results.items():
+        print(f"  {config}: ATE={res['ate_mean']:.1f}pp (SD={res['ate_sd']:.1f}), "
+              f"Revenue=${res['rev_mean']:,.0f}, Persuadable={res['persuadable_pct']:.1f}%")
+
+    # --- RG exclusion stats ---
+    avg_rg_excluded = np.mean([r['n_rg_excluded'] for r in all_results['Uplift Only']])
+    print(f"\nResponsible gaming: avg {avg_rg_excluded:.0f} players excluded per run")
 
     # Save summary for paper generation
     output = {
@@ -459,11 +603,14 @@ def main():
             'ate_ci_upper': round(s['ate_ci'][1], 1),
             'inc_mean': round(s['inc_mean'], 0),
             'inc_sd': round(s['inc_sd'], 0),
+            'inc_ci_lower': round(s['inc_ci'][0], 0),
+            'inc_ci_upper': round(s['inc_ci'][1], 0),
             'rev_mean': round(s['rev_mean'], 0),
             'rev_sd': round(s['rev_sd'], 0),
             'rev_ci_lower': round(s['rev_ci'][0], 0),
             'rev_ci_upper': round(s['rev_ci'][1], 0),
             'pers_mean': round(s['pers_mean'] * 100, 1),
+            'per_run_se': round(s['ate_sd'] / np.sqrt(N_RUNS), 2),
         }
 
     for d in range(10):
@@ -475,6 +622,69 @@ def main():
             'cum_inc_mean': round(np.mean(cum_incs), 0),
             'decile_ate_mean': round(np.mean(decile_ates), 1),
         })
+
+    output['threshold_sensitivity'] = threshold_results
+    output['budget_sensitivity'] = budget_sensitivity
+    output['permutation_tests'] = perm_results
+    output['responsible_gaming'] = {
+        'avg_excluded_per_run': round(avg_rg_excluded, 0),
+        'exclusion_criteria': 'Players with weekly_spend > 90th percentile AND login_freq > 90th percentile',
+    }
+    output['methodology_notes'] = {
+        'bootstrap_method': 'CIs computed by bootstrapping over run-level means. This captures simulation-to-simulation variability.',
+        'n_runs': N_RUNS,
+        'n_players_per_run': N_PLAYERS,
+        'n_bootstrap': BOOTSTRAP_SAMPLES,
+        'alpha': ALPHA,
+        'budget_sensitivity_note': 'Budget sensitivity uses same run data as main results for consistency.',
+        'primary_metric': 'incremental_revenue',
+        'primary_metric_note': (
+            'The optimization objective is incremental revenue (uplift x LTV). '
+            'ATE is reported as a secondary diagnostic. Churn regularization '
+            'trades revenue for risk reduction; this trade-off is shown in '
+            'threshold_sensitivity results.'
+        ),
+    }
+
+    # Feature importance (averaged over runs)
+    avg_feat_imp_t = {}
+    avg_feat_imp_c = {}
+    features = ['account_age', 'weekly_spend', 'login_freq', 'bonus_redeem']
+    for f in features:
+        avg_feat_imp_t[f] = round(np.mean([rd['feat_imp_t'][f] for rd in all_run_data]), 3)
+        avg_feat_imp_c[f] = round(np.mean([rd['feat_imp_c'][f] for rd in all_run_data]), 3)
+    output['feature_importance'] = {
+        'treatment_model': avg_feat_imp_t,
+        'control_model': avg_feat_imp_c,
+    }
+
+    # Base learner diagnostics
+    avg_auc_t = round(np.mean([rd['auc_t'] for rd in all_run_data]), 3)
+    avg_auc_c = round(np.mean([rd['auc_c'] for rd in all_run_data]), 3)
+    output['base_learner_diagnostics'] = {
+        'treatment_model_auc': avg_auc_t,
+        'control_model_auc': avg_auc_c,
+    }
+
+    # Uplift calibration (predicted vs observed by decile, averaged over runs)
+    calibration_data = []
+    for d in range(10):
+        pred_uplifts = []
+        obs_uplifts = []
+        for rd in all_run_data:
+            df_t = rd['df_test'].copy()
+            df_t['pred_uplift'] = rd['uplift_scores']
+            df_t['decile'] = pd.qcut(df_t['pred_uplift'], 10, labels=False, duplicates='drop')
+            dec = df_t[df_t['decile'] == d]
+            if len(dec) > 0:
+                pred_uplifts.append(dec['pred_uplift'].mean())
+                obs_uplifts.append(dec['true_tau'].mean())
+        calibration_data.append({
+            'decile': d + 1,
+            'mean_predicted_uplift': round(np.mean(pred_uplifts), 4),
+            'mean_observed_uplift': round(np.mean(obs_uplifts), 4),
+        })
+    output['uplift_calibration'] = calibration_data
 
     output_path = os.path.join(os.path.dirname(__file__), '..', 'outputs', 'simulation_results.json')
     with open(output_path, 'w') as f:

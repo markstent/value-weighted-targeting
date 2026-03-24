@@ -132,48 +132,56 @@
       "ate_mean": 9.1,
       "ate_sd": 2.0,
       "rev_mean": 59249.0,
+      "rev_sd": 15900.0,
       "persuadable_pct": 15.6
     },
     "Narrow (0.10/0.30/0.50)": {
       "ate_mean": 8.8,
       "ate_sd": 1.8,
       "rev_mean": 53745.0,
+      "rev_sd": 12988.0,
       "persuadable_pct": 14.4
     },
     "Wide (0.03/0.50/0.70)": {
       "ate_mean": 9.1,
       "ate_sd": 1.8,
       "rev_mean": 60947.0,
+      "rev_sd": 14464.0,
       "persuadable_pct": 16.0
     },
     "Shifted low (0.05/0.25/0.45)": {
       "ate_mean": 9.0,
       "ate_sd": 1.9,
       "rev_mean": 59194.0,
+      "rev_sd": 15233.0,
       "persuadable_pct": 15.9
     },
     "Shifted high (0.10/0.55/0.75)": {
       "ate_mean": 8.9,
       "ate_sd": 1.8,
       "rev_mean": 53754.0,
+      "rev_sd": 13049.0,
       "persuadable_pct": 14.2
     },
     "Lower ceiling (high=0.80)": {
       "ate_mean": 9.1,
       "ate_sd": 2.0,
       "rev_mean": 59139.0,
+      "rev_sd": 15781.0,
       "persuadable_pct": 15.6
     },
     "No floor (floor=0.0)": {
       "ate_mean": 9.1,
       "ate_sd": 2.0,
       "rev_mean": 59239.0,
+      "rev_sd": 15894.0,
       "persuadable_pct": 15.6
     },
     "No regularization (f=1)": {
       "ate_mean": 8.4,
       "ate_sd": 1.8,
       "rev_mean": 66479.0,
+      "rev_sd": 20273.0,
       "persuadable_pct": 16.7
     }
   },
@@ -250,7 +258,9 @@
     "n_players_per_run": 10000,
     "n_bootstrap": 1000,
     "alpha": 0.05,
-    "budget_sensitivity_note": "Budget sensitivity uses same run data as main results for consistency."
+    "budget_sensitivity_note": "Budget sensitivity uses same run data as main results for consistency.",
+    "primary_metric": "incremental_revenue",
+    "primary_metric_note": "The optimization objective is incremental revenue (uplift x LTV). ATE is reported as a secondary diagnostic. Churn regularization trades revenue for risk reduction; this trade-off is shown in threshold_sensitivity results."
   },
   "feature_importance": {
     "treatment_model": {
