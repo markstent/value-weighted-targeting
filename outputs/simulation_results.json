@@ -1,0 +1,325 @@
+{
+  "main_results": {
+    "Random": {
+      "ate_mean": 5.7,
+      "ate_sd": 1.7,
+      "ate_ci_lower": 5.3,
+      "ate_ci_upper": 6.2,
+      "inc_mean": 51.0,
+      "inc_sd": 15.0,
+      "inc_ci_lower": 47.0,
+      "inc_ci_upper": 55.0,
+      "rev_mean": 39666.0,
+      "rev_sd": 18725.0,
+      "rev_ci_lower": 34407.0,
+      "rev_ci_upper": 44700.0,
+      "pers_mean": 9.5,
+      "per_run_se": 0.24
+    },
+    "Response Model": {
+      "ate_mean": 2.8,
+      "ate_sd": 1.5,
+      "ate_ci_lower": 2.4,
+      "ate_ci_upper": 3.2,
+      "inc_mean": 25.0,
+      "inc_sd": 14.0,
+      "inc_ci_lower": 21.0,
+      "inc_ci_upper": 29.0,
+      "rev_mean": 23366.0,
+      "rev_sd": 20667.0,
+      "rev_ci_lower": 17798.0,
+      "rev_ci_upper": 29003.0,
+      "pers_mean": 9.7,
+      "per_run_se": 0.22
+    },
+    "Uplift Only": {
+      "ate_mean": 9.2,
+      "ate_sd": 1.9,
+      "ate_ci_lower": 8.7,
+      "ate_ci_upper": 9.7,
+      "inc_mean": 82.0,
+      "inc_sd": 17.0,
+      "inc_ci_lower": 78.0,
+      "inc_ci_upper": 87.0,
+      "rev_mean": 60212.0,
+      "rev_sd": 17211.0,
+      "rev_ci_lower": 55458.0,
+      "rev_ci_upper": 65133.0,
+      "pers_mean": 17.8,
+      "per_run_se": 0.26
+    },
+    "Full Framework": {
+      "ate_mean": 9.1,
+      "ate_sd": 2.0,
+      "ate_ci_lower": 8.5,
+      "ate_ci_upper": 9.7,
+      "inc_mean": 81.0,
+      "inc_sd": 18.0,
+      "inc_ci_lower": 76.0,
+      "inc_ci_upper": 87.0,
+      "rev_mean": 59249.0,
+      "rev_sd": 15900.0,
+      "rev_ci_lower": 55022.0,
+      "rev_ci_upper": 63967.0,
+      "pers_mean": 15.6,
+      "per_run_se": 0.28
+    }
+  },
+  "cumulative_gains": [
+    {
+      "decile": 1,
+      "proportion": 0.1,
+      "cum_inc_mean": 39.0,
+      "decile_ate_mean": 12.9
+    },
+    {
+      "decile": 2,
+      "proportion": 0.2,
+      "cum_inc_mean": 62.0,
+      "decile_ate_mean": 10.4
+    },
+    {
+      "decile": 3,
+      "proportion": 0.3,
+      "cum_inc_mean": 83.0,
+      "decile_ate_mean": 9.2
+    },
+    {
+      "decile": 4,
+      "proportion": 0.4,
+      "cum_inc_mean": 102.0,
+      "decile_ate_mean": 8.5
+    },
+    {
+      "decile": 5,
+      "proportion": 0.5,
+      "cum_inc_mean": 118.0,
+      "decile_ate_mean": 7.8
+    },
+    {
+      "decile": 6,
+      "proportion": 0.6,
+      "cum_inc_mean": 131.0,
+      "decile_ate_mean": 7.3
+    },
+    {
+      "decile": 7,
+      "proportion": 0.7,
+      "cum_inc_mean": 141.0,
+      "decile_ate_mean": 6.7
+    },
+    {
+      "decile": 8,
+      "proportion": 0.8,
+      "cum_inc_mean": 147.0,
+      "decile_ate_mean": 6.1
+    },
+    {
+      "decile": 9,
+      "proportion": 0.9,
+      "cum_inc_mean": 158.0,
+      "decile_ate_mean": 5.9
+    },
+    {
+      "decile": 10,
+      "proportion": 1.0,
+      "cum_inc_mean": 172.0,
+      "decile_ate_mean": 5.7
+    }
+  ],
+  "threshold_sensitivity": {
+    "Default (0.05/0.40/0.60)": {
+      "ate_mean": 9.1,
+      "ate_sd": 2.0,
+      "rev_mean": 59249.0,
+      "persuadable_pct": 15.6
+    },
+    "Narrow (0.10/0.30/0.50)": {
+      "ate_mean": 8.8,
+      "ate_sd": 1.8,
+      "rev_mean": 53745.0,
+      "persuadable_pct": 14.4
+    },
+    "Wide (0.03/0.50/0.70)": {
+      "ate_mean": 9.1,
+      "ate_sd": 1.8,
+      "rev_mean": 60947.0,
+      "persuadable_pct": 16.0
+    },
+    "Shifted low (0.05/0.25/0.45)": {
+      "ate_mean": 9.0,
+      "ate_sd": 1.9,
+      "rev_mean": 59194.0,
+      "persuadable_pct": 15.9
+    },
+    "Shifted high (0.10/0.55/0.75)": {
+      "ate_mean": 8.9,
+      "ate_sd": 1.8,
+      "rev_mean": 53754.0,
+      "persuadable_pct": 14.2
+    },
+    "Lower ceiling (high=0.80)": {
+      "ate_mean": 9.1,
+      "ate_sd": 2.0,
+      "rev_mean": 59139.0,
+      "persuadable_pct": 15.6
+    },
+    "No floor (floor=0.0)": {
+      "ate_mean": 9.1,
+      "ate_sd": 2.0,
+      "rev_mean": 59239.0,
+      "persuadable_pct": 15.6
+    },
+    "No regularization (f=1)": {
+      "ate_mean": 8.4,
+      "ate_sd": 1.8,
+      "rev_mean": 66479.0,
+      "persuadable_pct": 16.7
+    }
+  },
+  "budget_sensitivity": {
+    "10%": {
+      "uplift_ate_mean": 12.8,
+      "random_ate_mean": 5.9,
+      "improvement_pct": 117
+    },
+    "20%": {
+      "uplift_ate_mean": 10.4,
+      "random_ate_mean": 5.9,
+      "improvement_pct": 76
+    },
+    "30%": {
+      "uplift_ate_mean": 9.2,
+      "random_ate_mean": 5.7,
+      "improvement_pct": 61
+    },
+    "40%": {
+      "uplift_ate_mean": 8.5,
+      "random_ate_mean": 5.8,
+      "improvement_pct": 47
+    },
+    "50%": {
+      "uplift_ate_mean": 7.8,
+      "random_ate_mean": 5.6,
+      "improvement_pct": 39
+    },
+    "70%": {
+      "uplift_ate_mean": 6.8,
+      "random_ate_mean": 5.7,
+      "improvement_pct": 19
+    },
+    "90%": {
+      "uplift_ate_mean": 5.9,
+      "random_ate_mean": 5.7,
+      "improvement_pct": 4
+    }
+  },
+  "permutation_tests": {
+    "Response Model_vs_Random_ATE": {
+      "diff": -2.9,
+      "p_value": 1.0
+    },
+    "Uplift Only_vs_Random_ATE": {
+      "diff": 3.4,
+      "p_value": 0.0
+    },
+    "Full Framework_vs_Random_ATE": {
+      "diff": 3.4,
+      "p_value": 0.0
+    },
+    "Uplift Only_vs_Random_Revenue": {
+      "diff": 20546.0,
+      "p_value": 0.0
+    },
+    "Full Framework_vs_Uplift Only_Revenue": {
+      "diff": -963.0,
+      "p_value": 0.6164
+    },
+    "Response Model_vs_Random_ATE_twosided": {
+      "diff": -2.9,
+      "p_value": 0.0
+    }
+  },
+  "responsible_gaming": {
+    "avg_excluded_per_run": 15.0,
+    "exclusion_criteria": "Players with weekly_spend > 90th percentile AND login_freq > 90th percentile"
+  },
+  "methodology_notes": {
+    "bootstrap_method": "CIs computed by bootstrapping over run-level means. This captures simulation-to-simulation variability.",
+    "n_runs": 50,
+    "n_players_per_run": 10000,
+    "n_bootstrap": 1000,
+    "alpha": 0.05,
+    "budget_sensitivity_note": "Budget sensitivity uses same run data as main results for consistency."
+  },
+  "feature_importance": {
+    "treatment_model": {
+      "account_age": 0.094,
+      "weekly_spend": 0.235,
+      "login_freq": 0.524,
+      "bonus_redeem": 0.147
+    },
+    "control_model": {
+      "account_age": 0.084,
+      "weekly_spend": 0.259,
+      "login_freq": 0.553,
+      "bonus_redeem": 0.104
+    }
+  },
+  "base_learner_diagnostics": {
+    "treatment_model_auc": 0.812,
+    "control_model_auc": 0.832
+  },
+  "uplift_calibration": [
+    {
+      "decile": 1,
+      "mean_predicted_uplift": -0.1559,
+      "mean_observed_uplift": 0.05
+    },
+    {
+      "decile": 2,
+      "mean_predicted_uplift": -0.0481,
+      "mean_observed_uplift": 0.0474
+    },
+    {
+      "decile": 3,
+      "mean_predicted_uplift": -0.017,
+      "mean_observed_uplift": 0.0464
+    },
+    {
+      "decile": 4,
+      "mean_predicted_uplift": 0.0046,
+      "mean_observed_uplift": 0.0492
+    },
+    {
+      "decile": 5,
+      "mean_predicted_uplift": 0.0271,
+      "mean_observed_uplift": 0.0546
+    },
+    {
+      "decile": 6,
+      "mean_predicted_uplift": 0.0518,
+      "mean_observed_uplift": 0.0573
+    },
+    {
+      "decile": 7,
+      "mean_predicted_uplift": 0.0797,
+      "mean_observed_uplift": 0.0631
+    },
+    {
+      "decile": 8,
+      "mean_predicted_uplift": 0.1147,
+      "mean_observed_uplift": 0.0678
+    },
+    {
+      "decile": 9,
+      "mean_predicted_uplift": 0.1681,
+      "mean_observed_uplift": 0.0788
+    },
+    {
+      "decile": 10,
+      "mean_predicted_uplift": 0.3168,
+      "mean_observed_uplift": 0.1272
+    }
+  ]
+}

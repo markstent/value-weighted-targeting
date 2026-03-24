@@ -10,9 +10,6 @@ build/
 venv/
 env/
 
-# uv
-uv.lock
-
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb_checkpoints/
@@ -32,7 +29,6 @@ Thumbs.db
 
 # Paper and generated outputs
 *.docx
-outputs/*.json
 
 # Temporary test files
 test_*.docx

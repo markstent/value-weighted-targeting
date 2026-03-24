@@ -1,0 +1,186 @@
+{
+  "dataset": {
+    "n_records": 64000,
+    "n_treated": 42694,
+    "n_control": 21306,
+    "treatment_control_ratio": 2.0,
+    "visit_rate_treated": 0.167,
+    "visit_rate_control": 0.1062,
+    "overall_ate_visit": 6.6
+  },
+  "feature_importance": {
+    "treatment_model": {
+      "recency": 0.083,
+      "recency_log": 0.072,
+      "history": 0.394,
+      "is_mens": 0.111,
+      "is_womens": 0.107,
+      "channel_phone": 0.028,
+      "channel_web": 0.029,
+      "channel_multi": 0.0,
+      "is_newbie": 0.176
+    },
+    "control_model": {
+      "recency": 0.102,
+      "recency_log": 0.114,
+      "history": 0.418,
+      "is_mens": 0.025,
+      "is_womens": 0.055,
+      "channel_phone": 0.037,
+      "channel_web": 0.034,
+      "channel_multi": 0.001,
+      "is_newbie": 0.214
+    }
+  },
+  "uplift_curve_visit": [
+    {
+      "decile": 1,
+      "proportion": 0.1,
+      "n_targeted": 1920,
+      "n_treated": 1289,
+      "n_control": 631,
+      "observed_uplift_pp": 10.98,
+      "cumulative_gain": 210.8,
+      "random_gain": 126.7,
+      "gain_over_random": 84.1
+    },
+    {
+      "decile": 2,
+      "proportion": 0.2,
+      "n_targeted": 3840,
+      "n_treated": 2526,
+      "n_control": 1314,
+      "observed_uplift_pp": 9.33,
+      "cumulative_gain": 358.1,
+      "random_gain": 253.4,
+      "gain_over_random": 104.7
+    },
+    {
+      "decile": 3,
+      "proportion": 0.3,
+      "n_targeted": 5760,
+      "n_treated": 3814,
+      "n_control": 1946,
+      "observed_uplift_pp": 9.06,
+      "cumulative_gain": 522.1,
+      "random_gain": 380.2,
+      "gain_over_random": 142.0
+    },
+    {
+      "decile": 4,
+      "proportion": 0.4,
+      "n_targeted": 7680,
+      "n_treated": 5120,
+      "n_control": 2560,
+      "observed_uplift_pp": 8.24,
+      "cumulative_gain": 633.0,
+      "random_gain": 506.9,
+      "gain_over_random": 126.1
+    },
+    {
+      "decile": 5,
+      "proportion": 0.5,
+      "n_targeted": 9600,
+      "n_treated": 6396,
+      "n_control": 3204,
+      "observed_uplift_pp": 7.99,
+      "cumulative_gain": 767.4,
+      "random_gain": 633.6,
+      "gain_over_random": 133.7
+    },
+    {
+      "decile": 6,
+      "proportion": 0.6,
+      "n_targeted": 11520,
+      "n_treated": 7668,
+      "n_control": 3852,
+      "observed_uplift_pp": 8.12,
+      "cumulative_gain": 935.3,
+      "random_gain": 760.3,
+      "gain_over_random": 175.0
+    },
+    {
+      "decile": 7,
+      "proportion": 0.7,
+      "n_targeted": 13440,
+      "n_treated": 8942,
+      "n_control": 4498,
+      "observed_uplift_pp": 7.35,
+      "cumulative_gain": 988.2,
+      "random_gain": 887.1,
+      "gain_over_random": 101.1
+    },
+    {
+      "decile": 8,
+      "proportion": 0.8,
+      "n_targeted": 15360,
+      "n_treated": 10229,
+      "n_control": 5131,
+      "observed_uplift_pp": 6.98,
+      "cumulative_gain": 1072.6,
+      "random_gain": 1013.8,
+      "gain_over_random": 58.8
+    },
+    {
+      "decile": 9,
+      "proportion": 0.9,
+      "n_targeted": 17280,
+      "n_treated": 11510,
+      "n_control": 5770,
+      "observed_uplift_pp": 6.6,
+      "cumulative_gain": 1141.0,
+      "random_gain": 1140.5,
+      "gain_over_random": 0.5
+    },
+    {
+      "decile": 10,
+      "proportion": 1.0,
+      "n_targeted": 19200,
+      "n_treated": 12771,
+      "n_control": 6429,
+      "observed_uplift_pp": 6.6,
+      "cumulative_gain": 1267.2,
+      "random_gain": 1267.2,
+      "gain_over_random": 0.0
+    }
+  ],
+  "auuc_visit": 92.6,
+  "top_decile_ci": {
+    "lower": 7.31,
+    "upper": 14.62
+  },
+  "strategy_comparison": {
+    "Random": {
+      "uplift_pp": 6.82,
+      "n_targeted": 5760
+    },
+    "Uplift Model": {
+      "uplift_pp": 9.06,
+      "n_targeted": 5760
+    },
+    "Response Model": {
+      "uplift_pp": 8.45,
+      "n_targeted": 5760
+    }
+  },
+  "strategy_comparison_note": "Strategy comparison uses observed uplift in the targeted subgroup. With a 2:1 treatment-to-control ratio, the control group in any targeted subset may be small, leading to noisier uplift estimates.",
+  "conversion_analysis": {
+    "auuc": -5.6,
+    "overall_ate_pp": 0.47,
+    "note": "Negative AUUC indicates the uplift model performs worse than random for the conversion outcome. Conversion is much rarer than visits (base rate ~0.9% vs ~15%), making uplift estimation substantially noisier.",
+    "top_deciles": [
+      {
+        "decile": 1,
+        "observed_uplift_pp": 0.01
+      },
+      {
+        "decile": 2,
+        "observed_uplift_pp": 0.67
+      },
+      {
+        "decile": 3,
+        "observed_uplift_pp": 0.58
+      }
+    ]
+  }
+}
