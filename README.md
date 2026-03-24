@@ -22,6 +22,10 @@ Most bonus targeting systems give bonuses to players who would have stayed activ
 
 This repository provides a framework that shifts the question from **"who is most likely to engage?"** to **"whose engagement would change because of the bonus?"**
 
+## What This Repository Validates
+
+This repository validates **uplift-based targeting** for player bonus allocation using a T-Learner approach. The simulation study and Hillstrom cross-domain check validate the uplift ranking component. LTV weighting and churn regularization are proposed as theoretical extensions and tested in simulation with synthetic values - they are not trained as separate models and are not empirically validated on real gaming data.
+
 ## Framework Components
 
 | Component | Purpose | Method |
@@ -29,7 +33,18 @@ This repository provides a framework that shifts the question from **"who is mos
 | **Uplift Model** | Estimate per-player bonus impact | T-Learner (separate treatment/control models) |
 | **LTV Weighting** | Prioritise high-value persuadables | Multiply uplift by estimated lifetime value |
 | **Churn Regularisation** | Focus on actionable churn risk | Inverse-U penalty on churn probability |
-| **Budget Optimisation** | Allocate under constraints | 0-1 knapsack formulation |
+| **Budget Optimisation** | Allocate under constraints | Top-k ranking under uniform costs |
+
+## Scope of Validation
+
+| Component | Status |
+|---|---|
+| Uplift ranking (T-Learner) | Validated in simulation + Hillstrom |
+| S-Learner baseline | Validated in simulation |
+| LTV weighting | Tested with synthetic LTV in simulation |
+| Churn regularization | Tested with synthetic churn in simulation |
+| Budget optimization | Uniform-cost top-k ranking only |
+| End-to-end on gaming data | Not validated |
 
 ## Quick Start
 
@@ -65,12 +80,14 @@ pip install -e .
 
 **Simulation Study** (10,000 players, 30% budget, 50 replications):
 
-| Strategy | ATE (pp) | Persuadables Targeted |
-|---|---|---|
-| Random | 6.4 | 30.0% |
-| Response Model | 5.7 | 23.3% |
-| Uplift Only | 8.8 | 56.3% |
-| Full Framework | 8.9 | 55.5% |
+| Strategy | Inc. Revenue | ATE (pp) | Persuadables Targeted |
+|---|---|---|---|
+| Random | $39,666 | 5.7 | 9.5% |
+| Response Model | $23,366 | 2.8 | 9.7% |
+| S-Learner | $69,401 | 10.9 | 21.4% |
+| Uplift Only | $60,212 | 9.2 | 17.8% |
+| Uplift x LTV | $66,479 | 8.4 | 16.7% |
+| Full Framework | $59,249 | 9.1 | 15.6% |
 
 **Hillstrom Validation** (64,000 real customers):
 
