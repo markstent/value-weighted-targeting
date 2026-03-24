@@ -443,6 +443,62 @@ def run_threshold_sensitivity(all_run_data):
     return results
 
 
+def run_misspecification_test(all_run_data, n_runs=20):
+    """
+    Stress test: train T-Learner with only 2 of 4 features (account_age, weekly_spend).
+    This simulates a misspecified model where key predictive features are unavailable.
+    Uses the same generated data as main runs for comparability.
+    """
+    reduced_features = ['account_age', 'weekly_spend']
+    results_full = []
+    results_reduced = []
+
+    for run in range(min(n_runs, len(all_run_data))):
+        seed = run * 7 + 13
+        df = generate_population(N_PLAYERS, seed=seed)
+        df_train, df_test = train_test_split(df, test_size=0.30, random_state=seed)
+
+        # Full feature set (recomputed from same seed for consistency)
+        model_t, model_c, features = train_t_learner(df_train)
+        uplift_full = score_uplift(model_t, model_c, df_test, features)
+        r_full = evaluate_strategy(df_test, uplift_full, BUDGET_FRACTION, 'Full Features')
+
+        # Reduced feature set
+        treated = df_train[df_train['treatment'] == 1]
+        control = df_train[df_train['treatment'] == 0]
+        model_t_r = GradientBoostingClassifier(
+            n_estimators=100, max_depth=4, learning_rate=0.1, random_state=42
+        )
+        model_c_r = GradientBoostingClassifier(
+            n_estimators=100, max_depth=4, learning_rate=0.1, random_state=42
+        )
+        model_t_r.fit(treated[reduced_features], treated['y_obs'])
+        model_c_r.fit(control[reduced_features], control['y_obs'])
+        uplift_reduced = score_uplift(model_t_r, model_c_r, df_test, reduced_features)
+        r_reduced = evaluate_strategy(df_test, uplift_reduced, BUDGET_FRACTION, 'Reduced Features')
+
+        results_full.append(r_full)
+        results_reduced.append(r_reduced)
+
+    return {
+        'full_features': {
+            'ate_mean': round(np.mean([r['ate_pp'] for r in results_full]), 1),
+            'rev_mean': round(np.mean([r['incremental_revenue'] for r in results_full]), 0),
+        },
+        'reduced_features': {
+            'ate_mean': round(np.mean([r['ate_pp'] for r in results_reduced]), 1),
+            'rev_mean': round(np.mean([r['incremental_revenue'] for r in results_reduced]), 0),
+            'features_used': reduced_features,
+        },
+        'n_runs': min(n_runs, len(all_run_data)),
+        'note': (
+            'Stress test with 2 of 4 features removed (login_freq, bonus_redeem dropped). '
+            'Uses same seeds as main simulation runs for comparability. '
+            'Shows degradation when the model is misspecified.'
+        ),
+    }
+
+
 def main():
     print("=" * 70)
     print("SIMULATION ANALYSIS: Uplift-Based Bonus Allocation Framework")
@@ -729,6 +785,18 @@ def main():
             'mean_observed_uplift': round(np.mean(obs_uplifts), 4),
         })
     output['uplift_calibration'] = calibration_data
+
+    # --- Misspecification Stress Test ---
+    print("\n" + "=" * 70)
+    print("STRESS TEST: Model Misspecification")
+    print("=" * 70)
+    misspec = run_misspecification_test(all_run_data, n_runs=20)
+    print(f"  Full features:    ATE={misspec['full_features']['ate_mean']}pp, "
+          f"Revenue=${misspec['full_features']['rev_mean']:,.0f}")
+    print(f"  Reduced features: ATE={misspec['reduced_features']['ate_mean']}pp, "
+          f"Revenue=${misspec['reduced_features']['rev_mean']:,.0f}")
+
+    output['misspecification_test'] = misspec
 
     output_path = os.path.join(os.path.dirname(__file__), '..', 'outputs', 'simulation_results.json')
     with open(output_path, 'w') as f:

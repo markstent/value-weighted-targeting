@@ -375,5 +375,21 @@
       "mean_predicted_uplift": 0.3168,
       "mean_observed_uplift": 0.1272
     }
-  ]
+  ],
+  "misspecification_test": {
+    "full_features": {
+      "ate_mean": 9.3,
+      "rev_mean": 63579.0
+    },
+    "reduced_features": {
+      "ate_mean": 6.4,
+      "rev_mean": 39608.0,
+      "features_used": [
+        "account_age",
+        "weekly_spend"
+      ]
+    },
+    "n_runs": 20,
+    "note": "Stress test with 2 of 4 features removed (login_freq, bonus_redeem dropped). Uses same seeds as main simulation runs for comparability. Shows degradation when the model is misspecified."
+  }
 }
