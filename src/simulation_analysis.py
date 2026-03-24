@@ -408,7 +408,7 @@ def paired_permutation_test(group_a, group_b, n_perms=5000, seed=42):
         if perm_mean >= observed_diff:
             count_extreme += 1
 
-    p_value = count_extreme / n_perms
+    p_value = (count_extreme + 1) / (n_perms + 1)
     return observed_diff, p_value
 
 
@@ -656,7 +656,7 @@ def main():
         perm_mean = np.mean(diffs * signs)
         if abs(perm_mean) >= abs(observed_diff):
             count_extreme_2s += 1
-    p_2sided = count_extreme_2s / 5000
+    p_2sided = (count_extreme_2s + 1) / (5000 + 1)
     diff_resp = observed_diff
     print(f"  Response Model vs Random (two-sided): diff={diff_resp:+.1f}pp, p={p_2sided:.4f}")
     perm_results['Response Model_vs_Random_ATE_twosided'] = {
