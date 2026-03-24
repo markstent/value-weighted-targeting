@@ -57,5 +57,23 @@ class SimulationAnalysisTests(unittest.TestCase):
                 msg=f"{seg}: expected ~{prevalence}, got {actual:.3f}")
 
 
+    def test_paired_permutation_test_respects_pairing(self):
+        """Issue #2: Permutation test must be paired (sign-flip), not pooled."""
+        from src.simulation_analysis import paired_permutation_test
+        import numpy as np
+        a = np.array([10, 12, 11, 13, 14])
+        b = np.array([8, 9, 7, 10, 11])
+        diff, p_val = paired_permutation_test(a, b, n_perms=5000)
+        self.assertGreater(diff, 0)
+        self.assertLess(p_val, 0.1)
+
+    def test_paired_permutation_requires_equal_length(self):
+        """Paired test requires matched observations."""
+        from src.simulation_analysis import paired_permutation_test
+        import numpy as np
+        with self.assertRaises(ValueError):
+            paired_permutation_test(np.array([1, 2, 3]), np.array([1, 2]))
+
+
 if __name__ == "__main__":
     unittest.main()

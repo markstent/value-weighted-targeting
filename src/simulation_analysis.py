@@ -387,21 +387,25 @@ def bootstrap_ci(data, statistic_func, n_bootstrap=BOOTSTRAP_SAMPLES, alpha=ALPH
     return lower, upper
 
 
-def permutation_test(group_a, group_b, n_perms=5000):
+def paired_permutation_test(group_a, group_b, n_perms=5000, seed=42):
     """
-    Permutation test for difference in means.
-    H0: group_a and group_b come from same distribution.
+    Paired permutation test (sign-flip) for difference in means.
+    H0: the paired differences are symmetric around zero.
+    Requires group_a and group_b to have the same length (matched pairs).
     """
-    rng = np.random.RandomState(42)
-    observed_diff = np.mean(group_a) - np.mean(group_b)
-    combined = np.concatenate([group_a, group_b])
-    n_a = len(group_a)
+    if len(group_a) != len(group_b):
+        raise ValueError(
+            f"Paired test requires equal-length arrays, got {len(group_a)} and {len(group_b)}"
+        )
+    rng = np.random.RandomState(seed)
+    diffs = group_a - group_b
+    observed_diff = np.mean(diffs)
 
     count_extreme = 0
     for _ in range(n_perms):
-        rng.shuffle(combined)
-        perm_diff = np.mean(combined[:n_a]) - np.mean(combined[n_a:])
-        if perm_diff >= observed_diff:
+        signs = rng.choice([-1, 1], size=len(diffs))
+        perm_mean = np.mean(diffs * signs)
+        if perm_mean >= observed_diff:
             count_extreme += 1
 
     p_value = count_extreme / n_perms
@@ -600,9 +604,10 @@ def main():
 
     perm_results = {}
     for strategy in [s for s in STRATEGIES if s != 'Random']:
-        diff, p_val = permutation_test(
+        diff, p_val = paired_permutation_test(
             summary[strategy]['ates_raw'],
-            summary['Random']['ates_raw']
+            summary['Random']['ates_raw'],
+            seed=42,
         )
         sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
         print(f"  {strategy} vs Random (ATE): diff={diff:+.1f}pp, p={p_val:.4f} {sig}")
@@ -614,9 +619,10 @@ def main():
     # Revenue permutation tests
     for strategy in ['Uplift Only', 'Full Framework']:
         comparator = 'Uplift Only' if strategy == 'Full Framework' else 'Random'
-        diff, p_val = permutation_test(
+        diff, p_val = paired_permutation_test(
             summary[strategy]['revs_raw'],
-            summary[comparator]['revs_raw']
+            summary[comparator]['revs_raw'],
+            seed=43,
         )
         sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
         print(f"  {strategy} vs {comparator} (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
@@ -626,9 +632,10 @@ def main():
         }
 
     # Key ablation: does churn regularization add value over Uplift x LTV?
-    diff, p_val = permutation_test(
+    diff, p_val = paired_permutation_test(
         summary['Full Framework']['revs_raw'],
-        summary['Uplift x LTV']['revs_raw']
+        summary['Uplift x LTV']['revs_raw'],
+        seed=44,
     )
     sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "n.s."
     print(f"  Full Framework vs Uplift x LTV (Revenue): diff=${diff:+,.0f}, p={p_val:.4f} {sig}")
@@ -637,19 +644,20 @@ def main():
         'p_value': round(p_val, 4),
     }
 
-    # Two-sided test for Response Model (is it significantly different from random?)
+    # Two-sided paired test for Response Model
     resp_ates = summary['Response Model']['ates_raw']
     rand_ates = summary['Random']['ates_raw']
-    diff_resp = np.mean(resp_ates) - np.mean(rand_ates)
-    combined = np.concatenate([resp_ates, rand_ates])
-    rng_perm = np.random.RandomState(42)
+    diffs = resp_ates - rand_ates
+    observed_diff = np.mean(diffs)
+    rng_perm = np.random.RandomState(45)
     count_extreme_2s = 0
     for _ in range(5000):
-        rng_perm.shuffle(combined)
-        perm_diff = np.mean(combined[:len(resp_ates)]) - np.mean(combined[len(resp_ates):])
-        if abs(perm_diff) >= abs(diff_resp):
+        signs = rng_perm.choice([-1, 1], size=len(diffs))
+        perm_mean = np.mean(diffs * signs)
+        if abs(perm_mean) >= abs(observed_diff):
             count_extreme_2s += 1
     p_2sided = count_extreme_2s / 5000
+    diff_resp = observed_diff
     print(f"  Response Model vs Random (two-sided): diff={diff_resp:+.1f}pp, p={p_2sided:.4f}")
     perm_results['Response Model_vs_Random_ATE_twosided'] = {
         'diff': round(diff_resp, 1),
