@@ -779,6 +779,7 @@ def main():
 
     # Remove one-sided Response Model test (wrong direction) from correction family
     perm_results.pop('Response Model_vs_Random_ATE', None)
+    perm_results.pop('Full Framework_vs_Uplift Only_Revenue', None)
 
     # Holm-Bonferroni correction
     raw_pvals = {k: v['p_value'] for k, v in perm_results.items()}

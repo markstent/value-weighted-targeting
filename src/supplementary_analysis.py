@@ -130,7 +130,7 @@ def generate_population_churn_moderated(n, seed=None):
         'treatment': treatment,
         'y_obs': y_obs,
         'segment': segments,
-        'true_tau': effective_tau,
+        'true_tau': y1_prob - y0_prob,
         'y0': y0,
         'y1': y1,
         'responsible_gaming_flag': rg_flag,
@@ -456,7 +456,7 @@ def score_x_learner(cate_t, cate_c, df, features, propensity=0.5):
     """Score X-Learner uplift as weighted combination of CATE estimates."""
     tau_t = cate_t.predict(df[features])
     tau_c = cate_c.predict(df[features])
-    return propensity * tau_t + (1 - propensity) * tau_c
+    return propensity * tau_c + (1 - propensity) * tau_t
 
 
 def run_analysis_4():
