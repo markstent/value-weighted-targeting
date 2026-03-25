@@ -53,11 +53,11 @@
     "oracle_rev_mean": 62361.0,
     "oracle_rev_sd": 13441.0,
     "oracle_ate_mean": 10.2,
-    "estimated_rev_mean": 71059.0,
-    "estimated_rev_sd": 15045.0,
+    "estimated_rev_mean": 63838.0,
+    "estimated_rev_sd": 12777.0,
     "estimated_ate_mean": 10.4,
-    "rev_degradation": -8698.0,
-    "rev_degradation_pct": -13.9
+    "rev_degradation": -1478.0,
+    "rev_degradation_pct": -2.4
   },
   "hyperparameter_sensitivity": {
     "Default (100/4/0.1)": {

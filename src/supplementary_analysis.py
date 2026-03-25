@@ -220,16 +220,12 @@ def train_ltv_model(df_train, features):
 
 
 def train_churn_model(df_train, features):
-    """Train a GradientBoostingClassifier to predict churn_prob from features."""
-    # Discretize churn_prob into high/low for classification
-    # Use median split for a balanced target
-    churn_median = df_train['churn_prob'].median()
-    churn_label = (df_train['churn_prob'] >= churn_median).astype(int)
-    model = GradientBoostingClassifier(
+    """Train a GradientBoostingRegressor to predict churn_prob from features."""
+    model = GradientBoostingRegressor(
         n_estimators=100, max_depth=4, learning_rate=0.1, random_state=42
     )
-    model.fit(df_train[features], churn_label)
-    return model, churn_median
+    model.fit(df_train[features], df_train['churn_prob'])
+    return model, None
 
 
 def run_analysis_2():
@@ -266,12 +262,10 @@ def run_analysis_2():
         churn_model, churn_median = train_churn_model(df_train, features)
 
         pred_ltv = ltv_model.predict(df_test[features])
-        # Use predicted probability as a continuous churn score
-        pred_churn_prob = churn_model.predict_proba(df_test[features])[:, 1]
-        # Scale predicted probability back to approximate churn_prob range
-        # The classifier outputs P(churn >= median), so we rescale
-        pred_churn_scaled = pred_churn_prob  # use raw probability as proxy
-        f_churn_estimated = np.array([f_churn(p) for p in pred_churn_scaled])
+        # Predict continuous churn probability directly
+        pred_churn_prob = churn_model.predict(df_test[features])
+        pred_churn_prob = np.clip(pred_churn_prob, 0.01, 0.99)
+        f_churn_estimated = np.array([f_churn(p) for p in pred_churn_prob])
 
         estimated_scores = uplift_scores * pred_ltv * f_churn_estimated
         r_est = evaluate_strategy(df_test, estimated_scores, BUDGET_FRACTION, 'Estimated Full')
@@ -461,7 +455,7 @@ def score_x_learner(cate_t, cate_c, df, features, propensity=0.5):
     """Score X-Learner uplift as weighted combination of CATE estimates."""
     tau_t = cate_t.predict(df[features])
     tau_c = cate_c.predict(df[features])
-    return propensity * tau_c + (1 - propensity) * tau_t
+    return propensity * tau_t + (1 - propensity) * tau_c
 
 
 def run_analysis_4():
