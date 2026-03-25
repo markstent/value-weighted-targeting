@@ -33,23 +33,28 @@ The composite scoring rule $s_i = \hat{\tau}_i \times \text{LTV}_i \times f(p_i^
 | S-Learner | 12.5 | $77,337 | 31.8% |
 | S-Learner x LTV | 11.4 | $88,566 | 31.5% |
 | Full Framework (S) | 10.7 | $66,584 | 24.2% |
+| **X-Learner pathway** | | | |
+| X-Learner | 11.8 | $73,208 | 30.1% |
+| X-Learner x LTV | 10.4 | $84,051 | 29.5% |
+| Full Framework (X) | 10.7 | $65,482 | 23.8% |
 
-The framework is meta-learner agnostic: both T-Learner and S-Learner CATE estimates work within the composite rule. Churn regularisation reduces value by 16-25% relative to unregularised targeting - a quantified cost of conservative targeting.
+The framework is meta-learner agnostic: T-Learner, S-Learner, and X-Learner CATE estimates all work within the composite rule. The ablation chains show that each component adds distinct value: LTV weighting increases incremental value while churn regularisation trades value for targeting conservatism (16-25% reduction).
 
 ## Repository Structure
 
 ```
 ├── docs/
-│   ├── manuscript_v6.tex          # Current manuscript (LaTeX)
-│   ├── manuscript_v6.pdf          # Compiled PDF
-│   └── archive/                   # Previous versions and reviews
+│   ├── manuscript_v12.2.tex         # Current manuscript (LaTeX)
+│   ├── manuscript_v12.2.pdf         # Compiled PDF
+│   └── archive/                     # Previous versions and reviews
 ├── src/
-│   ├── simulation_analysis.py     # Main simulation (8 strategies, 50 runs)
-│   └── hillstrom_analysis.py      # Cross-domain validation
-├── tests/                         # Unit and regression tests
-├── notebooks/                     # Jupyter notebooks
-├── figures/                       # Generated figures
-├── outputs/                       # Simulation results (JSON)
+│   ├── simulation_analysis.py       # Main simulation (8 strategies, 50 runs)
+│   ├── supplementary_analysis.py    # X-Learner, churn sensitivity, robustness
+│   └── hillstrom_analysis.py        # Cross-domain validation
+├── tests/                           # Unit and regression tests
+├── notebooks/                       # Jupyter notebooks
+├── figures/                         # Generated figures
+├── outputs/                         # Simulation results (JSON)
 ├── Makefile
 └── README.md
 ```
@@ -57,14 +62,12 @@ The framework is meta-learner agnostic: both T-Learner and S-Learner CATE estima
 ## Build
 
 ```bash
-make simulation    # Run simulation analysis
-make hillstrom     # Run Hillstrom cross-domain validation
-make test          # Run test suite
-```
-
-Compile the manuscript:
-```bash
-cd docs && tectonic manuscript_v6.tex
+make simulation      # Run main simulation analysis
+make supplementary   # Run supplementary analyses (X-Learner, sensitivity)
+make hillstrom       # Run Hillstrom cross-domain validation
+make test            # Run test suite
+make manuscript      # Compile LaTeX to PDF
+make all             # Run everything
 ```
 
 ## Data Sources

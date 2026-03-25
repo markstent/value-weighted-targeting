@@ -1,18 +1,21 @@
 PYTHON ?= ./.venv/bin/python
 
-.PHONY: all simulation hillstrom manuscript paper test clean
+.PHONY: all simulation supplementary hillstrom manuscript paper test clean
 
-all: simulation hillstrom manuscript
+all: simulation supplementary hillstrom manuscript
 
 simulation:
 	$(PYTHON) src/simulation_analysis.py
+
+supplementary:
+	$(PYTHON) src/supplementary_analysis.py
 
 hillstrom:
 	$(PYTHON) src/hillstrom_analysis.py
 
 manuscript:
-	cd docs && tectonic manuscript_v4.tex
-	cp docs/manuscript_v4.pdf outputs/bonus_allocation_v4.pdf
+	cd docs && tectonic manuscript_v12.2.tex
+	cp docs/manuscript_v12.2.pdf outputs/manuscript_v12.2.pdf
 
 paper: manuscript
 
@@ -20,4 +23,4 @@ test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
 
 clean:
-	rm -f outputs/simulation_results.json outputs/hillstrom_results.json outputs/bonus_allocation_v3.docx
+	rm -f outputs/simulation_results.json outputs/hillstrom_results.json outputs/supplementary_results.json
