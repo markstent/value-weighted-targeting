@@ -274,52 +274,52 @@
     {
       "decile": 1,
       "mean_predicted_uplift": -0.0232,
-      "mean_latent_uplift": -0.0215
+      "mean_latent_uplift": -0.0456
     },
     {
       "decile": 2,
       "mean_predicted_uplift": 0.002,
-      "mean_latent_uplift": 0.0333
+      "mean_latent_uplift": -0.01
     },
     {
       "decile": 3,
       "mean_predicted_uplift": 0.0085,
-      "mean_latent_uplift": 0.0454
+      "mean_latent_uplift": 0.013
     },
     {
       "decile": 4,
       "mean_predicted_uplift": 0.017,
-      "mean_latent_uplift": 0.0497
+      "mean_latent_uplift": 0.0349
     },
     {
       "decile": 5,
       "mean_predicted_uplift": 0.0262,
-      "mean_latent_uplift": 0.0542
+      "mean_latent_uplift": 0.0493
     },
     {
       "decile": 6,
       "mean_predicted_uplift": 0.0364,
-      "mean_latent_uplift": 0.0588
+      "mean_latent_uplift": 0.0556
     },
     {
       "decile": 7,
       "mean_predicted_uplift": 0.0499,
-      "mean_latent_uplift": 0.0689
+      "mean_latent_uplift": 0.0661
     },
     {
       "decile": 8,
       "mean_predicted_uplift": 0.0696,
-      "mean_latent_uplift": 0.0915
+      "mean_latent_uplift": 0.0889
     },
     {
       "decile": 9,
       "mean_predicted_uplift": 0.1006,
-      "mean_latent_uplift": 0.1187
+      "mean_latent_uplift": 0.1162
     },
     {
       "decile": 10,
       "mean_predicted_uplift": 0.1712,
-      "mean_latent_uplift": 0.1756
+      "mean_latent_uplift": 0.1739
     }
   ],
   "cohens_d": {
@@ -377,6 +377,49 @@
       "cohens_d": 2.875,
       "mean_diff": 59268.0,
       "p_value": 0.0002
+    }
+  },
+  "uniform_churn": {
+    "regime_distribution": {
+      "zero": 0.7,
+      "ramp": 34.4,
+      "plateau": 29.8,
+      "descent": 32.3,
+      "floor": 2.8
+    },
+    "results": {
+      "Random": {
+        "ate_mean": 5.5,
+        "rev_mean": 29299.0
+      },
+      "Response Model": {
+        "ate_mean": 3.1,
+        "rev_mean": 24360.0
+      },
+      "S-Learner": {
+        "ate_mean": 12.5,
+        "rev_mean": 77337.0
+      },
+      "Uplift Only": {
+        "ate_mean": 10.6,
+        "rev_mean": 67097.0
+      },
+      "Uplift x LTV": {
+        "ate_mean": 9.7,
+        "rev_mean": 74181.0
+      },
+      "Full Framework": {
+        "ate_mean": 9.6,
+        "rev_mean": 72617.0
+      },
+      "S-Learner x LTV": {
+        "ate_mean": 11.4,
+        "rev_mean": 88566.0
+      },
+      "S-Learner Full": {
+        "ate_mean": 11.0,
+        "rev_mean": 84303.0
+      }
     }
   }
 }

@@ -17,7 +17,8 @@ import matplotlib.pyplot as plt
 import json
 import os
 import warnings
-warnings.filterwarnings('ignore')
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', message='.*lbfgs.*')
 
 # Reuse constants and helpers from main simulation
 from src.simulation_analysis import (
@@ -737,6 +738,97 @@ def run_analysis_7():
 
 
 # ---------------------------------------------------------------------------
+# Analysis 8: Uniform Churn Distribution
+# ---------------------------------------------------------------------------
+
+def run_analysis_8(n_runs=50, n_players=10000):
+    """Analysis 8: Uniform churn distribution to test all f(p) regimes."""
+    print("\n" + "=" * 70)
+    print("ANALYSIS 8: Uniform Churn Distribution")
+    print("=" * 70)
+
+    all_results = {s: [] for s in STRATEGIES}
+    regime_counts = {'zero': 0, 'ramp': 0, 'plateau': 0, 'descent': 0, 'floor': 0}
+    total_players = 0
+
+    for run in range(n_runs):
+        if (run + 1) % 10 == 0:
+            print(f"  Run {run + 1}/{n_runs}...")
+        seed = run * 7 + 13
+        df = generate_population(n_players, seed=seed)
+
+        # Override churn with Beta(2,2) distribution for uniform coverage
+        rng_churn = np.random.RandomState(seed + 2000)
+        df['churn_prob'] = np.clip(rng_churn.beta(2, 2, len(df)), 0.01, 0.99)
+
+        df_train, df_test = train_test_split(df, test_size=0.30, random_state=seed)
+
+        model_t, model_c, features = train_t_learner(df_train)
+        s_model = train_s_learner(df_train, features)
+
+        uplift_scores = score_uplift(model_t, model_c, df_test, features)
+        s_learner_scores = score_s_learner(s_model, df_test, features)
+
+        f_churn_scores = np.array([f_churn(p) for p in df_test['churn_prob'].values])
+
+        # Count regime distribution
+        cp = df_test['churn_prob'].values
+        regime_counts['zero'] += (cp < 0.05).sum()
+        regime_counts['ramp'] += ((cp >= 0.05) & (cp < 0.40)).sum()
+        regime_counts['plateau'] += ((cp >= 0.40) & (cp <= 0.60)).sum()
+        regime_counts['descent'] += ((cp > 0.60) & (cp < 0.90)).sum()
+        regime_counts['floor'] += (cp >= 0.90).sum()
+        total_players += len(df_test)
+
+        # Compute scores for key strategies
+        random_scores = np.random.RandomState(seed).uniform(0, 1, len(df_test))
+        full_t_scores = uplift_scores * df_test['ltv'].values * f_churn_scores
+        full_s_scores = s_learner_scores * df_test['ltv'].values * f_churn_scores
+        uplift_ltv_scores = uplift_scores * df_test['ltv'].values
+        s_learner_ltv_scores = s_learner_scores * df_test['ltv'].values
+
+        response_model, resp_features = train_response_model(df_train)
+        response_scores = response_model.predict_proba(df_test[resp_features])[:, 1]
+
+        results = []
+        results.append(evaluate_strategy(df_test, random_scores, BUDGET_FRACTION, 'Random'))
+        results.append(evaluate_strategy(df_test, response_scores, BUDGET_FRACTION, 'Response Model'))
+        results.append(evaluate_strategy(df_test, s_learner_scores, BUDGET_FRACTION, 'S-Learner'))
+        results.append(evaluate_strategy(df_test, uplift_scores, BUDGET_FRACTION, 'Uplift Only'))
+        results.append(evaluate_strategy(df_test, uplift_ltv_scores, BUDGET_FRACTION, 'Uplift x LTV'))
+        results.append(evaluate_strategy(df_test, full_t_scores, BUDGET_FRACTION, 'Full Framework'))
+        results.append(evaluate_strategy(df_test, s_learner_ltv_scores, BUDGET_FRACTION, 'S-Learner x LTV'))
+        results.append(evaluate_strategy(df_test, full_s_scores, BUDGET_FRACTION, 'S-Learner Full'))
+
+        for r in results:
+            all_results[r['strategy']].append(r)
+
+    # Report regime distribution
+    print("\nChurn distribution across f(p) regimes:")
+    for regime, count in regime_counts.items():
+        pct = count / total_players * 100
+        print(f"  {regime}: {pct:.1f}%")
+
+    # Report results
+    summary = {}
+    print(f"\n{'Strategy':<20} {'ATE (pp)':<12} {'Incr. Value':<15}")
+    print("-" * 47)
+    for strategy in STRATEGIES:
+        ates = np.array([r['ate_pp'] for r in all_results[strategy]])
+        revs = np.array([r['incremental_revenue'] for r in all_results[strategy]])
+        print(f"{strategy:<20} {np.mean(ates):>6.1f}        ${np.mean(revs):>9,.0f}")
+        summary[strategy] = {
+            'ate_mean': round(float(np.mean(ates)), 1),
+            'rev_mean': round(float(np.mean(revs)), 0),
+        }
+
+    return {
+        'regime_distribution': {k: round(v / total_players * 100, 1) for k, v in regime_counts.items()},
+        'results': summary,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -767,6 +859,9 @@ def main():
 
     # Analysis 7: Cohen's d
     output['cohens_d'] = run_analysis_7()
+
+    # Analysis 8: Uniform churn distribution
+    output['uniform_churn'] = run_analysis_8()
 
     # Save results
     output_path = os.path.join(BASE_DIR, 'outputs', 'supplementary_results.json')

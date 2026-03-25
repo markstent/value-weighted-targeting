@@ -14,7 +14,8 @@ from sklearn.model_selection import train_test_split
 import json
 import os
 import warnings
-warnings.filterwarnings('ignore')
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', message='.*lbfgs.*')
 
 np.random.seed(42)
 
@@ -142,7 +143,7 @@ def generate_population(n, seed=None):
         'treatment': treatment,
         'y_obs': y_obs,
         'segment': segments,
-        'true_tau': effective_tau,
+        'true_tau': y1_prob - y0_prob,
         'y0': y0,
         'y1': y1,
         'responsible_gaming_flag': rg_flag,
@@ -547,7 +548,12 @@ def run_misspecification_test(all_run_data, n_runs=20):
 
 
 def expected_segment_mean_ate_pp():
-    """Return the population ATE implied by the mean segment effects."""
+    """Return the population ATE implied by the mean segment effects.
+
+    Note: this computes the theoretical pre-clipping value from SEGMENTS
+    parameters. The actual per-player CATE (true_tau) may differ due to
+    clipping of y0_prob and y1_prob to [0.01, 0.99].
+    """
     mean_ate = sum(prevalence * tau for prevalence, _, tau in SEGMENTS.values())
     return round(mean_ate * 100, 2)
 
@@ -770,6 +776,9 @@ def main():
         'p_value': round(p_2sided, 4),
         'cohens_d': round(cohens_d_resp, 4),
     }
+
+    # Remove one-sided Response Model test (wrong direction) from correction family
+    perm_results.pop('Response Model_vs_Random_ATE', None)
 
     # Holm-Bonferroni correction
     raw_pvals = {k: v['p_value'] for k, v in perm_results.items()}
