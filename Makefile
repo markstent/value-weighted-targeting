@@ -14,8 +14,8 @@ hillstrom:
 	$(PYTHON) src/hillstrom_analysis.py
 
 manuscript:
-	cd docs && tectonic manuscript_v13.tex
-	cp docs/manuscript_v13.pdf outputs/manuscript_v13.pdf
+	cd docs && tectonic manuscript_v15.tex
+	cp docs/manuscript_v15.pdf outputs/manuscript_v15.pdf
 
 paper: manuscript
 

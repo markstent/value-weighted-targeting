@@ -17,8 +17,6 @@ import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', message='.*lbfgs.*')
 
-np.random.seed(42)
-
 # --- Configuration ---
 N_PLAYERS = 10000
 N_RUNS = 50
@@ -268,6 +266,10 @@ def evaluate_strategy(df_test, scores, budget_frac, strategy_name):
     persuadable_frac = seg_counts.get('Persuadables', 0) / len(targeted)
     sleeping_dog_frac = seg_counts.get('Sleeping Dogs', 0) / len(targeted)
 
+    # Mean LTV of causally retained players (circularity-free LTV metric)
+    causally_retained = targeted[(targeted['y1'] == 1) & (targeted['y0'] == 0)]
+    mean_ltv_cr = float(causally_retained['ltv'].mean()) if len(causally_retained) > 0 else 0.0
+
     return {
         'strategy': strategy_name,
         'incremental_conversions': incremental,
@@ -275,6 +277,8 @@ def evaluate_strategy(df_test, scores, budget_frac, strategy_name):
         'incremental_revenue': inc_revenue,
         'persuadable_frac': persuadable_frac,
         'sleeping_dog_frac': sleeping_dog_frac,
+        'mean_ltv_causally_retained': mean_ltv_cr,
+        'n_causally_retained': len(causally_retained),
         'n_targeted': n_treat,
         'n_rg_excluded': int((~eligible_mask).sum()),
     }
@@ -396,7 +400,7 @@ def bootstrap_ci(data, statistic_func, n_bootstrap=BOOTSTRAP_SAMPLES, alpha=ALPH
     return lower, upper
 
 
-def paired_permutation_test(group_a, group_b, n_perms=5000, seed=42, two_sided=False):
+def paired_permutation_test(group_a, group_b, n_perms=5000, seed=42, two_sided=True):
     """
     Paired permutation test (sign-flip) for difference in means.
     H0: the paired differences are symmetric around zero.
