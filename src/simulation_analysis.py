@@ -24,6 +24,7 @@ BUDGET_FRACTION = 0.30
 TREATMENT_PROB = 0.50
 BOOTSTRAP_SAMPLES = 1000
 ALPHA = 0.05
+# Paper name mapping: 'Full Framework' = 'Full Framework (T)', 'S-Learner Full' = 'Full Framework (S)'
 STRATEGIES = ['Random', 'Response Model', 'S-Learner', 'Uplift Only', 'Uplift x LTV', 'Full Framework', 'S-Learner x LTV', 'S-Learner Full']
 
 # Segment parameters: (prevalence, P0_baseline, tau_treatment_effect)
@@ -600,6 +601,8 @@ def main():
         incs = np.array([r['incremental_conversions'] for r in all_results[strategy]])
         revs = np.array([r['incremental_revenue'] for r in all_results[strategy]])
         pers = np.array([r['persuadable_frac'] for r in all_results[strategy]])
+        ltv_crs = np.array([r['mean_ltv_causally_retained'] for r in all_results[strategy]])
+        n_crs = np.array([r['n_causally_retained'] for r in all_results[strategy]])
 
         ate_ci = bootstrap_ci(ates, np.mean)
         inc_ci = bootstrap_ci(incs, np.mean)
@@ -616,6 +619,8 @@ def main():
             'rev_sd': np.std(revs),
             'rev_ci': rev_ci,
             'pers_mean': np.mean(pers),
+            'mean_ltv_cr': np.mean(ltv_crs),
+            'n_causally_retained_mean': np.mean(n_crs),
             'ates_raw': ates,
             'revs_raw': revs,
         }
@@ -639,7 +644,7 @@ def main():
 
     # --- Permutation Tests ---
     print("\n" + "=" * 70)
-    print("PERMUTATION TESTS (one-sided: strategy > random)")
+    print("PERMUTATION TESTS (two-sided sign-flip)")
     print("=" * 70)
 
     perm_results = {}
@@ -874,6 +879,8 @@ def main():
             'rev_ci_lower': round(s['rev_ci'][0], 0),
             'rev_ci_upper': round(s['rev_ci'][1], 0),
             'pers_mean': round(s['pers_mean'] * 100, 1),
+            'mean_ltv_causally_retained': round(s['mean_ltv_cr'], 0),
+            'n_causally_retained_mean': round(s['n_causally_retained_mean'], 0),
             'per_run_se': round(s['ate_sd'] / np.sqrt(N_RUNS), 2),
         }
 
