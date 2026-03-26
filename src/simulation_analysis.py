@@ -25,7 +25,8 @@ TREATMENT_PROB = 0.50
 BOOTSTRAP_SAMPLES = 1000
 ALPHA = 0.05
 # Paper name mapping: 'Full Framework' = 'Full Framework (T)', 'S-Learner Full' = 'Full Framework (S)'
-STRATEGIES = ['Random', 'Response Model', 'S-Learner', 'Uplift Only', 'Uplift x LTV', 'Full Framework', 'S-Learner x LTV', 'S-Learner Full']
+# Order matches paper's strategy enumeration (baselines, T-Learner chain, S-Learner chain)
+STRATEGIES = ['Random', 'Response Model', 'Uplift Only', 'Uplift x LTV', 'Full Framework', 'S-Learner', 'S-Learner x LTV', 'S-Learner Full']
 
 # Segment parameters: (prevalence, P0_baseline, tau_treatment_effect)
 SEGMENTS = {

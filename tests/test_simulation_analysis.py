@@ -10,10 +10,10 @@ class SimulationAnalysisTests(unittest.TestCase):
             [
                 "Random",
                 "Response Model",
-                "S-Learner",
                 "Uplift Only",
                 "Uplift x LTV",
                 "Full Framework",
+                "S-Learner",
                 "S-Learner x LTV",
                 "S-Learner Full",
             ],

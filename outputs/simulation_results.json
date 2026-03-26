@@ -14,6 +14,8 @@
       "rev_ci_lower": 24759.0,
       "rev_ci_upper": 33939.0,
       "pers_mean": 15.1,
+      "mean_ltv_causally_retained": 976.0,
+      "n_causally_retained_mean": 128.0,
       "per_run_se": 0.21
     },
     "Response Model": {
@@ -30,6 +32,8 @@
       "rev_ci_lower": 18059.0,
       "rev_ci_upper": 30764.0,
       "pers_mean": 15.6,
+      "mean_ltv_causally_retained": 1339.0,
+      "n_causally_retained_mean": 76.0,
       "per_run_se": 0.19
     },
     "S-Learner": {
@@ -46,6 +50,8 @@
       "rev_ci_lower": 72762.0,
       "rev_ci_upper": 81693.0,
       "pers_mean": 31.8,
+      "mean_ltv_causally_retained": 744.0,
+      "n_causally_retained_mean": 199.0,
       "per_run_se": 0.21
     },
     "Uplift Only": {
@@ -57,11 +63,13 @@
       "inc_sd": 16.0,
       "inc_ci_lower": 90.0,
       "inc_ci_upper": 99.0,
-      "rev_mean": 67097.0,
-      "rev_sd": 18492.0,
-      "rev_ci_lower": 61574.0,
-      "rev_ci_upper": 72578.0,
-      "pers_mean": 27.8,
+      "rev_mean": 67230.0,
+      "rev_sd": 18628.0,
+      "rev_ci_lower": 61677.0,
+      "rev_ci_upper": 72666.0,
+      "pers_mean": 27.7,
+      "mean_ltv_causally_retained": 833.0,
+      "n_causally_retained_mean": 182.0,
       "per_run_se": 0.25
     },
     "Uplift x LTV": {
@@ -73,11 +81,13 @@
       "inc_sd": 15.0,
       "inc_ci_lower": 82.0,
       "inc_ci_upper": 90.0,
-      "rev_mean": 74181.0,
-      "rev_sd": 21683.0,
-      "rev_ci_lower": 67910.0,
-      "rev_ci_upper": 80519.0,
+      "rev_mean": 73981.0,
+      "rev_sd": 21488.0,
+      "rev_ci_lower": 67901.0,
+      "rev_ci_upper": 80163.0,
       "pers_mean": 27.6,
+      "mean_ltv_causally_retained": 1050.0,
+      "n_causally_retained_mean": 177.0,
       "per_run_se": 0.24
     },
     "Full Framework": {
@@ -89,11 +99,13 @@
       "inc_sd": 14.0,
       "inc_ci_lower": 87.0,
       "inc_ci_upper": 95.0,
-      "rev_mean": 62361.0,
-      "rev_sd": 13441.0,
-      "rev_ci_lower": 58582.0,
-      "rev_ci_upper": 66201.0,
+      "rev_mean": 62335.0,
+      "rev_sd": 13419.0,
+      "rev_ci_lower": 58552.0,
+      "rev_ci_upper": 66142.0,
       "pers_mean": 22.5,
+      "mean_ltv_causally_retained": 735.0,
+      "n_causally_retained_mean": 166.0,
       "per_run_se": 0.23
     },
     "S-Learner x LTV": {
@@ -105,11 +117,13 @@
       "inc_sd": 18.0,
       "inc_ci_lower": 96.0,
       "inc_ci_upper": 106.0,
-      "rev_mean": 88566.0,
-      "rev_sd": 22305.0,
-      "rev_ci_lower": 82432.0,
-      "rev_ci_upper": 94721.0,
+      "rev_mean": 88468.0,
+      "rev_sd": 22124.0,
+      "rev_ci_lower": 82429.0,
+      "rev_ci_upper": 94590.0,
       "pers_mean": 31.5,
+      "mean_ltv_causally_retained": 1039.0,
+      "n_causally_retained_mean": 195.0,
       "per_run_se": 0.28
     },
     "S-Learner Full": {
@@ -126,6 +140,8 @@
       "rev_ci_lower": 62454.0,
       "rev_ci_upper": 70602.0,
       "pers_mean": 24.2,
+      "mean_ltv_causally_retained": 734.0,
+      "n_causally_retained_mean": 174.0,
       "per_run_se": 0.23
     }
   },
@@ -134,7 +150,7 @@
       "decile": 1,
       "proportion": 0.1,
       "cum_inc_mean": 42.0,
-      "decile_ate_mean": 13.9
+      "decile_ate_mean": 14.0
     },
     {
       "decile": 2,
@@ -169,13 +185,13 @@
     {
       "decile": 7,
       "proportion": 0.7,
-      "cum_inc_mean": 158.0,
+      "cum_inc_mean": 157.0,
       "decile_ate_mean": 7.5
     },
     {
       "decile": 8,
       "proportion": 0.8,
-      "cum_inc_mean": 163.0,
+      "cum_inc_mean": 162.0,
       "decile_ate_mean": 6.8
     },
     {
@@ -195,57 +211,57 @@
     "Default (0.05/0.40/0.60)": {
       "ate_mean": 10.2,
       "ate_sd": 1.6,
-      "rev_mean": 62361.0,
-      "rev_sd": 13441.0,
+      "rev_mean": 62335.0,
+      "rev_sd": 13419.0,
       "persuadable_pct": 22.5
     },
     "Narrow (0.10/0.30/0.50)": {
       "ate_mean": 9.7,
-      "ate_sd": 1.5,
-      "rev_mean": 52507.0,
-      "rev_sd": 10808.0,
+      "ate_sd": 1.6,
+      "rev_mean": 52559.0,
+      "rev_sd": 10876.0,
       "persuadable_pct": 19.2
     },
     "Wide (0.03/0.50/0.70)": {
       "ate_mean": 10.4,
       "ate_sd": 1.6,
-      "rev_mean": 65661.0,
-      "rev_sd": 14382.0,
+      "rev_mean": 65719.0,
+      "rev_sd": 14446.0,
       "persuadable_pct": 23.4
     },
     "Shifted low (0.05/0.25/0.45)": {
       "ate_mean": 10.2,
       "ate_sd": 1.6,
-      "rev_mean": 63379.0,
-      "rev_sd": 13808.0,
+      "rev_mean": 63399.0,
+      "rev_sd": 13826.0,
       "persuadable_pct": 23.4
     },
     "Shifted high (0.10/0.55/0.75)": {
       "ate_mean": 9.6,
       "ate_sd": 1.6,
-      "rev_mean": 51583.0,
-      "rev_sd": 10993.0,
-      "persuadable_pct": 18.8
+      "rev_mean": 51619.0,
+      "rev_sd": 11042.0,
+      "persuadable_pct": 18.7
     },
     "Lower ceiling (high=0.80)": {
-      "ate_mean": 10.3,
+      "ate_mean": 10.2,
       "ate_sd": 1.6,
-      "rev_mean": 62461.0,
+      "rev_mean": 62460.0,
       "rev_sd": 13439.0,
       "persuadable_pct": 22.5
     },
     "No floor (floor=0.0)": {
       "ate_mean": 10.2,
       "ate_sd": 1.6,
-      "rev_mean": 62328.0,
-      "rev_sd": 13548.0,
+      "rev_mean": 62302.0,
+      "rev_sd": 13527.0,
       "persuadable_pct": 22.5
     },
     "No regularization (f=1)": {
       "ate_mean": 9.7,
       "ate_sd": 1.7,
-      "rev_mean": 74181.0,
-      "rev_sd": 21683.0,
+      "rev_mean": 73981.0,
+      "rev_sd": 21488.0,
       "persuadable_pct": 27.6
     }
   },
@@ -287,11 +303,6 @@
     }
   },
   "permutation_tests": {
-    "Response Model_vs_Random_ATE": {
-      "diff": -2.4,
-      "p_value": 1.0,
-      "cohens_d": -1.475
-    },
     "S-Learner_vs_Random_ATE": {
       "diff": 7.0,
       "p_value": 0.0002,
@@ -300,7 +311,7 @@
     "Uplift Only_vs_Random_ATE": {
       "diff": 5.1,
       "p_value": 0.0002,
-      "cohens_d": 2.5008
+      "cohens_d": 2.4962
     },
     "Uplift x LTV_vs_Random_ATE": {
       "diff": 4.2,
@@ -308,14 +319,14 @@
       "cohens_d": 2.0343
     },
     "Full Framework_vs_Random_ATE": {
-      "diff": 4.8,
+      "diff": 4.7,
       "p_value": 0.0002,
-      "cohens_d": 2.6094
+      "cohens_d": 2.6138
     },
     "S-Learner x LTV_vs_Random_ATE": {
       "diff": 5.9,
       "p_value": 0.0002,
-      "cohens_d": 2.8568
+      "cohens_d": 2.8591
     },
     "S-Learner Full_vs_Random_ATE": {
       "diff": 5.3,
@@ -323,44 +334,39 @@
       "cohens_d": 2.8587
     },
     "Uplift Only_vs_Random_Revenue": {
-      "diff": 37798.0,
+      "diff": 37931.0,
       "p_value": 0.0002,
-      "cohens_d": 1.7607
-    },
-    "Full Framework_vs_Uplift Only_Revenue": {
-      "diff": -4736.0,
-      "p_value": 0.9888,
-      "cohens_d": -0.3232
+      "cohens_d": 1.7551
     },
     "Full Framework_vs_Uplift x LTV_Revenue": {
-      "diff": -11821.0,
-      "p_value": 0.0002,
-      "cohens_d": -0.584
+      "diff": -11646.0,
+      "p_value": 0.0004,
+      "cohens_d": -0.5778
     },
     "S-Learner Full_vs_S-Learner_ATE": {
       "diff": -1.8,
-      "p_value": 1.0,
+      "p_value": 0.0002,
       "cohens_d": -1.3894
     },
     "S-Learner Full_vs_S-Learner_Revenue": {
       "diff": -10753.3,
-      "p_value": 1.0,
+      "p_value": 0.0002,
       "cohens_d": -0.8721
     },
     "S-Learner Full_vs_Full Framework_Revenue": {
-      "diff": 4223.0,
-      "p_value": 0.0002,
-      "cohens_d": 0.5389
+      "diff": 4248.0,
+      "p_value": 0.0004,
+      "cohens_d": 0.5404
     },
     "S-Learner x LTV_vs_Uplift x LTV_Revenue": {
-      "diff": 14385.0,
+      "diff": 14487.0,
       "p_value": 0.0002,
-      "cohens_d": 0.706
+      "cohens_d": 0.7208
     },
     "S-Learner x LTV_vs_S-Learner_Revenue": {
-      "diff": 11229.0,
+      "diff": 11131.0,
       "p_value": 0.0002,
-      "cohens_d": 0.6097
+      "cohens_d": 0.6072
     },
     "Response Model_vs_Random_ATE_twosided": {
       "diff": -2.4,
@@ -369,22 +375,20 @@
     }
   },
   "corrected_p_values": {
-    "S-Learner_vs_Random_ATE": 0.0032,
-    "Uplift Only_vs_Random_ATE": 0.0032,
-    "Uplift x LTV_vs_Random_ATE": 0.0032,
-    "Full Framework_vs_Random_ATE": 0.0032,
-    "S-Learner x LTV_vs_Random_ATE": 0.0032,
-    "S-Learner Full_vs_Random_ATE": 0.0032,
-    "Uplift Only_vs_Random_Revenue": 0.0032,
-    "Full Framework_vs_Uplift x LTV_Revenue": 0.0032,
-    "S-Learner Full_vs_Full Framework_Revenue": 0.0032,
-    "S-Learner x LTV_vs_Uplift x LTV_Revenue": 0.0032,
-    "S-Learner x LTV_vs_S-Learner_Revenue": 0.0032,
-    "Response Model_vs_Random_ATE_twosided": 0.0032,
-    "Full Framework_vs_Uplift Only_Revenue": 1.0,
-    "Response Model_vs_Random_ATE": 1.0,
-    "S-Learner Full_vs_S-Learner_ATE": 1.0,
-    "S-Learner Full_vs_S-Learner_Revenue": 1.0
+    "S-Learner_vs_Random_ATE": 0.0028,
+    "Uplift Only_vs_Random_ATE": 0.0028,
+    "Uplift x LTV_vs_Random_ATE": 0.0028,
+    "Full Framework_vs_Random_ATE": 0.0028,
+    "S-Learner x LTV_vs_Random_ATE": 0.0028,
+    "S-Learner Full_vs_Random_ATE": 0.0028,
+    "Uplift Only_vs_Random_Revenue": 0.0028,
+    "S-Learner Full_vs_S-Learner_ATE": 0.0028,
+    "S-Learner Full_vs_S-Learner_Revenue": 0.0028,
+    "S-Learner x LTV_vs_Uplift x LTV_Revenue": 0.0028,
+    "S-Learner x LTV_vs_S-Learner_Revenue": 0.0028,
+    "Response Model_vs_Random_ATE_twosided": 0.0028,
+    "Full Framework_vs_Uplift x LTV_Revenue": 0.0028,
+    "S-Learner Full_vs_Full Framework_Revenue": 0.0028
   },
   "responsible_gaming": {
     "avg_excluded_per_run": 36.0,
@@ -454,59 +458,59 @@
   "uplift_calibration": [
     {
       "decile": 1,
-      "mean_predicted_uplift": -0.1914,
-      "mean_latent_uplift": -0.0052
+      "mean_predicted_uplift": -0.1913,
+      "mean_latent_uplift": -0.0132
     },
     {
       "decile": 2,
       "mean_predicted_uplift": -0.0435,
-      "mean_latent_uplift": 0.0408
+      "mean_latent_uplift": 0.0157
     },
     {
       "decile": 3,
       "mean_predicted_uplift": -0.0117,
-      "mean_latent_uplift": 0.0475
+      "mean_latent_uplift": 0.0115
     },
     {
       "decile": 4,
       "mean_predicted_uplift": 0.0085,
-      "mean_latent_uplift": 0.0555
+      "mean_latent_uplift": 0.0271
     },
     {
       "decile": 5,
       "mean_predicted_uplift": 0.0292,
-      "mean_latent_uplift": 0.0616
+      "mean_latent_uplift": 0.0486
     },
     {
       "decile": 6,
-      "mean_predicted_uplift": 0.0514,
-      "mean_latent_uplift": 0.0646
+      "mean_predicted_uplift": 0.0513,
+      "mean_latent_uplift": 0.0592
     },
     {
       "decile": 7,
       "mean_predicted_uplift": 0.0772,
-      "mean_latent_uplift": 0.0713
+      "mean_latent_uplift": 0.0676
     },
     {
       "decile": 8,
       "mean_predicted_uplift": 0.1133,
-      "mean_latent_uplift": 0.0851
+      "mean_latent_uplift": 0.0809
     },
     {
       "decile": 9,
       "mean_predicted_uplift": 0.1724,
-      "mean_latent_uplift": 0.109
+      "mean_latent_uplift": 0.1045
     },
     {
       "decile": 10,
-      "mean_predicted_uplift": 0.3189,
-      "mean_latent_uplift": 0.1443
+      "mean_predicted_uplift": 0.319,
+      "mean_latent_uplift": 0.1403
     }
   ],
   "misspecification_test": {
     "full_features": {
       "ate_mean": 10.3,
-      "rev_mean": 65772.0
+      "rev_mean": 66105.0
     },
     "reduced_features": {
       "ate_mean": 7.0,
