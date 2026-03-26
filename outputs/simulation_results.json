@@ -36,6 +36,60 @@
       "n_causally_retained_mean": 76.0,
       "per_run_se": 0.19
     },
+    "Uplift Only": {
+      "ate_mean": 10.6,
+      "ate_sd": 1.8,
+      "ate_ci_lower": 10.1,
+      "ate_ci_upper": 11.1,
+      "inc_mean": 94.0,
+      "inc_sd": 16.0,
+      "inc_ci_lower": 90.0,
+      "inc_ci_upper": 99.0,
+      "rev_mean": 67097.0,
+      "rev_sd": 18492.0,
+      "rev_ci_lower": 61574.0,
+      "rev_ci_upper": 72578.0,
+      "pers_mean": 27.8,
+      "mean_ltv_causally_retained": 833.0,
+      "n_causally_retained_mean": 182.0,
+      "per_run_se": 0.25
+    },
+    "Uplift x LTV": {
+      "ate_mean": 9.7,
+      "ate_sd": 1.7,
+      "ate_ci_lower": 9.2,
+      "ate_ci_upper": 10.1,
+      "inc_mean": 86.0,
+      "inc_sd": 15.0,
+      "inc_ci_lower": 82.0,
+      "inc_ci_upper": 90.0,
+      "rev_mean": 74181.0,
+      "rev_sd": 21683.0,
+      "rev_ci_lower": 67910.0,
+      "rev_ci_upper": 80519.0,
+      "pers_mean": 27.6,
+      "mean_ltv_causally_retained": 1051.0,
+      "n_causally_retained_mean": 177.0,
+      "per_run_se": 0.24
+    },
+    "Full Framework": {
+      "ate_mean": 10.2,
+      "ate_sd": 1.6,
+      "ate_ci_lower": 9.8,
+      "ate_ci_upper": 10.6,
+      "inc_mean": 91.0,
+      "inc_sd": 14.0,
+      "inc_ci_lower": 87.0,
+      "inc_ci_upper": 95.0,
+      "rev_mean": 62361.0,
+      "rev_sd": 13441.0,
+      "rev_ci_lower": 58582.0,
+      "rev_ci_upper": 66201.0,
+      "pers_mean": 22.5,
+      "mean_ltv_causally_retained": 735.0,
+      "n_causally_retained_mean": 166.0,
+      "per_run_se": 0.23
+    },
     "S-Learner": {
       "ate_mean": 12.5,
       "ate_sd": 1.5,
@@ -54,60 +108,6 @@
       "n_causally_retained_mean": 199.0,
       "per_run_se": 0.21
     },
-    "Uplift Only": {
-      "ate_mean": 10.6,
-      "ate_sd": 1.8,
-      "ate_ci_lower": 10.1,
-      "ate_ci_upper": 11.1,
-      "inc_mean": 94.0,
-      "inc_sd": 16.0,
-      "inc_ci_lower": 90.0,
-      "inc_ci_upper": 99.0,
-      "rev_mean": 67230.0,
-      "rev_sd": 18628.0,
-      "rev_ci_lower": 61677.0,
-      "rev_ci_upper": 72666.0,
-      "pers_mean": 27.7,
-      "mean_ltv_causally_retained": 833.0,
-      "n_causally_retained_mean": 182.0,
-      "per_run_se": 0.25
-    },
-    "Uplift x LTV": {
-      "ate_mean": 9.7,
-      "ate_sd": 1.7,
-      "ate_ci_lower": 9.2,
-      "ate_ci_upper": 10.1,
-      "inc_mean": 86.0,
-      "inc_sd": 15.0,
-      "inc_ci_lower": 82.0,
-      "inc_ci_upper": 90.0,
-      "rev_mean": 73981.0,
-      "rev_sd": 21488.0,
-      "rev_ci_lower": 67901.0,
-      "rev_ci_upper": 80163.0,
-      "pers_mean": 27.6,
-      "mean_ltv_causally_retained": 1050.0,
-      "n_causally_retained_mean": 177.0,
-      "per_run_se": 0.24
-    },
-    "Full Framework": {
-      "ate_mean": 10.2,
-      "ate_sd": 1.6,
-      "ate_ci_lower": 9.8,
-      "ate_ci_upper": 10.6,
-      "inc_mean": 91.0,
-      "inc_sd": 14.0,
-      "inc_ci_lower": 87.0,
-      "inc_ci_upper": 95.0,
-      "rev_mean": 62335.0,
-      "rev_sd": 13419.0,
-      "rev_ci_lower": 58552.0,
-      "rev_ci_upper": 66142.0,
-      "pers_mean": 22.5,
-      "mean_ltv_causally_retained": 735.0,
-      "n_causally_retained_mean": 166.0,
-      "per_run_se": 0.23
-    },
     "S-Learner x LTV": {
       "ate_mean": 11.4,
       "ate_sd": 2.0,
@@ -117,10 +117,10 @@
       "inc_sd": 18.0,
       "inc_ci_lower": 96.0,
       "inc_ci_upper": 106.0,
-      "rev_mean": 88468.0,
-      "rev_sd": 22124.0,
-      "rev_ci_lower": 82429.0,
-      "rev_ci_upper": 94590.0,
+      "rev_mean": 88566.0,
+      "rev_sd": 22305.0,
+      "rev_ci_lower": 82432.0,
+      "rev_ci_upper": 94721.0,
       "pers_mean": 31.5,
       "mean_ltv_causally_retained": 1039.0,
       "n_causally_retained_mean": 195.0,
@@ -150,7 +150,7 @@
       "decile": 1,
       "proportion": 0.1,
       "cum_inc_mean": 42.0,
-      "decile_ate_mean": 14.0
+      "decile_ate_mean": 13.9
     },
     {
       "decile": 2,
@@ -185,13 +185,13 @@
     {
       "decile": 7,
       "proportion": 0.7,
-      "cum_inc_mean": 157.0,
+      "cum_inc_mean": 158.0,
       "decile_ate_mean": 7.5
     },
     {
       "decile": 8,
       "proportion": 0.8,
-      "cum_inc_mean": 162.0,
+      "cum_inc_mean": 163.0,
       "decile_ate_mean": 6.8
     },
     {
@@ -211,57 +211,57 @@
     "Default (0.05/0.40/0.60)": {
       "ate_mean": 10.2,
       "ate_sd": 1.6,
-      "rev_mean": 62335.0,
-      "rev_sd": 13419.0,
+      "rev_mean": 62361.0,
+      "rev_sd": 13441.0,
       "persuadable_pct": 22.5
     },
     "Narrow (0.10/0.30/0.50)": {
       "ate_mean": 9.7,
-      "ate_sd": 1.6,
-      "rev_mean": 52559.0,
-      "rev_sd": 10876.0,
+      "ate_sd": 1.5,
+      "rev_mean": 52507.0,
+      "rev_sd": 10808.0,
       "persuadable_pct": 19.2
     },
     "Wide (0.03/0.50/0.70)": {
       "ate_mean": 10.4,
       "ate_sd": 1.6,
-      "rev_mean": 65719.0,
-      "rev_sd": 14446.0,
+      "rev_mean": 65661.0,
+      "rev_sd": 14382.0,
       "persuadable_pct": 23.4
     },
     "Shifted low (0.05/0.25/0.45)": {
       "ate_mean": 10.2,
       "ate_sd": 1.6,
-      "rev_mean": 63399.0,
-      "rev_sd": 13826.0,
+      "rev_mean": 63379.0,
+      "rev_sd": 13808.0,
       "persuadable_pct": 23.4
     },
     "Shifted high (0.10/0.55/0.75)": {
       "ate_mean": 9.6,
       "ate_sd": 1.6,
-      "rev_mean": 51619.0,
-      "rev_sd": 11042.0,
-      "persuadable_pct": 18.7
+      "rev_mean": 51583.0,
+      "rev_sd": 10993.0,
+      "persuadable_pct": 18.8
     },
     "Lower ceiling (high=0.80)": {
-      "ate_mean": 10.2,
+      "ate_mean": 10.3,
       "ate_sd": 1.6,
-      "rev_mean": 62460.0,
+      "rev_mean": 62461.0,
       "rev_sd": 13439.0,
       "persuadable_pct": 22.5
     },
     "No floor (floor=0.0)": {
       "ate_mean": 10.2,
       "ate_sd": 1.6,
-      "rev_mean": 62302.0,
-      "rev_sd": 13527.0,
+      "rev_mean": 62328.0,
+      "rev_sd": 13548.0,
       "persuadable_pct": 22.5
     },
     "No regularization (f=1)": {
       "ate_mean": 9.7,
       "ate_sd": 1.7,
-      "rev_mean": 73981.0,
-      "rev_sd": 21488.0,
+      "rev_mean": 74181.0,
+      "rev_sd": 21683.0,
       "persuadable_pct": 27.6
     }
   },
@@ -303,15 +303,10 @@
     }
   },
   "permutation_tests": {
-    "S-Learner_vs_Random_ATE": {
-      "diff": 7.0,
-      "p_value": 0.0002,
-      "cohens_d": 4.0412
-    },
     "Uplift Only_vs_Random_ATE": {
       "diff": 5.1,
       "p_value": 0.0002,
-      "cohens_d": 2.4962
+      "cohens_d": 2.5008
     },
     "Uplift x LTV_vs_Random_ATE": {
       "diff": 4.2,
@@ -319,14 +314,19 @@
       "cohens_d": 2.0343
     },
     "Full Framework_vs_Random_ATE": {
-      "diff": 4.7,
+      "diff": 4.8,
       "p_value": 0.0002,
-      "cohens_d": 2.6138
+      "cohens_d": 2.6094
+    },
+    "S-Learner_vs_Random_ATE": {
+      "diff": 7.0,
+      "p_value": 0.0002,
+      "cohens_d": 4.0412
     },
     "S-Learner x LTV_vs_Random_ATE": {
       "diff": 5.9,
       "p_value": 0.0002,
-      "cohens_d": 2.8591
+      "cohens_d": 2.8568
     },
     "S-Learner Full_vs_Random_ATE": {
       "diff": 5.3,
@@ -334,14 +334,14 @@
       "cohens_d": 2.8587
     },
     "Uplift Only_vs_Random_Revenue": {
-      "diff": 37931.0,
+      "diff": 37798.0,
       "p_value": 0.0002,
-      "cohens_d": 1.7551
+      "cohens_d": 1.7607
     },
     "Full Framework_vs_Uplift x LTV_Revenue": {
-      "diff": -11646.0,
-      "p_value": 0.0004,
-      "cohens_d": -0.5778
+      "diff": -11821.0,
+      "p_value": 0.0002,
+      "cohens_d": -0.584
     },
     "S-Learner Full_vs_S-Learner_ATE": {
       "diff": -1.8,
@@ -354,19 +354,19 @@
       "cohens_d": -0.8721
     },
     "S-Learner Full_vs_Full Framework_Revenue": {
-      "diff": 4248.0,
+      "diff": 4223.0,
       "p_value": 0.0004,
-      "cohens_d": 0.5404
+      "cohens_d": 0.5389
     },
     "S-Learner x LTV_vs_Uplift x LTV_Revenue": {
-      "diff": 14487.0,
+      "diff": 14385.0,
       "p_value": 0.0002,
-      "cohens_d": 0.7208
+      "cohens_d": 0.706
     },
     "S-Learner x LTV_vs_S-Learner_Revenue": {
-      "diff": 11131.0,
+      "diff": 11229.0,
       "p_value": 0.0002,
-      "cohens_d": 0.6072
+      "cohens_d": 0.6097
     },
     "Response Model_vs_Random_ATE_twosided": {
       "diff": -2.4,
@@ -375,19 +375,19 @@
     }
   },
   "corrected_p_values": {
-    "S-Learner_vs_Random_ATE": 0.0028,
     "Uplift Only_vs_Random_ATE": 0.0028,
     "Uplift x LTV_vs_Random_ATE": 0.0028,
     "Full Framework_vs_Random_ATE": 0.0028,
+    "S-Learner_vs_Random_ATE": 0.0028,
     "S-Learner x LTV_vs_Random_ATE": 0.0028,
     "S-Learner Full_vs_Random_ATE": 0.0028,
     "Uplift Only_vs_Random_Revenue": 0.0028,
+    "Full Framework_vs_Uplift x LTV_Revenue": 0.0028,
     "S-Learner Full_vs_S-Learner_ATE": 0.0028,
     "S-Learner Full_vs_S-Learner_Revenue": 0.0028,
     "S-Learner x LTV_vs_Uplift x LTV_Revenue": 0.0028,
     "S-Learner x LTV_vs_S-Learner_Revenue": 0.0028,
     "Response Model_vs_Random_ATE_twosided": 0.0028,
-    "Full Framework_vs_Uplift x LTV_Revenue": 0.0028,
     "S-Learner Full_vs_Full Framework_Revenue": 0.0028
   },
   "responsible_gaming": {
@@ -425,7 +425,32 @@
       "Sleeping Dogs": 0.0998
     },
     "expected_segment_mean_ate_pp": 6.7,
-    "note": "This DGP is a favourable proof-of-concept design rather than a direct computational instantiation of the pedagogical four-segment table. Sure Things and Lost Causes have small positive mean effects, so the population ATE is positive across most score deciles."
+    "component_correlations": {
+      "tau_ltv": -0.19,
+      "tau_churn": 0.16,
+      "ltv_churn": -0.48
+    },
+    "churn_regime_shares": {
+      "zero": 31.8,
+      "ramp": 59.1,
+      "plateau": 7.3,
+      "descent": 1.7,
+      "floor": 0.0
+    },
+    "segment_mean_churn": {
+      "Sure Things": 0.07,
+      "Persuadables": 0.14,
+      "Lost Causes": 0.27,
+      "Sleeping Dogs": 0.09
+    },
+    "note": "This DGP is a favourable proof-of-concept design rather than a direct computational instantiation of the pedagogical four-segment table. Baseline retention probabilities are modulated by login frequency (y0 = baseline + 0.1 * z_login, clipped), so realised segment-level means differ from the nominal table values. Sure Things and Lost Causes have small positive mean effects, so the population ATE is positive across most score deciles."
+  },
+  "strategy_name_mapping": {
+    "Full Framework": "Full Framework (T)",
+    "S-Learner Full": "Full Framework (S)",
+    "Uplift Only": "Uplift Only (T)",
+    "S-Learner": "S-Learner Uplift",
+    "note": "JSON keys use internal names; manuscript uses the mapped names above."
   },
   "methodology_notes": {
     "bootstrap_method": "CIs computed by bootstrapping over run-level means. This captures simulation-to-simulation variability.",
@@ -458,13 +483,13 @@
   "uplift_calibration": [
     {
       "decile": 1,
-      "mean_predicted_uplift": -0.1913,
-      "mean_latent_uplift": -0.0132
+      "mean_predicted_uplift": -0.1914,
+      "mean_latent_uplift": -0.0133
     },
     {
       "decile": 2,
       "mean_predicted_uplift": -0.0435,
-      "mean_latent_uplift": 0.0157
+      "mean_latent_uplift": 0.0154
     },
     {
       "decile": 3,
@@ -474,43 +499,43 @@
     {
       "decile": 4,
       "mean_predicted_uplift": 0.0085,
-      "mean_latent_uplift": 0.0271
+      "mean_latent_uplift": 0.0273
     },
     {
       "decile": 5,
       "mean_predicted_uplift": 0.0292,
-      "mean_latent_uplift": 0.0486
+      "mean_latent_uplift": 0.0484
     },
     {
       "decile": 6,
-      "mean_predicted_uplift": 0.0513,
-      "mean_latent_uplift": 0.0592
+      "mean_predicted_uplift": 0.0514,
+      "mean_latent_uplift": 0.0594
     },
     {
       "decile": 7,
       "mean_predicted_uplift": 0.0772,
-      "mean_latent_uplift": 0.0676
+      "mean_latent_uplift": 0.0675
     },
     {
       "decile": 8,
       "mean_predicted_uplift": 0.1133,
-      "mean_latent_uplift": 0.0809
+      "mean_latent_uplift": 0.0813
     },
     {
       "decile": 9,
       "mean_predicted_uplift": 0.1724,
-      "mean_latent_uplift": 0.1045
+      "mean_latent_uplift": 0.1042
     },
     {
       "decile": 10,
-      "mean_predicted_uplift": 0.319,
-      "mean_latent_uplift": 0.1403
+      "mean_predicted_uplift": 0.3189,
+      "mean_latent_uplift": 0.1404
     }
   ],
   "misspecification_test": {
     "full_features": {
       "ate_mean": 10.3,
-      "rev_mean": 66105.0
+      "rev_mean": 65772.0
     },
     "reduced_features": {
       "ate_mean": 7.0,

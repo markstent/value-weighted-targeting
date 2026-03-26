@@ -904,6 +904,27 @@ def main():
         'avg_excluded_pct_test': round(avg_rg_excluded_pct_test, 2),
         'exclusion_criteria': 'Players with weekly_spend > 90th percentile AND login_freq > 90th percentile',
     }
+    # Component correlations and churn-regime shares (averaged over runs)
+    all_corr_tau_ltv = []
+    all_corr_tau_churn = []
+    all_corr_ltv_churn = []
+    all_churn_regimes = {'zero': [], 'ramp': [], 'plateau': [], 'descent': [], 'floor': []}
+    all_seg_churn_means = {seg: [] for seg in SEGMENTS}
+    for rd in all_run_data:
+        df_t = rd['df_test']
+        all_corr_tau_ltv.append(np.corrcoef(df_t['true_tau'], df_t['ltv'])[0, 1])
+        all_corr_tau_churn.append(np.corrcoef(df_t['true_tau'], df_t['churn_prob'])[0, 1])
+        all_corr_ltv_churn.append(np.corrcoef(df_t['ltv'], df_t['churn_prob'])[0, 1])
+        cp = df_t['churn_prob'].values
+        all_churn_regimes['zero'].append(float(np.mean(cp < 0.05)))
+        all_churn_regimes['ramp'].append(float(np.mean((cp >= 0.05) & (cp < 0.40))))
+        all_churn_regimes['plateau'].append(float(np.mean((cp >= 0.40) & (cp <= 0.60))))
+        all_churn_regimes['descent'].append(float(np.mean((cp > 0.60) & (cp < 0.90))))
+        all_churn_regimes['floor'].append(float(np.mean(cp >= 0.90)))
+        for seg in SEGMENTS:
+            seg_mask = df_t['segment'] == seg
+            all_seg_churn_means[seg].append(float(df_t.loc[seg_mask, 'churn_prob'].mean()))
+
     output['simulation_design'] = {
         'segment_parameters': {
             name: {
@@ -918,12 +939,35 @@ def main():
             for seg, shares in all_seg_shares.items()
         },
         'expected_segment_mean_ate_pp': expected_segment_mean_ate_pp(),
+        'component_correlations': {
+            'tau_ltv': round(float(np.mean(all_corr_tau_ltv)), 2),
+            'tau_churn': round(float(np.mean(all_corr_tau_churn)), 2),
+            'ltv_churn': round(float(np.mean(all_corr_ltv_churn)), 2),
+        },
+        'churn_regime_shares': {
+            regime: round(float(np.mean(shares)) * 100, 1)
+            for regime, shares in all_churn_regimes.items()
+        },
+        'segment_mean_churn': {
+            seg: round(float(np.mean(means)), 2)
+            for seg, means in all_seg_churn_means.items()
+        },
         'note': (
             'This DGP is a favourable proof-of-concept design rather than a direct '
             'computational instantiation of the pedagogical four-segment table. '
+            'Baseline retention probabilities are modulated by login frequency '
+            '(y0 = baseline + 0.1 * z_login, clipped), so realised segment-level '
+            'means differ from the nominal table values. '
             'Sure Things and Lost Causes have small positive mean effects, so the '
             'population ATE is positive across most score deciles.'
         ),
+    }
+    output['strategy_name_mapping'] = {
+        'Full Framework': 'Full Framework (T)',
+        'S-Learner Full': 'Full Framework (S)',
+        'Uplift Only': 'Uplift Only (T)',
+        'S-Learner': 'S-Learner Uplift',
+        'note': 'JSON keys use internal names; manuscript uses the mapped names above.',
     }
     output['methodology_notes'] = {
         'bootstrap_method': 'CIs computed by bootstrapping over run-level means. This captures simulation-to-simulation variability.',
