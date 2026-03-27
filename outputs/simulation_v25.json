@@ -1,0 +1,278 @@
+{
+  "main_results": {
+    "Random": {
+      "ate_mean": 1.2,
+      "ate_sd": 2.1,
+      "welfare_mean": 5424.0,
+      "welfare_sd": 1320.0,
+      "risk_mean": 0.166,
+      "risk_sd": 0.003,
+      "mean_churn_mod": 0.512,
+      "mean_ltv_cr": 697.0
+    },
+    "CATE Only": {
+      "ate_mean": 3.1,
+      "ate_sd": 2.0,
+      "welfare_mean": 16566.0,
+      "welfare_sd": 2968.0,
+      "risk_mean": 0.153,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.485,
+      "mean_ltv_cr": 665.0
+    },
+    "CATE x LTV": {
+      "ate_mean": 2.9,
+      "ate_sd": 2.0,
+      "welfare_mean": 15818.0,
+      "welfare_sd": 3092.0,
+      "risk_mean": 0.136,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.441,
+      "mean_ltv_cr": 755.0
+    },
+    "Full Framework (Est.)": {
+      "ate_mean": 2.6,
+      "ate_sd": 2.0,
+      "welfare_mean": 13109.0,
+      "welfare_sd": 3016.0,
+      "risk_mean": 0.146,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.469,
+      "mean_ltv_cr": 724.0
+    },
+    "Full Framework (CV)": {
+      "ate_mean": 3.1,
+      "ate_sd": 2.0,
+      "welfare_mean": 15849.0,
+      "welfare_sd": 2869.0,
+      "risk_mean": 0.14,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.454,
+      "mean_ltv_cr": 742.0
+    },
+    "Full Framework (Oracle)": {
+      "ate_mean": 6.7,
+      "ate_sd": 2.0,
+      "welfare_mean": 36670.0,
+      "welfare_sd": 709.0,
+      "risk_mean": 0.192,
+      "risk_sd": 0.003,
+      "mean_churn_mod": 0.596,
+      "mean_ltv_cr": 591.0
+    },
+    "Single Model": {
+      "ate_mean": 5.6,
+      "ate_sd": 2.0,
+      "welfare_mean": 28560.0,
+      "welfare_sd": 796.0,
+      "risk_mean": 0.171,
+      "risk_sd": 0.004,
+      "mean_churn_mod": 0.54,
+      "mean_ltv_cr": 547.0
+    }
+  },
+  "frontier": [
+    {
+      "config": "No reg (g=1)",
+      "welfare_mean": 15818.0,
+      "welfare_sd": 3092.0,
+      "risk_mean": 0.136,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.441
+    },
+    {
+      "config": "Wide (0.03/0.50/0.70)",
+      "welfare_mean": 12017.0,
+      "welfare_sd": 3159.0,
+      "risk_mean": 0.148,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.473
+    },
+    {
+      "config": "Default (0.05/0.40/0.60)",
+      "welfare_mean": 13109.0,
+      "welfare_sd": 3016.0,
+      "risk_mean": 0.146,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.469
+    },
+    {
+      "config": "Narrow (0.10/0.30/0.50)",
+      "welfare_mean": 14528.0,
+      "welfare_sd": 2937.0,
+      "risk_mean": 0.145,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.465
+    },
+    {
+      "config": "Aggressive (0.15/0.35/0.50/phi=0.05)",
+      "welfare_mean": 13368.0,
+      "welfare_sd": 2908.0,
+      "risk_mean": 0.149,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.477
+    },
+    {
+      "config": "CV-calibrated",
+      "welfare_mean": 15849.0,
+      "welfare_sd": 2869.0,
+      "risk_mean": 0.14,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.454
+    }
+  ],
+  "misspecification": {
+    "inverted_g": {
+      "welfare_mean": 13400.0,
+      "risk_mean": 0.146
+    }
+  },
+  "budget_sensitivity": {
+    "0.1": {
+      "Random": {
+        "welfare_mean": 1793.0,
+        "ate_mean": 1.3
+      },
+      "CATE Only": {
+        "welfare_mean": 4948.0,
+        "ate_mean": 2.2
+      },
+      "CATE x LTV": {
+        "welfare_mean": 3235.0,
+        "ate_mean": 1.5
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 2584.0,
+        "ate_mean": 1.1
+      },
+      "Full Framework (CV)": {
+        "welfare_mean": 3838.0,
+        "ate_mean": 1.5
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 16111.0,
+        "ate_mean": 8.8
+      },
+      "Single Model": {
+        "welfare_mean": 10849.0,
+        "ate_mean": 6.9
+      }
+    },
+    "0.2": {
+      "Random": {
+        "welfare_mean": 3499.0,
+        "ate_mean": 1.0
+      },
+      "CATE Only": {
+        "welfare_mean": 11095.0,
+        "ate_mean": 2.6
+      },
+      "CATE x LTV": {
+        "welfare_mean": 9822.0,
+        "ate_mean": 2.2
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 7902.0,
+        "ate_mean": 1.8
+      },
+      "Full Framework (CV)": {
+        "welfare_mean": 10298.0,
+        "ate_mean": 2.3
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 27554.0,
+        "ate_mean": 7.5
+      },
+      "Single Model": {
+        "welfare_mean": 20438.0,
+        "ate_mean": 5.8
+      }
+    },
+    "0.3": {
+      "Random": {
+        "welfare_mean": 5271.0,
+        "ate_mean": 1.0
+      },
+      "CATE Only": {
+        "welfare_mean": 17120.0,
+        "ate_mean": 2.6
+      },
+      "CATE x LTV": {
+        "welfare_mean": 16281.0,
+        "ate_mean": 2.5
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 13459.0,
+        "ate_mean": 2.2
+      },
+      "Full Framework (CV)": {
+        "welfare_mean": 16215.0,
+        "ate_mean": 2.7
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 36736.0,
+        "ate_mean": 6.4
+      },
+      "Single Model": {
+        "welfare_mean": 28693.0,
+        "ate_mean": 5.4
+      }
+    },
+    "0.5": {
+      "Random": {
+        "welfare_mean": 8683.0,
+        "ate_mean": 0.7
+      },
+      "CATE Only": {
+        "welfare_mean": 27216.0,
+        "ate_mean": 2.7
+      },
+      "CATE x LTV": {
+        "welfare_mean": 27214.0,
+        "ate_mean": 2.7
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 25483.0,
+        "ate_mean": 2.5
+      },
+      "Full Framework (CV)": {
+        "welfare_mean": 26741.0,
+        "ate_mean": 2.7
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 49843.0,
+        "ate_mean": 4.9
+      },
+      "Single Model": {
+        "welfare_mean": 41752.0,
+        "ate_mean": 4.3
+      }
+    }
+  },
+  "cv_calibration": {
+    "most_common_configs": {
+      "[('pL', 0.05), ('pMH', 0.5), ('pML', 0.25), ('phi', 0.1)]": 200
+    }
+  },
+  "dgp": {
+    "features": {
+      "account_age": "N(24, 8), clipped [1, 60]",
+      "weekly_spend": "exp(N(3.5, 0.8)), clipped [5, 500]",
+      "login_freq": "Poisson(4), clipped [1, 15]",
+      "bonus_history": "N(3, 1.5), clipped [0, 10]"
+    },
+    "churn": "logit = -1.0 + 0.04*(30-age) - 0.25*login + 0.01*(40-spend) + 0.1*z_bonus + N(0,0.4); sigmoid, clip [0.01, 0.99]",
+    "ltv": "10*spend + 40*login + 5*age + N(0,80), clip [50, 8000]",
+    "cate": "tau_base = 0.06 + 0.10*z_login - 0.02*z_login^2 - 0.04*z_spend; churn_mod = 4*p*(1-p); tau = tau_base * churn_mod + N(0,0.03), clip [-0.20, 0.40]",
+    "baseline": "0.6 + 0.15*z_login + 0.05*z_spend - 0.08*z_age + N(0,0.05), clip [0.05, 0.95]",
+    "treatment": "Bernoulli(0.5)",
+    "note": "The CATE-churn moderation (4*p*(1-p)) creates an inverse-U relationship: treatment effects peak at moderate churn (p=0.5) and are attenuated at extremes. This is the structural feature that risk modulation is designed to exploit."
+  },
+  "design": {
+    "n_players": 10000,
+    "n_runs": 200,
+    "default_budget": 0.3,
+    "treatment_prob": 0.5,
+    "budget_sensitivity_runs": 50
+  }
+}
