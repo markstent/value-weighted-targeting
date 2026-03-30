@@ -1,41 +1,52 @@
 # Optimal Risk-Modulated Treatment Targeting Under Budget Constraints
 
-Companion repository for the paper "Optimal Risk-Modulated Treatment Targeting Under Budget Constraints". Contains the manuscript source, compiled PDF, and archived simulation code.
+Companion repository for the paper *Optimal Risk-Modulated Treatment Targeting Under Budget Constraints* by Mark Stent.
 
-## Summary
+**[PDF](docs/manuscript_v37.pdf)**
 
-This paper formalises value-weighted uplift targeting (tau x V) as the welfare-maximising rule under a budget constraint, and extends it with a risk-modulation function g that encodes operator preferences at a quantifiable welfare cost. A simulation study across three scenarios (well-specified CATE, misspecified CATE, null DGP) confirms the theoretical predictions and quantifies the welfare-interpretability trade-off between decomposed and single-model approaches.
+---
+
+## Abstract
+
+Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. This paper defines a welfare function that weights each individual's treatment effect by their outcome value and an operator-configurable risk-modulation function, and shows that the welfare-maximising deterministic rule under a budget constraint ranks individuals by a composite score decomposed into three independently estimable components. The value-conservatism trade-off quantifies the welfare cost of the operator's targeting preferences, enabling informed decisions about when risk modulation is worth the cost. A simulation study across three scenarios validates the theoretical predictions and quantifies the welfare-interpretability trade-off between decomposed and single-model approaches.
+
+## Key Findings
+
+| Finding | Detail |
+|---------|--------|
+| Value-weighted targeting outperforms CATE-only under misspecification | 6,955 vs 6,700 welfare (*p* < 0.0001) |
+| Calibration recovers *g* = 1 across all scenarios | Consistent with the value-conservatism trade-off (Proposition 3) |
+| Value-weighting advantage is budget-dependent | Strongest at moderate-to-generous budgets; at tight budgets, pure CATE targeting may be preferable |
+| Welfare-interpretability trade-off is quantifiable | S-Learner achieves 46% higher welfare than decomposed strategies, but sacrifices auditability and component-wise control |
 
 ## Repository Structure
 
 ```
-docs/                   # Current manuscript (latest version only)
-  manuscript_v37.tex    # LaTeX source
-  manuscript_v37.pdf    # Compiled PDF
-previous/               # Archived versions, reviews, simulation code, and data (gitignored)
+docs/
+  manuscript_v37.tex        LaTeX source (current version)
+  manuscript_v37.pdf        Compiled manuscript
+previous/                   Archived drafts, reviews, simulation code, and data (not tracked)
 ```
 
-## Current Version
+## Building the PDF
 
-**v37** (2026-03-30) - Latest revision addressing external review feedback:
-- Notation consistency fixes (abstract, hat-g clarification)
-- Tightened calibration framing (verification, not discovery)
-- Budget-dependent tau x V recommendation caveat
-- S-Learner hyperparameter qualifier
-- Table cross-referencing and caption improvements
-
-## Building
-
-Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution:
+Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
 
 ```bash
-cd docs
-tectonic manuscript_v37.tex
+cd docs && tectonic manuscript_v37.tex
 ```
 
-## Key Results
+## Citation
 
-- Value-weighted targeting (tau x V) significantly outperforms CATE-only under misspecification (6,955 vs 6,700; p < 0.0001)
-- Calibration recovers g ~ 1 across all scenarios, confirming the value-conservatism trade-off (Proposition 3)
-- The tau x V advantage is budget-dependent: strongest at moderate-to-generous budgets (kappa >= 0.20)
-- S-Learner achieves 46% higher welfare than decomposed strategies, quantifying the welfare-interpretability trade-off
+```bibtex
+@unpublished{stent2026riskmodulated,
+  title   = {Optimal Risk-Modulated Treatment Targeting Under Budget Constraints},
+  author  = {Stent, Mark},
+  year    = {2026},
+  note    = {Working paper}
+}
+```
+
+## License
+
+All rights reserved. This repository is provided for review and reference purposes.
