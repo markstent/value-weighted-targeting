@@ -9,13 +9,10 @@ This paper formalises value-weighted uplift targeting (tau x V) as the welfare-m
 ## Repository Structure
 
 ```
-docs/                   # Current manuscript versions and PDFs
-  manuscript_v37.tex    # Latest manuscript (LaTeX source)
-  manuscript_v37.pdf    # Latest compiled PDF
-reviews/                # Peer review reports by version
-src/                    # Simulation code
-outputs/                # Simulation output data (JSON)
-previous/               # Archived early versions (v1-v22), legacy code, and data
+docs/                   # Current manuscript (latest version only)
+  manuscript_v37.tex    # LaTeX source
+  manuscript_v37.pdf    # Compiled PDF
+previous/               # Archived versions, reviews, simulation code, and data (gitignored)
 ```
 
 ## Current Version

@@ -36,3 +36,9 @@ test_*.docx
 
 # Data files (downloaded on first run)
 data/hillstrom.csv
+
+# Archived previous versions and old simulation code
+previous/
+src/
+outputs/
+reviews/
