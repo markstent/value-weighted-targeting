@@ -1,6 +1,6 @@
 # Optimal Risk-Modulated Treatment Targeting Under Budget Constraints
 
-Working paper on budget-constrained treatment targeting with value-weighted uplift and operator-configurable risk modulation.
+Companion repository for the paper "Optimal Risk-Modulated Treatment Targeting Under Budget Constraints". Contains the manuscript source, compiled PDF, and archived simulation code.
 
 ## Summary
 
