@@ -1,0 +1,724 @@
+{
+  "main_results": {
+    "Random": {
+      "ate_mean": 1.2,
+      "ate_sd": 2.1,
+      "welfare_mean": 5399.0,
+      "welfare_sd": 1359.0,
+      "risk_mean": 0.166,
+      "risk_sd": 0.003,
+      "mean_churn_mod": 0.512,
+      "mean_ltv_cr": 697.0
+    },
+    "CATE Only": {
+      "ate_mean": 3.3,
+      "ate_sd": 1.9,
+      "welfare_mean": 16634.0,
+      "welfare_sd": 2954.0,
+      "risk_mean": 0.153,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.485,
+      "mean_ltv_cr": 666.0
+    },
+    "CATE x LTV": {
+      "ate_mean": 3.0,
+      "ate_sd": 2.0,
+      "welfare_mean": 16427.0,
+      "welfare_sd": 3090.0,
+      "risk_mean": 0.136,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.44,
+      "mean_ltv_cr": 761.0
+    },
+    "Full Framework (Est.)": {
+      "ate_mean": 2.8,
+      "ate_sd": 2.0,
+      "welfare_mean": 13629.0,
+      "welfare_sd": 3008.0,
+      "risk_mean": 0.146,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.468,
+      "mean_ltv_cr": 730.0
+    },
+    "Full Framework (Cal.)": {
+      "ate_mean": 3.0,
+      "ate_sd": 2.0,
+      "welfare_mean": 16427.0,
+      "welfare_sd": 3090.0,
+      "risk_mean": 0.136,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.44,
+      "mean_ltv_cr": 761.0
+    },
+    "Full Framework (Oracle)": {
+      "ate_mean": 6.7,
+      "ate_sd": 2.0,
+      "welfare_mean": 36641.0,
+      "welfare_sd": 704.0,
+      "risk_mean": 0.192,
+      "risk_sd": 0.003,
+      "mean_churn_mod": 0.596,
+      "mean_ltv_cr": 591.0
+    },
+    "S-Learner": {
+      "ate_mean": 3.9,
+      "ate_sd": 2.0,
+      "welfare_mean": 24310.0,
+      "welfare_sd": 4098.0,
+      "risk_mean": 0.12,
+      "risk_sd": 0.017,
+      "mean_churn_mod": 0.399,
+      "mean_ltv_cr": 776.0
+    }
+  },
+  "frontier": [
+    {
+      "config": "No reg (g=1)",
+      "welfare_mean": 16427.0,
+      "welfare_sd": 3090.0,
+      "risk_mean": 0.136,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.44
+    },
+    {
+      "config": "Wide (0.03/0.50/0.70)",
+      "welfare_mean": 12588.0,
+      "welfare_sd": 3143.0,
+      "risk_mean": 0.148,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.472
+    },
+    {
+      "config": "Default (0.05/0.40/0.60)",
+      "welfare_mean": 13629.0,
+      "welfare_sd": 3008.0,
+      "risk_mean": 0.146,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.468
+    },
+    {
+      "config": "Narrow (0.10/0.30/0.50)",
+      "welfare_mean": 14940.0,
+      "welfare_sd": 2920.0,
+      "risk_mean": 0.145,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.464
+    },
+    {
+      "config": "Aggressive (0.15/0.35/0.50/phi=0.05)",
+      "welfare_mean": 13713.0,
+      "welfare_sd": 2934.0,
+      "risk_mean": 0.149,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.476
+    },
+    {
+      "config": "Calibrated",
+      "welfare_mean": 16427.0,
+      "welfare_sd": 3090.0,
+      "risk_mean": 0.136,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.44
+    }
+  ],
+  "misspecification": {
+    "inverted_g": {
+      "welfare_mean": 13905.0,
+      "risk_mean": 0.145
+    }
+  },
+  "calibration_summary": {
+    "most_common_configs": {
+      "[('pL', 0.0), ('pMH', 0.99), ('pML', 0.01), ('phi', 1.0)]": 197,
+      "[('pL', 0.0), ('pMH', 0.9), ('pML', 0.1), ('phi', 0.5)]": 3
+    }
+  },
+  "paired_tests": {
+    "CATE Only vs Random": {
+      "mean_diff": 11235.0,
+      "se_diff": 221.0,
+      "t_stat": 50.61,
+      "p_value": 0.0,
+      "cohens_d": 3.579,
+      "ci_95": [
+        10797.0,
+        11673.0
+      ],
+      "p_holm": 0.0
+    },
+    "CATE x LTV vs Random": {
+      "mean_diff": 11029.0,
+      "se_diff": 227.0,
+      "t_stat": 48.38,
+      "p_value": 0.0,
+      "cohens_d": 3.421,
+      "ci_95": [
+        10579.0,
+        11478.0
+      ],
+      "p_holm": 0.0
+    },
+    "Full Framework (Cal.) vs CATE x LTV": {
+      "mean_diff": -1.0,
+      "se_diff": 1.0,
+      "t_stat": -0.97,
+      "p_value": 0.3332,
+      "cohens_d": -0.069,
+      "ci_95": [
+        -3.0,
+        1.0
+      ],
+      "p_holm": 0.3332
+    },
+    "Full Framework (Cal.) vs CATE Only": {
+      "mean_diff": -207.0,
+      "se_diff": 63.0,
+      "t_stat": -3.27,
+      "p_value": 0.0013,
+      "cohens_d": -0.231,
+      "ci_95": [
+        -332.0,
+        -82.0
+      ],
+      "p_holm": 0.0026
+    },
+    "Full Framework (Est.) vs CATE x LTV": {
+      "mean_diff": -2799.0,
+      "se_diff": 61.0,
+      "t_stat": -45.59,
+      "p_value": 0.0,
+      "cohens_d": -3.224,
+      "ci_95": [
+        -2920.0,
+        -2678.0
+      ],
+      "p_holm": 0.0
+    },
+    "Full Framework (Oracle) vs CATE x LTV": {
+      "mean_diff": 20214.0,
+      "se_diff": 217.0,
+      "t_stat": 92.74,
+      "p_value": 0.0,
+      "cohens_d": 6.558,
+      "ci_95": [
+        19784.0,
+        20644.0
+      ],
+      "p_holm": 0.0
+    }
+  },
+  "xlearner_results": {
+    "Random": {
+      "ate_mean": 1.2,
+      "ate_sd": 2.1,
+      "welfare_mean": 5399.0,
+      "welfare_sd": 1359.0,
+      "risk_mean": 0.166,
+      "risk_sd": 0.003,
+      "mean_churn_mod": 0.512,
+      "mean_ltv_cr": 697.0
+    },
+    "CATE Only": {
+      "ate_mean": 3.8,
+      "ate_sd": 2.0,
+      "welfare_mean": 20456.0,
+      "welfare_sd": 3204.0,
+      "risk_mean": 0.147,
+      "risk_sd": 0.014,
+      "mean_churn_mod": 0.47,
+      "mean_ltv_cr": 644.0
+    },
+    "CATE x LTV": {
+      "ate_mean": 3.5,
+      "ate_sd": 2.1,
+      "welfare_mean": 20191.0,
+      "welfare_sd": 3502.0,
+      "risk_mean": 0.128,
+      "risk_sd": 0.013,
+      "mean_churn_mod": 0.421,
+      "mean_ltv_cr": 758.0
+    },
+    "Full Framework (Est.)": {
+      "ate_mean": 3.3,
+      "ate_sd": 2.3,
+      "welfare_mean": 16768.0,
+      "welfare_sd": 3545.0,
+      "risk_mean": 0.142,
+      "risk_sd": 0.013,
+      "mean_churn_mod": 0.458,
+      "mean_ltv_cr": 718.0
+    },
+    "Full Framework (Cal.)": {
+      "ate_mean": 3.5,
+      "ate_sd": 2.1,
+      "welfare_mean": 20191.0,
+      "welfare_sd": 3502.0,
+      "risk_mean": 0.128,
+      "risk_sd": 0.013,
+      "mean_churn_mod": 0.421,
+      "mean_ltv_cr": 758.0
+    },
+    "Full Framework (Oracle)": {
+      "ate_mean": 6.7,
+      "ate_sd": 2.0,
+      "welfare_mean": 36641.0,
+      "welfare_sd": 704.0,
+      "risk_mean": 0.192,
+      "risk_sd": 0.003,
+      "mean_churn_mod": 0.596,
+      "mean_ltv_cr": 591.0
+    },
+    "S-Learner": {
+      "ate_mean": 3.9,
+      "ate_sd": 2.0,
+      "welfare_mean": 24310.0,
+      "welfare_sd": 4098.0,
+      "risk_mean": 0.12,
+      "risk_sd": 0.017,
+      "mean_churn_mod": 0.399,
+      "mean_ltv_cr": 776.0
+    }
+  },
+  "xlearner_paired": {
+    "cal_vs_cate_only": {
+      "mean_diff": -265.0,
+      "se_diff": 86.0,
+      "t_stat": -3.07,
+      "p_value": 0.0024,
+      "cohens_d": -0.217,
+      "ci_95": [
+        -435.0,
+        -95.0
+      ]
+    },
+    "cal_vs_ltv": {
+      "mean_diff": 0.0,
+      "se_diff": 0.0,
+      "t_stat": NaN,
+      "p_value": NaN,
+      "cohens_d": 0.0,
+      "ci_95": [
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "cate_misspec": {
+    "CATE Only": {
+      "welfare_mean": 6700.0,
+      "welfare_sd": 2056.0,
+      "ate_mean": 1.1
+    },
+    "CATE x LTV": {
+      "welfare_mean": 6955.0,
+      "welfare_sd": 2337.0,
+      "ate_mean": 1.4
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 3809.0,
+      "welfare_sd": 2339.0,
+      "ate_mean": 0.9
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 6954.0,
+      "welfare_sd": 2336.0,
+      "ate_mean": 1.4
+    }
+  },
+  "cate_misspec_paired": {
+    "cal_vs_cate": {
+      "mean_diff": 254.0,
+      "se_diff": 59.0,
+      "t_stat": 4.29,
+      "p_value": 0.0,
+      "cohens_d": 0.303,
+      "ci_95": [
+        137.0,
+        371.0
+      ],
+      "p_holm": 0.0
+    },
+    "cal_vs_ltv": {
+      "mean_diff": -1.0,
+      "se_diff": 1.0,
+      "t_stat": -0.8,
+      "p_value": 0.4231,
+      "cohens_d": -0.057,
+      "ci_95": [
+        -4.0,
+        2.0
+      ],
+      "p_holm": 0.4231
+    },
+    "tost_cal_vs_cate": {
+      "mean_diff": 254.0,
+      "margin": 335.0,
+      "p_tost": 0.088,
+      "equivalent": false
+    }
+  },
+  "xlearner_misspec": {
+    "CATE Only": {
+      "welfare_mean": 7645.0,
+      "welfare_sd": 2516.0,
+      "ate_mean": 1.4
+    },
+    "CATE x LTV": {
+      "welfare_mean": 8162.0,
+      "welfare_sd": 2981.0,
+      "ate_mean": 1.7
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 4684.0,
+      "welfare_sd": 3061.0,
+      "ate_mean": 1.2
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 8161.0,
+      "welfare_sd": 2983.0,
+      "ate_mean": 1.7
+    }
+  },
+  "xlearner_misspec_paired": {
+    "cal_vs_cate": {
+      "mean_diff": 516.0,
+      "se_diff": 72.0,
+      "t_stat": 7.11,
+      "p_value": 0.0,
+      "cohens_d": 0.503,
+      "ci_95": [
+        373.0,
+        659.0
+      ]
+    }
+  },
+  "null_dgp": {
+    "CATE Only": {
+      "welfare_mean": 63098.0,
+      "welfare_sd": 5549.0
+    },
+    "CATE x LTV": {
+      "welfare_mean": 68256.0,
+      "welfare_sd": 6324.0
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 53887.0,
+      "welfare_sd": 6484.0
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 68256.0,
+      "welfare_sd": 6324.0
+    },
+    "paired_test_cal_vs_ltv": {
+      "mean_diff": 0.0,
+      "t_stat": NaN,
+      "p_value": NaN
+    }
+  },
+  "correlated_dgp": {
+    "CATE Only": {
+      "welfare_mean": 16893.0,
+      "welfare_sd": 2898.0,
+      "ate_mean": 3.3
+    },
+    "CATE x LTV": {
+      "welfare_mean": 16225.0,
+      "welfare_sd": 3132.0,
+      "ate_mean": 2.9
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 14182.0,
+      "welfare_sd": 3227.0,
+      "ate_mean": 2.7
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 16224.0,
+      "welfare_sd": 3131.0,
+      "ate_mean": 2.9
+    }
+  },
+  "correlated_dgp_paired": {
+    "cal_vs_cate": {
+      "mean_diff": -669.0,
+      "se_diff": 63.0,
+      "t_stat": -10.61,
+      "p_value": 0.0,
+      "cohens_d": -0.751,
+      "ci_95": [
+        -793.0,
+        -545.0
+      ]
+    },
+    "cal_vs_ltv": {
+      "mean_diff": -0.0,
+      "se_diff": 1.0,
+      "t_stat": -0.64,
+      "p_value": 0.5224,
+      "cohens_d": -0.045,
+      "ci_95": [
+        -2.0,
+        1.0
+      ]
+    }
+  },
+  "budget_sensitivity": {
+    "0.1": {
+      "Random": {
+        "welfare_mean": 1824.0,
+        "ate_mean": 1.5
+      },
+      "CATE Only": {
+        "welfare_mean": 4766.0,
+        "ate_mean": 3.1
+      },
+      "CATE x LTV": {
+        "welfare_mean": 3268.0,
+        "ate_mean": 2.0
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 2586.0,
+        "ate_mean": 1.8
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 3268.0,
+        "ate_mean": 2.0
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 16051.0,
+        "ate_mean": 8.7
+      },
+      "S-Learner": {
+        "welfare_mean": 7563.0,
+        "ate_mean": 3.4
+      }
+    },
+    "0.2": {
+      "Random": {
+        "welfare_mean": 3688.0,
+        "ate_mean": 1.2
+      },
+      "CATE Only": {
+        "welfare_mean": 10750.0,
+        "ate_mean": 3.3
+      },
+      "CATE x LTV": {
+        "welfare_mean": 9885.0,
+        "ate_mean": 2.7
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 7960.0,
+        "ate_mean": 2.5
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 9884.0,
+        "ate_mean": 2.7
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 27468.0,
+        "ate_mean": 7.6
+      },
+      "S-Learner": {
+        "welfare_mean": 16301.0,
+        "ate_mean": 3.7
+      }
+    },
+    "0.3": {
+      "Random": {
+        "welfare_mean": 5399.0,
+        "ate_mean": 1.2
+      },
+      "CATE Only": {
+        "welfare_mean": 16634.0,
+        "ate_mean": 3.3
+      },
+      "CATE x LTV": {
+        "welfare_mean": 16427.0,
+        "ate_mean": 3.0
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 13629.0,
+        "ate_mean": 2.8
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 16427.0,
+        "ate_mean": 3.0
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 36641.0,
+        "ate_mean": 6.7
+      },
+      "S-Learner": {
+        "welfare_mean": 24310.0,
+        "ate_mean": 3.9
+      }
+    },
+    "0.5": {
+      "Random": {
+        "welfare_mean": 8782.0,
+        "ate_mean": 1.0
+      },
+      "CATE Only": {
+        "welfare_mean": 26740.0,
+        "ate_mean": 3.0
+      },
+      "CATE x LTV": {
+        "welfare_mean": 26941.0,
+        "ate_mean": 3.0
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 25171.0,
+        "ate_mean": 2.8
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 26941.0,
+        "ate_mean": 3.0
+      },
+      "Full Framework (Oracle)": {
+        "welfare_mean": 49681.0,
+        "ate_mean": 5.2
+      },
+      "S-Learner": {
+        "welfare_mean": 36033.0,
+        "ate_mean": 3.8
+      }
+    }
+  },
+  "budget_paired_tests": {
+    "0.1": {
+      "cal_vs_ltv": {
+        "mean_diff": -0.0,
+        "se_diff": 0.0,
+        "t_stat": -1.0,
+        "p_value": 0.3185,
+        "cohens_d": -0.071,
+        "ci_95": [
+          -0.0,
+          0.0
+        ],
+        "p_holm": 0.3185
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": -1499.0,
+        "se_diff": 73.0,
+        "t_stat": -20.36,
+        "p_value": 0.0,
+        "cohens_d": -1.44,
+        "ci_95": [
+          -1644.0,
+          -1354.0
+        ],
+        "p_holm": 0.0
+      }
+    },
+    "0.2": {
+      "cal_vs_ltv": {
+        "mean_diff": -1.0,
+        "se_diff": 1.0,
+        "t_stat": -1.08,
+        "p_value": 0.28,
+        "cohens_d": -0.077,
+        "ci_95": [
+          -3.0,
+          1.0
+        ],
+        "p_holm": 0.28
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": -866.0,
+        "se_diff": 79.0,
+        "t_stat": -10.97,
+        "p_value": 0.0,
+        "cohens_d": -0.776,
+        "ci_95": [
+          -1022.0,
+          -711.0
+        ],
+        "p_holm": 0.0
+      }
+    },
+    "0.3": {
+      "cal_vs_ltv": {
+        "mean_diff": -1.0,
+        "se_diff": 1.0,
+        "t_stat": -0.97,
+        "p_value": 0.3332,
+        "cohens_d": -0.069,
+        "ci_95": [
+          -3.0,
+          1.0
+        ],
+        "p_holm": 0.3332
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": -207.0,
+        "se_diff": 63.0,
+        "t_stat": -3.27,
+        "p_value": 0.0013,
+        "cohens_d": -0.231,
+        "ci_95": [
+          -332.0,
+          -82.0
+        ],
+        "p_holm": 0.0026
+      }
+    },
+    "0.5": {
+      "cal_vs_ltv": {
+        "mean_diff": -0.0,
+        "se_diff": 0.0,
+        "t_stat": -0.89,
+        "p_value": 0.3758,
+        "cohens_d": -0.063,
+        "ci_95": [
+          -1.0,
+          0.0
+        ],
+        "p_holm": 0.3758
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": 201.0,
+        "se_diff": 32.0,
+        "t_stat": 6.3,
+        "p_value": 0.0,
+        "cohens_d": 0.446,
+        "ci_95": [
+          138.0,
+          263.0
+        ],
+        "p_holm": 0.0
+      }
+    }
+  },
+  "dgp": {
+    "features": {
+      "account_age": "N(24, 8), clipped [1, 60]",
+      "weekly_spend": "exp(N(3.5, 0.8)), clipped [5, 500]",
+      "login_freq": "Poisson(4), clipped [1, 15]",
+      "bonus_history": "N(3, 1.5), clipped [0, 10]"
+    },
+    "standardisation": "Population parameters (fixed across replications)",
+    "churn": "logit = -1.0 + 0.04*(30-age) - 0.25*login + 0.01*(40-spend) + 0.1*z_bonus + N(0,0.4); sigmoid, clip [0.01, 0.99]",
+    "ltv": "10*spend + 40*login + 5*age + N(0,80), clip [50, 8000]",
+    "ltv_proxy": "12*spend^0.9 + 35*login + N(0,200) -- misspecified form for estimation",
+    "cate": "tau_base = 0.06 + 0.10*z_login - 0.02*z_login^2 - 0.04*z_spend; churn_mod = 4*p*(1-p); tau = tau_base * churn_mod + N(0,0.03), clip [-0.20, 0.40]",
+    "baseline": "0.6 + 0.15*z_login + 0.05*z_spend - 0.08*z_age + N(0,0.05), clip [0.05, 0.95]",
+    "treatment": "Bernoulli(0.5)",
+    "note": "The CATE-churn moderation (4*p*(1-p)) creates an inverse-U relationship: treatment effects peak at moderate churn (p=0.5) and are attenuated at extremes."
+  },
+  "design": {
+    "n_players": 10000,
+    "n_runs": 200,
+    "default_budget": 0.3,
+    "treatment_prob": 0.5,
+    "budget_sensitivity_runs": 200,
+    "calibration_grid_size": 22,
+    "cate_estimators": [
+      "T-Learner",
+      "X-Learner"
+    ],
+    "corrections": [
+      "Holm-Bonferroni",
+      "TOST (equivalence)"
+    ]
+  }
+}
