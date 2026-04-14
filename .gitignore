@@ -39,6 +39,5 @@ data/hillstrom.csv
 
 # Archived previous versions and old simulation code
 previous/
-src/
 outputs/
 reviews/

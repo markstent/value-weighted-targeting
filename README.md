@@ -2,7 +2,7 @@
 
 Companion repository for the paper *Who Gets the Bonus? Welfare-Optimal Treatment Targeting with Value Weights and Risk Modulation* by Mark Stent.
 
-**[PDF](docs/manuscript_v37.pdf)**
+**[PDF](docs/manuscript_v38.pdf)**
 
 ---
 
@@ -23,9 +23,11 @@ Budget-constrained treatment targeting -- selecting the top *k* individuals for 
 
 ```
 docs/
-  manuscript_v37.tex        LaTeX source (current version)
-  manuscript_v37.pdf        Compiled manuscript
-previous/                   Archived drafts, reviews, simulation code, and data (not tracked)
+  manuscript_v38.tex        LaTeX source (current version)
+  manuscript_v38.pdf        Compiled manuscript
+src/
+  simulation_v38.py         Simulation code (all scenarios, calibration, robustness checks)
+previous/                   Archived drafts, reviews, and data (not tracked)
 ```
 
 ## Building the PDF
@@ -33,7 +35,7 @@ previous/                   Archived drafts, reviews, simulation code, and data 
 Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
 
 ```bash
-cd docs && tectonic manuscript_v37.tex
+cd docs && tectonic manuscript_v38.tex
 ```
 
 ## Citation
