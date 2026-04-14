@@ -1,6 +1,6 @@
-# Optimal Risk-Modulated Treatment Targeting Under Budget Constraints
+# Who Gets the Bonus? Welfare-Optimal Treatment Targeting with Value Weights and Risk Modulation
 
-Companion repository for the paper *Optimal Risk-Modulated Treatment Targeting Under Budget Constraints* by Mark Stent.
+Companion repository for the paper *Who Gets the Bonus? Welfare-Optimal Treatment Targeting with Value Weights and Risk Modulation* by Mark Stent.
 
 **[PDF](docs/manuscript_v37.pdf)**
 
@@ -14,10 +14,10 @@ Budget-constrained treatment targeting -- selecting the top *k* individuals for 
 
 | Finding | Detail |
 |---------|--------|
-| Value-weighted targeting outperforms CATE-only under misspecification | 6,955 vs 6,700 welfare (*p* < 0.0001) |
+| Value-weighted targeting outperforms CATE-only under misspecification (in simulation) | 6,955 vs 6,700 welfare (*p* < 0.0001); magnitude is DGP-specific |
 | Calibration recovers *g* = 1 across all scenarios | Consistent with the value-conservatism trade-off (Proposition 3) |
 | Value-weighting advantage is budget-dependent | Strongest at moderate-to-generous budgets; at tight budgets, pure CATE targeting may be preferable |
-| Welfare-interpretability trade-off is quantifiable | S-Learner achieves 46% higher welfare than decomposed strategies, but sacrifices auditability and component-wise control |
+| Welfare-interpretability trade-off is quantifiable (in simulation) | S-Learner achieves 46% higher welfare than decomposed strategies; magnitude is DGP-specific |
 
 ## Repository Structure
 
@@ -39,8 +39,8 @@ cd docs && tectonic manuscript_v37.tex
 ## Citation
 
 ```bibtex
-@unpublished{stent2026riskmodulated,
-  title   = {Optimal Risk-Modulated Treatment Targeting Under Budget Constraints},
+@unpublished{stent2026bonus,
+  title   = {Who Gets the Bonus? Welfare-Optimal Treatment Targeting with Value Weights and Risk Modulation},
   author  = {Stent, Mark},
   year    = {2026},
   note    = {Working paper}
