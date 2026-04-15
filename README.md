@@ -23,7 +23,6 @@ Budget-constrained treatment targeting -- selecting the top *k* individuals for 
 
 ```
 docs/
-  manuscript_v38.tex        LaTeX source (current version)
   manuscript_v38.pdf        Compiled manuscript
 src/
   simulation_v38.py         Simulation code (all scenarios, calibration, robustness checks)
@@ -37,14 +36,6 @@ Requires Python 3.10+ with `numpy`, `scipy`, and `scikit-learn`.
 
 ```bash
 python src/simulation_v38.py
-```
-
-## Building the PDF
-
-Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
-
-```bash
-cd docs && tectonic manuscript_v38.tex
 ```
 
 ## Citation

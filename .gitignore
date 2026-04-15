@@ -25,3 +25,6 @@ venv/
 previous/
 outputs/
 reviews/
+
+# LaTeX source
+*.tex
