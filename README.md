@@ -27,7 +27,6 @@ docs/
   manuscript_v38.pdf        Compiled manuscript
 src/
   simulation_v38.py         Simulation code (all scenarios, calibration, robustness checks)
-previous/                   Archived drafts, reviews, and data (not tracked)
 ```
 
 ## Building the PDF
