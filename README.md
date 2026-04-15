@@ -1,6 +1,6 @@
-# Who Gets the Bonus? Welfare-Optimal Treatment Targeting with Value Weights and Risk Modulation
+# Who Gets the Bonus? Welfare-Optimal Retention Targeting in Online Gaming
 
-Companion repository for the paper *Who Gets the Bonus? Welfare-Optimal Treatment Targeting with Value Weights and Risk Modulation* by Mark Stent.
+Companion repository for the paper *Who Gets the Bonus? Welfare-Optimal Retention Targeting in Online Gaming* by Mark Stent.
 
 **[PDF](docs/manuscript_v38.pdf)**
 
@@ -41,7 +41,7 @@ cd docs && tectonic manuscript_v38.tex
 
 ```bibtex
 @unpublished{stent2026bonus,
-  title   = {Who Gets the Bonus? Welfare-Optimal Treatment Targeting with Value Weights and Risk Modulation},
+  title   = {Who Gets the Bonus? Welfare-Optimal Retention Targeting in Online Gaming},
   author  = {Stent, Mark},
   year    = {2026},
   note    = {Working paper}
