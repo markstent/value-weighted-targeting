@@ -29,6 +29,16 @@ src/
   simulation_v38.py         Simulation code (all scenarios, calibration, robustness checks)
 ```
 
+## Simulation
+
+`src/simulation_v38.py` implements the full simulation study from Section 7 of the paper. It generates a synthetic population of 10,000 individuals with nonlinear CATE, churn moderation, and misspecified LTV, then evaluates seven targeting strategies across three scenarios (well-specified CATE, misspecified CATE, null DGP) over 200 replications. Includes budget sensitivity analysis, the value-conservatism frontier, and robustness checks (X-Learner, correlated features).
+
+Requires Python 3.10+ with `numpy`, `scipy`, and `scikit-learn`.
+
+```bash
+python src/simulation_v38.py
+```
+
 ## Building the PDF
 
 Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
