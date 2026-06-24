@@ -2,7 +2,7 @@
 
 Companion repository for the paper *When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
 
-**[PDF](docs/manuscript_v41.pdf)**
+**[PDF](docs/manuscript_v42.pdf)**
 
 ---
 
@@ -24,8 +24,8 @@ Budget-constrained treatment targeting -- selecting the top *k* individuals for 
 
 ```
 docs/
-  manuscript_v41.tex            LaTeX source (current version)
-  manuscript_v41.pdf            Compiled manuscript
+  manuscript_v42.tex            LaTeX source (current version)
+  manuscript_v42.pdf            Compiled manuscript
   review_v39/                   Peer-review package on v39 (editorial decision, reviewer reports) that drove the v40 revision
 src/
   simulation_v38.py             Core simulation (all scenarios, calibration, robustness)
@@ -34,12 +34,15 @@ src/
                                 misspec/null, clip-adjusted welfare, harm gate)
   compute_v41_additions.py      Revision-41 additions (regret-decomposition diagnostic;
                                 end-to-end joint value-weighted model)
+  compute_v42_additions.py      Revision-42 additions (component-wise update;
+                                hard harm constraint vs soft gate)
   compute_tauv_oracle*.py       tau*V oracle welfare benchmarks
   figures_v39.py                Figure generation
 outputs/
   simulation_v29.json           Core simulation results (matches manuscript tables)
   simulation_v40_additions.json Revision-40 additions results
   simulation_v41_additions.json Revision-41 additions results
+  simulation_v42_additions.json Revision-42 additions results
 ```
 
 ## Simulation
@@ -50,12 +53,15 @@ outputs/
 
 `src/compute_v41_additions.py` runs the revision-41 additions: the regret-decomposition diagnostic (showing the telescoping bound correctly localises error to the degraded component) and an end-to-end joint value-weighted model (the un-handicapped joint comparator).
 
+`src/compute_v42_additions.py` runs the revision-42 additions: the component-wise update benefit and a hard harm constraint (two-multiplier constrained rule) shown to dominate the soft multiplicative gate on the welfare-harm frontier.
+
 Requires Python 3.10+ with `numpy`, `scipy`, and `scikit-learn`.
 
 ```bash
 python src/simulation_v38.py
 python src/compute_revision_additions.py        # full 200-run revision-40 additions
 python src/compute_v41_additions.py             # full 200-run revision-41 additions
+python src/compute_v42_additions.py             # full 200-run revision-42 additions
 python src/compute_depth_ablation.py
 ```
 
@@ -64,7 +70,7 @@ python src/compute_depth_ablation.py
 Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
 
 ```bash
-cd docs && tectonic manuscript_v41.tex
+cd docs && tectonic manuscript_v42.tex
 ```
 
 ## Citation
