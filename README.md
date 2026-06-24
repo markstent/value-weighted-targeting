@@ -1,42 +1,56 @@
-# Who Gets the Bonus? Welfare-Optimal Retention Targeting in Online Gaming
+# When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming
 
-Companion repository for the paper *Who Gets the Bonus? Welfare-Optimal Retention Targeting in Online Gaming* by Mark Stent.
+Companion repository for the paper *When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
 
-**[PDF](docs/manuscript_v38.pdf)**
+**[PDF](docs/manuscript_v40.pdf)**
 
 ---
 
 ## Abstract
 
-Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. This paper defines a welfare function that weights each individual's treatment effect by their outcome value and an operator-configurable risk-modulation function, and shows that the welfare-maximising deterministic rule under a budget constraint ranks individuals by a composite score decomposed into three independently estimable components. The value-conservatism trade-off quantifies the welfare cost of the operator's targeting preferences, enabling informed decisions about when risk modulation is worth the cost. A simulation study across three scenarios validates the theoretical predictions and quantifies the welfare-interpretability trade-off between decomposed and single-model approaches.
+Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. This paper places the practitioner heuristic of ranking by treatment effect times outcome value inside the empirical-welfare-maximisation framework, showing it is the welfare-maximising budget-constrained policy and extending it with an operator-configurable preference weight. Its more durable contributions are a regret decomposition that identifies which estimated component is costing welfare, a characterisation of when value weighting helps versus hurts (it is budget- and model-quality-contingent), and a method to price any targeting restriction an operator is forced to impose. A simulation study across two structurally different moderation structures, plus a harm-gate analysis and a clip-adjusted welfare check, validates the predictions and quantifies the welfare-interpretability trade-off between decomposed and single-model approaches. "Welfare" throughout denotes operator welfare, distinct from player wellbeing.
 
 ## Key Findings
 
 | Finding | Detail |
 |---------|--------|
-| Value-weighted targeting outperforms CATE-only under misspecification (in simulation) | 6,955 vs 6,700 welfare (*p* < 0.0001); magnitude is DGP-specific |
-| Calibration recovers *g* = 1 across all scenarios | Consistent with the value-conservatism trade-off (Proposition 3) |
-| Value-weighting advantage is budget-dependent | Strongest at moderate-to-generous budgets; at tight budgets, pure CATE targeting may be preferable |
-| Welfare-interpretability trade-off is quantifiable (in simulation) | S-Learner achieves 46% higher welfare than decomposed strategies; magnitude is DGP-specific |
+| Value-weighting's advantage is budget- and model-quality-contingent | Helps under CATE misspecification and at generous budgets; pure CATE is competitive or better at realistic tight budgets (kappa = 0.10) |
+| Calibration recovers *g* = 1 across all scenarios | Consistent with the value-conservatism trade-off (Proposition 3); calibration prices preferences, it does not discover them |
+| Joint modelling (S-Learner) leads on welfare | ~46% above decomposed strategies (depth-matched: +53% to +74%); unaffected by CATE misspecification that costs the decomposition 60% |
+| Harm protection has a quantifiable cost | Oracle harm gate: 11.8% reduction in harm exposure at 6.4% operator-welfare cost (Corollary 1 made concrete) |
+| Nominal-welfare bias is modest | Clip-adjusted re-evaluation: 3.7%-6.7% overstatement, rankings unchanged |
 
 ## Repository Structure
 
 ```
 docs/
-  manuscript_v38.tex        LaTeX source (current version)
-  manuscript_v38.pdf        Compiled manuscript
+  manuscript_v40.tex            LaTeX source (current version)
+  manuscript_v40.pdf            Compiled manuscript
+  review_v39/                   Peer-review package on v39 (editorial decision, reviewer reports) that drove the v40 revision
 src/
-  simulation_v38.py         Simulation code (all scenarios, calibration, robustness checks)
+  simulation_v38.py             Core simulation (all scenarios, calibration, robustness)
+  compute_depth_ablation.py     Depth-matched S-Learner / T-Learner ablation
+  compute_revision_additions.py Revision-40 additions (asymmetric DGP, S-Learner in
+                                misspec/null, clip-adjusted welfare, harm gate)
+  compute_tauv_oracle*.py       tau*V oracle welfare benchmarks
+  figures_v39.py                Figure generation
+outputs/
+  simulation_v29.json           Core simulation results (matches manuscript tables)
+  simulation_v40_additions.json Revision-40 additions results
 ```
 
 ## Simulation
 
-`src/simulation_v38.py` implements the full simulation study from Section 7 of the paper. It generates a synthetic population of 10,000 individuals with nonlinear CATE, churn moderation, and misspecified LTV, then evaluates seven targeting strategies across three scenarios (well-specified CATE, misspecified CATE, null DGP) over 200 replications. Includes budget sensitivity analysis, the value-conservatism frontier, and robustness checks (X-Learner, correlated features).
+`src/simulation_v38.py` implements the core simulation study: a synthetic population of 10,000 individuals with nonlinear CATE, churn moderation, and misspecified LTV, evaluated across seven targeting strategies and three scenarios (well-specified CATE, misspecified CATE, null DGP) over 200 replications, with budget sensitivity, the value-conservatism frontier, and robustness checks (X-Learner, correlated features).
+
+`src/compute_revision_additions.py` runs the revision additions on the same 200 seeds: an asymmetric-moderation second DGP, the S-Learner in the misspecification and null scenarios, a clip-adjusted (effective-tau) welfare re-evaluation, and a harm-gate simulation demonstrating the welfare cost of harm protection (Corollary 1).
 
 Requires Python 3.10+ with `numpy`, `scipy`, and `scikit-learn`.
 
 ```bash
 python src/simulation_v38.py
+python src/compute_revision_additions.py        # full 200-run additions
+python src/compute_depth_ablation.py
 ```
 
 ## Building the PDF
@@ -44,14 +58,14 @@ python src/simulation_v38.py
 Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
 
 ```bash
-cd docs && tectonic manuscript_v38.tex
+cd docs && tectonic manuscript_v40.tex
 ```
 
 ## Citation
 
 ```bibtex
 @unpublished{stent2026bonus,
-  title   = {Who Gets the Bonus? Welfare-Optimal Retention Targeting in Online Gaming},
+  title   = {When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming},
   author  = {Stent, Mark},
   year    = {2026},
   note    = {Working paper}
