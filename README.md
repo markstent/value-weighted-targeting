@@ -2,7 +2,7 @@
 
 Companion repository for the paper *When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
 
-**[PDF](docs/manuscript_v40.pdf)**
+**[PDF](docs/manuscript_v41.pdf)**
 
 ---
 
@@ -24,32 +24,38 @@ Budget-constrained treatment targeting -- selecting the top *k* individuals for 
 
 ```
 docs/
-  manuscript_v40.tex            LaTeX source (current version)
-  manuscript_v40.pdf            Compiled manuscript
+  manuscript_v41.tex            LaTeX source (current version)
+  manuscript_v41.pdf            Compiled manuscript
   review_v39/                   Peer-review package on v39 (editorial decision, reviewer reports) that drove the v40 revision
 src/
   simulation_v38.py             Core simulation (all scenarios, calibration, robustness)
   compute_depth_ablation.py     Depth-matched S-Learner / T-Learner ablation
   compute_revision_additions.py Revision-40 additions (asymmetric DGP, S-Learner in
                                 misspec/null, clip-adjusted welfare, harm gate)
+  compute_v41_additions.py      Revision-41 additions (regret-decomposition diagnostic;
+                                end-to-end joint value-weighted model)
   compute_tauv_oracle*.py       tau*V oracle welfare benchmarks
   figures_v39.py                Figure generation
 outputs/
   simulation_v29.json           Core simulation results (matches manuscript tables)
   simulation_v40_additions.json Revision-40 additions results
+  simulation_v41_additions.json Revision-41 additions results
 ```
 
 ## Simulation
 
 `src/simulation_v38.py` implements the core simulation study: a synthetic population of 10,000 individuals with nonlinear CATE, churn moderation, and misspecified LTV, evaluated across seven targeting strategies and three scenarios (well-specified CATE, misspecified CATE, null DGP) over 200 replications, with budget sensitivity, the value-conservatism frontier, and robustness checks (X-Learner, correlated features).
 
-`src/compute_revision_additions.py` runs the revision additions on the same 200 seeds: an asymmetric-moderation second DGP, the S-Learner in the misspecification and null scenarios, a clip-adjusted (effective-tau) welfare re-evaluation, and a harm-gate simulation demonstrating the welfare cost of harm protection (Corollary 1).
+`src/compute_revision_additions.py` runs the revision-40 additions on the same 200 seeds: an asymmetric-moderation second DGP, the S-Learner in the misspecification and null scenarios, a clip-adjusted (effective-tau) welfare re-evaluation, and a harm-gate simulation demonstrating the welfare cost of harm protection (Corollary 1).
+
+`src/compute_v41_additions.py` runs the revision-41 additions: the regret-decomposition diagnostic (showing the telescoping bound correctly localises error to the degraded component) and an end-to-end joint value-weighted model (the un-handicapped joint comparator).
 
 Requires Python 3.10+ with `numpy`, `scipy`, and `scikit-learn`.
 
 ```bash
 python src/simulation_v38.py
-python src/compute_revision_additions.py        # full 200-run additions
+python src/compute_revision_additions.py        # full 200-run revision-40 additions
+python src/compute_v41_additions.py             # full 200-run revision-41 additions
 python src/compute_depth_ablation.py
 ```
 
@@ -58,7 +64,7 @@ python src/compute_depth_ablation.py
 Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
 
 ```bash
-cd docs && tectonic manuscript_v40.tex
+cd docs && tectonic manuscript_v41.tex
 ```
 
 ## Citation
