@@ -11,7 +11,7 @@
 
 Companion repository for the working paper *When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
 
-**Read the paper: [paper.pdf](paper.pdf)** &nbsp;·&nbsp; latest source: [`docs/manuscript_v43.tex`](docs/manuscript_v43.tex)
+**Read the paper: [paper.pdf](paper.pdf)** &nbsp;·&nbsp; latest source: [`docs/stent-2026-value-weighted-targeting.tex`](docs/stent-2026-value-weighted-targeting.tex)
 
 ---
 
@@ -36,8 +36,8 @@ paper.pdf                         The paper (stable link)
 LICENSE
 requirements.txt
 docs/
-  manuscript_v43.tex              LaTeX source (current version)
-  manuscript_v43.pdf              Compiled manuscript
+  stent-2026-value-weighted-targeting.tex   LaTeX source (current version)
+  stent-2026-value-weighted-targeting.pdf   Compiled manuscript
   figures/                        Figures used in the manuscript
   review_v39/                     Simulated peer-review package that drove the revisions
 src/
@@ -78,7 +78,7 @@ python src/compute_depth_ablation.py        # depth-matched ablation
 Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (`pdflatex`). The bibliography is inline (`thebibliography`), so no separate BibTeX run is needed.
 
 ```bash
-cd docs && tectonic manuscript_v43.tex
+cd docs && tectonic stent-2026-value-weighted-targeting.tex
 ```
 
 ## Citation
