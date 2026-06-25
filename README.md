@@ -1,79 +1,81 @@
-# When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming
+# When Does Value-Weighted Targeting Pay?
 
-Companion repository for the paper *When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
+### Budget-Constrained Retention Targeting in Online Gaming
 
-**[PDF](docs/manuscript_v43.pdf)**
+[![Paper (PDF)](https://img.shields.io/badge/paper-PDF-b31b1b.svg)](paper.pdf)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-f89939.svg)](https://scikit-learn.org/)
+[![Results](https://img.shields.io/badge/results-deterministic%20%26%20reproducible-2ea44f.svg)](#reproducing-the-results)
+[![Build](https://img.shields.io/badge/build-LaTeX%20%2F%20tectonic-008080.svg)](#building-the-pdf)
+[![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey.svg)](LICENSE)
+
+Companion repository for the working paper *When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
+
+**Read the paper: [paper.pdf](paper.pdf)** &nbsp;·&nbsp; latest source: [`docs/manuscript_v43.tex`](docs/manuscript_v43.tex)
 
 ---
 
 ## Abstract
 
-Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. This paper places the practitioner heuristic of ranking by treatment effect times outcome value inside the empirical-welfare-maximisation framework, showing it is the welfare-maximising budget-constrained policy and extending it with an operator-configurable preference weight. Its more durable contributions are a regret decomposition that identifies which estimated component is costing welfare, a characterisation of when value weighting helps versus hurts (it is budget- and model-quality-contingent), and a method to price any targeting restriction an operator is forced to impose. A simulation study across two structurally different moderation structures, plus a harm-gate analysis and a clip-adjusted welfare check, validates the predictions and quantifies the welfare-interpretability trade-off between decomposed and single-model approaches. "Welfare" throughout denotes operator welfare, distinct from player wellbeing.
+Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. This paper places the practitioner heuristic of ranking by treatment effect times outcome value inside the empirical-welfare-maximisation framework, showing it is the welfare-maximising budget-constrained policy and extending it with an operator-configurable preference weight. Its more durable contributions are a regret decomposition that identifies which estimated component is costing welfare, a characterisation of when value weighting helps versus hurts (it is budget- and model-quality-contingent), and a method to price any targeting restriction an operator is forced to impose. Several findings are deliberately cautionary: the operator-preference weight provably cannot improve welfare, and a plain joint model beats the decomposition an operator would otherwise reach for. "Welfare" throughout denotes operator welfare, distinct from player wellbeing.
 
 ## Key Findings
 
 | Finding | Detail |
-|---------|--------|
-| Value-weighting's advantage is budget- and model-quality-contingent | Helps under CATE misspecification and at generous budgets; pure CATE is competitive or better at realistic tight budgets (kappa = 0.10) |
-| Calibration recovers *g* = 1 across all scenarios | Consistent with the value-conservatism trade-off (Proposition 3); calibration prices preferences, it does not discover them |
-| Joint modelling (S-Learner) leads on welfare | ~46% above decomposed strategies (depth-matched: +53% to +74%); unaffected by CATE misspecification that costs the decomposition 60% |
-| Harm protection has a quantifiable cost | Oracle harm gate: 11.8% reduction in harm exposure at 6.4% operator-welfare cost (Corollary 1 made concrete) |
-| Nominal-welfare bias is modest | Clip-adjusted re-evaluation: 3.7%-6.7% overstatement, rankings unchanged |
+|---|---|
+| Value-weighting is budget- and model-quality-contingent | Helps under CATE misspecification and at generous budgets; pure CATE is competitive or better at realistic tight budgets (κ ≈ 0.10) |
+| The operator-preference weight cannot improve welfare | Calibration returns the neutral setting in every scenario (Proposition 3); it prices preferences, it does not discover them |
+| Joint modelling leads on welfare | S-Learner ≈ 46% above the best decomposed strategy (depth-matched: +53% to +74%); confirmed by an end-to-end joint model; unaffected by CATE misspecification that costs the decomposition 60% |
+| The regret decomposition is a working diagnostic | It localises welfare loss to a component and correctly fingers the degraded one — including in an observational (no-oracle) plug-in version |
+| Harm protection is quantifiable, and a hard constraint dominates a soft weight | A hard harm constraint reaches a given harm ceiling at lower welfare cost than the soft multiplicative gate, and cannot be overridden by a large τ·V |
 
 ## Repository Structure
 
 ```
+paper.pdf                         The paper (stable link)
+LICENSE
+requirements.txt
 docs/
-  manuscript_v43.tex            LaTeX source (current version)
-  manuscript_v43.pdf            Compiled manuscript
-  review_v39/                   Peer-review package on v39 (editorial decision, reviewer reports) that drove the v40 revision
+  manuscript_v43.tex              LaTeX source (current version)
+  manuscript_v43.pdf              Compiled manuscript
+  figures/                        Figures used in the manuscript
+  review_v39/                     Simulated peer-review package that drove the revisions
 src/
-  simulation_v38.py             Core simulation (all scenarios, calibration, robustness)
-  compute_depth_ablation.py     Depth-matched S-Learner / T-Learner ablation
-  compute_revision_additions.py Revision-40 additions (asymmetric DGP, S-Learner in
-                                misspec/null, clip-adjusted welfare, harm gate)
-  compute_v41_additions.py      Revision-41 additions (regret-decomposition diagnostic;
-                                end-to-end joint value-weighted model)
-  compute_v42_additions.py      Revision-42 additions (component-wise update;
-                                hard harm constraint vs soft gate)
-  compute_v43_additions.py      Revision-43 additions (corr(tau,V) sweep; heavy-tailed
-                                LTV; observational plug-in diagnostic)
-  compute_tauv_oracle*.py       tau*V oracle welfare benchmarks
-  figures_v39.py                Figure generation
-outputs/
-  simulation_v29.json           Core simulation results (matches manuscript tables)
-  simulation_v40_additions.json Revision-40 additions results
-  simulation_v41_additions.json Revision-41 additions results
-  simulation_v42_additions.json Revision-42 additions results
-  simulation_v43_additions.json Revision-43 additions results
+  simulation_v38.py               Core simulation (all scenarios, calibration, robustness)
+  compute_depth_ablation.py       Depth-matched S-Learner / T-Learner ablation
+  compute_revision_additions.py   Asymmetric DGP, S-Learner in misspec/null, clip-adjusted
+                                  welfare, harm gate
+  compute_v41_additions.py        Regret-decomposition diagnostic; end-to-end joint model
+  compute_v42_additions.py        Component-wise update; hard harm constraint vs soft gate
+  compute_v43_additions.py        corr(tau,V) sweep; heavy-tailed LTV; observational diagnostic
+  compute_tauv_oracle*.py         tau*V oracle welfare benchmarks
+  figures_v39.py                  Figure generation
+outputs/                          Simulation results (JSON); regenerated by the scripts
 ```
 
-## Simulation
+## Reproducing the Results
 
-`src/simulation_v38.py` implements the core simulation study: a synthetic population of 10,000 individuals with nonlinear CATE, churn moderation, and misspecified LTV, evaluated across seven targeting strategies and three scenarios (well-specified CATE, misspecified CATE, null DGP) over 200 replications, with budget sensitivity, the value-conservatism frontier, and robustness checks (X-Learner, correlated features).
-
-`src/compute_revision_additions.py` runs the revision-40 additions on the same 200 seeds: an asymmetric-moderation second DGP, the S-Learner in the misspecification and null scenarios, a clip-adjusted (effective-tau) welfare re-evaluation, and a harm-gate simulation demonstrating the welfare cost of harm protection (Corollary 1).
-
-`src/compute_v41_additions.py` runs the revision-41 additions: the regret-decomposition diagnostic (showing the telescoping bound correctly localises error to the degraded component) and an end-to-end joint value-weighted model (the un-handicapped joint comparator).
-
-`src/compute_v42_additions.py` runs the revision-42 additions: the component-wise update benefit and a hard harm constraint (two-multiplier constrained rule) shown to dominate the soft multiplicative gate on the welfare-harm frontier.
-
-`src/compute_v43_additions.py` runs the revision-43 additions: a corr(tau,V) sweep, a heavy-tailed LTV DGP, and an observational (cross-fitted, no-oracle) version of the regret-decomposition diagnostic.
-
-Requires Python 3.10+ with `numpy`, `scipy`, and `scikit-learn`.
+All quantities in the paper are produced by simulation; there is no empirical data. The study is **deterministic**: every replication `r` uses the fixed seed `42 + 7r`, so the scripts reproduce the reported tables and figures exactly.
 
 ```bash
+# Python 3.12
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# core study (main results, calibration, budget sweep, frontier, robustness)
 python src/simulation_v38.py
-python src/compute_revision_additions.py        # full 200-run revision-40 additions
-python src/compute_v41_additions.py             # full 200-run revision-41 additions
-python src/compute_v42_additions.py             # full 200-run revision-42 additions
-python src/compute_v43_additions.py             # full 200-run revision-43 additions
-python src/compute_depth_ablation.py
+
+# revision add-ons (each writes a JSON to outputs/)
+python src/compute_revision_additions.py    # asymmetric DGP, harm gate, clip-adjusted welfare
+python src/compute_v41_additions.py         # diagnostic + end-to-end joint model
+python src/compute_v42_additions.py         # component update + hard harm constraint
+python src/compute_v43_additions.py         # corr(tau,V) sweep, heavy-tail LTV, plug-in diagnostic
+python src/compute_depth_ablation.py        # depth-matched ablation
 ```
 
 ## Building the PDF
 
-Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (pdflatex).
+Requires [tectonic](https://tectonic-typesetting.github.io/) or a standard LaTeX distribution (`pdflatex`). The bibliography is inline (`thebibliography`), so no separate BibTeX run is needed.
 
 ```bash
 cd docs && tectonic manuscript_v43.tex
@@ -83,13 +85,17 @@ cd docs && tectonic manuscript_v43.tex
 
 ```bibtex
 @unpublished{stent2026bonus,
-  title   = {When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming},
-  author  = {Stent, Mark},
-  year    = {2026},
-  note    = {Working paper}
+  title  = {When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming},
+  author = {Stent, Mark},
+  year   = {2026},
+  note   = {Working paper}
 }
 ```
 
+## Responsible Use
+
+The paper studies promotional targeting in online gambling, a harm-sensitive domain. The framework is presented with explicit responsible-gaming safeguards (a vulnerability-based exclusion set and a harm gate treated as deployment preconditions, conservative defaults, and a hard harm-exposure constraint) and draws a clear distinction between *operator welfare* (the econometric quantity optimised) and *player welfare*. It should not be deployed in a gambling setting without those safeguards and the validated harm-measurement and regulatory infrastructure they depend on. See the paper's Responsible-Gaming and Ethics sections.
+
 ## License
 
-All rights reserved. This repository is provided for review and reference purposes.
+All rights reserved; provided for review, reference, and reproducibility. See [LICENSE](LICENSE).
