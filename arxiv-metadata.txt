@@ -1,0 +1,45 @@
+arXiv submission metadata — paste into the corresponding fields
+================================================================
+
+TITLE
+-----
+When Does Value-Weighted Targeting Pay (and When It Does Not)? A Diagnostic for Budget-Constrained Retention Targeting in Online Gaming
+
+AUTHORS
+-------
+Mark Stent
+
+PRIMARY CATEGORY
+----------------
+stat.ME  (Statistics — Methodology)
+
+CROSS-LIST CATEGORIES
+---------------------
+econ.EM  (Econometrics)
+cs.LG    (Machine Learning)
+
+COMMENTS
+--------
+41 pages, 3 figures
+
+MSC CLASS (optional)
+--------------------
+62C25; 62P20
+
+ACM CLASS (optional)
+--------------------
+I.2.6; G.3
+
+LICENSE (pick one)
+------------------
+arXiv non-exclusive license (default), or CC BY 4.0 if you want it freely reusable
+
+ABSTRACT (plain text — paste into the abstract field)
+-----------------------------------------------------
+A marketer, a clinician, or a public-programme operator with a fixed budget can treat only a fraction of a heterogeneous population, where people differ both in how much they respond to treatment and in how much their response is worth. Practitioners routinely rank candidates by the product of two estimates: the treatment's effect on the outcome and the value of that outcome (for instance, lifetime value). We place this heuristic inside budget-constrained empirical welfare maximisation, where it is welfare-optimal as a corollary of the standard threshold result applied to a value-weighted outcome, and extend it with an operator-configurable preference weight. Throughout, "welfare" means operator welfare, distinct from the wellbeing of those targeted; the two can diverge.
+
+The answer we reach is largely cautionary, and our contributions are diagnostic rather than a new estimator. Value weighting pays only at generous budgets: at a realistic campaign budget (reaching 10% of the active base) plain treatment-effect targeting matches or beats it, and a hybrid joint model (a joint treatment-effect model with a separate value model) outperforms the decomposed product rule at every budget we test. The operator-preference weight provably cannot raise welfare, so it prices restrictions rather than discovering them. What the decomposed framework adds is therefore not higher welfare but structure: a regret decomposition that identifies which estimated component is binding, and a map of when each component pays (value weighting helps under treatment-effect misspecification, but only when the value model carries the signal the treatment-effect model lost, and hurts at tight budgets). Because a player's value can be high precisely when they gamble in harmful volumes, we treat responsible-gaming safeguards as preconditions, not options. The main limitation is the absence of real-data validation, which caps how far the empirical map generalises.
+
+KEYWORDS (no dedicated arXiv field; for reference / overlays)
+-------------------------------------------------------------
+optimal treatment rules; causal inference; budget-constrained targeting; uplift modelling; policy learning; responsible gambling
