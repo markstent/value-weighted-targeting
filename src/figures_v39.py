@@ -80,6 +80,10 @@ def fig_g_function() -> Path:
 
     ax.set_xlim(0, 1)
     ax.set_ylim(-0.05, 1.1)
+    # Drop the numeric ticks at 0.4 and 0.6: they overprint the p_ML / p_MH
+    # breakpoint labels below the axis. The breakpoint symbols mark those
+    # positions, and the caption gives the theta values.
+    ax.set_xticks([0.0, 0.2, 0.8, 1.0])
     ax.set_xlabel("churn probability $p$")
     ax.set_ylabel(r"risk-modulation weight $g(p;\theta)$")
     ax.set_title(r"Piecewise linear $g$ with default $\theta=(0.05,0.40,0.60,0.90,0.20)$", pad=10)
