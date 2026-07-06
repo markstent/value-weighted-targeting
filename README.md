@@ -1,31 +1,39 @@
-# When Does Value-Weighted Targeting Pay?
+# When Does Value-Weighted Targeting Pay (and When It Does Not)?
 
-### Budget-Constrained Retention Targeting in Online Gaming
+### A Diagnostic for Budget-Constrained Retention Targeting in Online Gaming
 
 [![Paper (PDF)](https://img.shields.io/badge/paper-PDF-b31b1b.svg)](paper.pdf)
+[![Repo](https://img.shields.io/badge/GitHub-bonus--allocation--framework-181717.svg?logo=github)](https://github.com/markstent/bonus-allocation-framework)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-f89939.svg)](https://scikit-learn.org/)
 [![Results](https://img.shields.io/badge/results-deterministic%20%26%20reproducible-2ea44f.svg)](#reproducing-the-results)
 [![Build](https://img.shields.io/badge/build-LaTeX%20%2F%20tectonic-008080.svg)](#building-the-pdf)
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey.svg)](LICENSE)
 
-Companion repository for the working paper *When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
+Companion repository for the working paper *When Does Value-Weighted Targeting Pay (and When It Does Not)? A Diagnostic for Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
 
-**Read the paper: [paper.pdf](paper.pdf)** &nbsp;·&nbsp; latest source: [`docs/stent-2026-value-weighted-targeting.tex`](docs/stent-2026-value-weighted-targeting.tex)
+- **Repository:** <https://github.com/markstent/bonus-allocation-framework>
+- **Read the paper:** [paper.pdf](paper.pdf) &nbsp;·&nbsp; latest source: [`docs/stent-2026-value-weighted-targeting.tex`](docs/stent-2026-value-weighted-targeting.tex)
+
+```bash
+git clone https://github.com/markstent/bonus-allocation-framework.git
+```
 
 ---
 
 ## Abstract
 
-Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. This paper places the practitioner heuristic of ranking by treatment effect times outcome value inside the empirical-welfare-maximisation framework, showing it is the welfare-maximising budget-constrained policy and extending it with an operator-configurable preference weight. Its more durable contributions are a regret decomposition that identifies which estimated component is costing welfare, a characterisation of when value weighting helps versus hurts (it is budget- and model-quality-contingent), and a method to price any targeting restriction an operator is forced to impose. Several findings are deliberately cautionary: the operator-preference weight provably cannot improve welfare, and a plain joint model beats the decomposition an operator would otherwise reach for. "Welfare" throughout denotes operator welfare, distinct from player wellbeing.
+Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. Practitioners routinely rank candidates by treatment effect times outcome value; this paper places that heuristic inside budget-constrained empirical welfare maximisation, where it is welfare-optimal as a corollary of the standard threshold result applied to a value-weighted outcome, and extends it with an operator-configurable preference weight. The answer the paper reaches is largely cautionary. Value weighting pays only at generous budgets: at a realistic campaign budget (κ ≈ 0.10) plain treatment-effect targeting matches or beats it, and a hybrid joint model (a joint treatment-effect model with a separate value model) outperforms the decomposed product rule at every budget tested. The operator-preference weight provably cannot raise welfare, so it prices restrictions rather than discovering them. What the decomposed framework adds is not higher welfare but structure: a regret decomposition that identifies which estimated component is binding, and a map of when each component pays. "Welfare" throughout denotes operator welfare, distinct from player wellbeing.
 
 ## Key Findings
 
 | Finding | Detail |
 |---|---|
-| Value-weighting is budget- and model-quality-contingent | Helps under CATE misspecification and at generous budgets; pure CATE is competitive or better at realistic tight budgets (κ ≈ 0.10) |
-| The operator-preference weight cannot improve welfare | Calibration returns the neutral setting in every scenario (Proposition 3); it prices preferences, it does not discover them |
-| Joint modelling leads on welfare | S-Learner ≈ 46% above the best decomposed strategy (depth-matched: +53% to +74%); confirmed by an end-to-end joint model; unaffected by CATE misspecification that costs the decomposition 60% |
+| Value-weighting is budget-contingent, with an estimated crossover | Pure CATE beats value weighting at tight budgets and the ranking reverses as the budget grows; the crossover budget is κ\* ≈ 0.34 (symmetric moderation) / 0.25 (asymmetric), with bootstrap CIs |
+| Value-weighting helps under misspecification *only when V carries the dropped signal* | An adversarial misspecification whose dropped driver is orthogonal to value removes the benefit and, at κ = 0.10, reverses it (−25%) |
+| The operator-preference weight cannot improve welfare | Calibration returns the neutral setting (Proposition 3); it holds under a doubly-robust (AIPW) objective too, where identity-selection drops to 14/200 but true welfare is not improved |
+| The hybrid architecture leads on welfare | A joint treatment-effect model with a separate value model beats both the pure decomposition and the pure end-to-end model at every budget |
+| "Joint model is more robust" is a mirage | The joint model looks immune to CATE misspecification only because the feature is dropped from one side; drop it from the joint model too and it degrades comparably (64%). The advantage is architectural (cross-component interactions), not robustness to missing inputs |
 | The regret decomposition is a working diagnostic | It localises welfare loss to a component and correctly fingers the degraded one — including in an observational (no-oracle) plug-in version |
 | Harm protection is quantifiable, and a hard constraint dominates a soft weight | A hard harm constraint reaches a given harm ceiling at lower welfare cost than the soft multiplicative gate, and cannot be overridden by a large τ·V |
 
@@ -48,6 +56,10 @@ src/
   compute_v41_additions.py        Regret-decomposition diagnostic; end-to-end joint model
   compute_v42_additions.py        Component-wise update; hard harm constraint vs soft gate
   compute_v43_additions.py        corr(tau,V) sweep; heavy-tailed LTV; observational diagnostic
+  compute_v44_additions.py        Budget-sensitivity inference + crossover kappa*; AIPW
+                                  calibration check; adversarial misspecification
+  compute_v45_additions.py        Like-for-like joint model (same feature dropped from
+                                  the S-Learner)
   compute_tauv_oracle*.py         tau*V oracle welfare benchmarks
   figures_v39.py                  Figure generation
 outputs/                          Simulation results (JSON); regenerated by the scripts
@@ -70,6 +82,8 @@ python src/compute_revision_additions.py    # asymmetric DGP, harm gate, clip-ad
 python src/compute_v41_additions.py         # diagnostic + end-to-end joint model
 python src/compute_v42_additions.py         # component update + hard harm constraint
 python src/compute_v43_additions.py         # corr(tau,V) sweep, heavy-tail LTV, plug-in diagnostic
+python src/compute_v44_additions.py         # budget inference + kappa*, AIPW calibration, adversarial misspec
+python src/compute_v45_additions.py         # like-for-like joint model (same feature dropped)
 python src/compute_depth_ablation.py        # depth-matched ablation
 ```
 
@@ -85,10 +99,11 @@ cd docs && tectonic stent-2026-value-weighted-targeting.tex
 
 ```bibtex
 @unpublished{stent2026bonus,
-  title  = {When Does Value-Weighted Targeting Pay? Budget-Constrained Retention Targeting in Online Gaming},
+  title  = {When Does Value-Weighted Targeting Pay (and When It Does Not)? A Diagnostic for Budget-Constrained Retention Targeting in Online Gaming},
   author = {Stent, Mark},
   year   = {2026},
-  note   = {Working paper}
+  note   = {Working paper},
+  url    = {https://github.com/markstent/bonus-allocation-framework}
 }
 ```
 

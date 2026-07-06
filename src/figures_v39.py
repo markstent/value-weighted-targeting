@@ -206,10 +206,12 @@ def fig_welfare_bars(data: dict) -> Path:
     ax.set_xlabel(r"welfare $W(\pi;\mathbf{1})$ (mean $\pm$ SD across 200 replications)")
     ax.set_title(r"Welfare by strategy ($\kappa=0.30$)", pad=10)
 
-    for yi, w in zip(y, welfares):
-        ax.text(w + 400, yi, f"{w:,.0f}", va="center", fontsize=9)
+    # Place each value label past the end of its error bar (w + sd), not just
+    # past the bar end, so the whisker/cap does not overprint the leading digits.
+    for yi, w, sd in zip(y, welfares, sds):
+        ax.text(w + sd + 700, yi, f"{w:,.0f}", va="center", fontsize=9)
 
-    ax.set_xlim(0, max(welfares) * 1.18)
+    ax.set_xlim(0, max(w + sd for w, sd in zip(welfares, sds)) * 1.16)
     fig.tight_layout()
     out = FIGDIR / "fig_welfare_bars.pdf"
     fig.savefig(out, bbox_inches="tight")
