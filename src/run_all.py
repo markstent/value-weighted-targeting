@@ -27,6 +27,7 @@ SRC = REPO / 'src'
 OUTPUT_DIR = REPO / 'outputs'
 LOG_DIR = OUTPUT_DIR / 'logs'
 FIGURE_DIR = REPO / 'docs' / 'figures'
+SMOKE_FIGURE_DIR = OUTPUT_DIR / 'figures_smoke'   # smoke runs never touch the manuscript figures
 TUNED_CONFIG = REPO / 'config' / 'tuned_params.json'
 
 STUDIES = ('study_main', 'study_harm', 'study_budget', 'study_learners', 'study_robustness')
@@ -110,7 +111,8 @@ def build_manifest(args, steps, studies, git, started):
         path = OUTPUT_DIR / output_name(s, args.smoke)
         if path.exists():
             json_files[path.name] = sha256(path)
-    figures = {p.name: sha256(p) for p in sorted(FIGURE_DIR.glob('*.pdf'))} \
+    fig_dir = SMOKE_FIGURE_DIR if args.smoke else FIGURE_DIR
+    figures = {str(p.relative_to(REPO)): sha256(p) for p in sorted(fig_dir.glob('*.pdf'))} \
         if any(st['name'] == 'make_figures' and st['exit_code'] == 0 for st in steps) else {}
     return {
         'git': git,

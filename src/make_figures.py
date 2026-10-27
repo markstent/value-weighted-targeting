@@ -1,23 +1,33 @@
-"""Generate the three figures referenced in the manuscript.
+"""Generate the manuscript figures from the study outputs.
 
-Reads outputs/main.json for empirical numbers. Produces vector PDFs
-in docs/figures/. Re-run with:
+Reads outputs/main.json (fig_frontier, fig_welfare_bars) and outputs/harm_sweep.json
+(fig_harm_frontier); fig_g_function is analytic.  Writes vector PDFs to docs/figures/.
+With --smoke it reads the *_smoke.json outputs and writes to outputs/figures_smoke/
+instead, so a smoke run never overwrites the manuscript figures.  Re-run with:
 
-    python src/make_figures.py
+    python src/make_figures.py [--smoke]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
-DATA = REPO / "outputs" / "main.json"
+OUTDIR = REPO / "outputs"
 FIGDIR = REPO / "docs" / "figures"
-FIGDIR.mkdir(parents=True, exist_ok=True)
+SMOKE_FIGDIR = OUTDIR / "figures_smoke"
+
+HARM_KAPPA = 0.30
+HARM_C = 1.0
+ORACLE_SUFFIX = " (oracle tau,V)"
 
 
 def _style() -> None:
@@ -53,7 +63,7 @@ def g_piecewise(p: np.ndarray, theta: tuple[float, float, float, float, float]) 
     return out
 
 
-def fig_g_function() -> Path:
+def fig_g_function(figdir: Path = FIGDIR) -> Path:
     theta = (0.05, 0.40, 0.60, 0.90, 0.20)
     p_L, p_ML, p_MH, p_H, phi = theta
     p = np.linspace(0, 1, 1000)
@@ -99,13 +109,13 @@ def fig_g_function() -> Path:
         ax.text((lo + hi) / 2, 1.05, label, ha="center", va="bottom", fontsize=8, color="#555")
 
     fig.tight_layout()
-    out = FIGDIR / "fig_g_function.pdf"
+    out = figdir / "fig_g_function.pdf"
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     return out
 
 
-def fig_frontier(data: dict) -> Path:
+def fig_frontier(data: dict, figdir: Path = FIGDIR) -> Path:
     entries = data["frontier"]
     short_labels = {
         "No reg (g=1)": r"$g\equiv 1$",
@@ -152,13 +162,13 @@ def fig_frontier(data: dict) -> Path:
     ax.set_title("Value-conservatism frontier: each non-trivial $g$ costs welfare", pad=10)
 
     fig.tight_layout()
-    out = FIGDIR / "fig_frontier.pdf"
+    out = figdir / "fig_frontier.pdf"
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     return out
 
 
-def fig_welfare_bars(data: dict) -> Path:
+def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
     order = [
         "Random",
         "CATE Only",
@@ -183,15 +193,17 @@ def fig_welfare_bars(data: dict) -> Path:
     }
 
     welfares = [data["main_results"][k]["welfare_mean"] for k in order]
-    sds = [data["main_results"][k]["welfare_sd"] for k in order]
+    sds = [data["main_results"][k]["welfare_sd"] or 0.0 for k in order]
     labels = [display[k] for k in order]
 
     fig, ax = plt.subplots(figsize=(6.4, 3.6))
     y = np.arange(len(order))
     colors = []
     for k in order:
-        if k in ("Oracle hindsight (g=1)", "Oracle feasible (g=1)"):
+        if k == "Oracle hindsight (g=1)":
             colors.append("#1a5a1a")
+        elif k == "Oracle feasible (g=1)":
+            colors.append("#c58b1d")
         elif k == "Oracle hindsight (theta0)":
             colors.append("#2a7a2a")
         elif k == "S-Learner":
@@ -205,7 +217,7 @@ def fig_welfare_bars(data: dict) -> Path:
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
     ax.invert_yaxis()
-    ax.set_xlabel(r"welfare $W(\pi;\mathbf{1})$ (mean $\pm$ SD across 200 replications)")
+    ax.set_xlabel(r"welfare $W(\pi;\mathbf{1})$ (mean $\pm$ SD across replications)")
     ax.set_title(r"Welfare by strategy ($\kappa=0.30$)", pad=10)
 
     # Place each value label past the end of its error bar (w + sd), not just
@@ -215,18 +227,94 @@ def fig_welfare_bars(data: dict) -> Path:
 
     ax.set_xlim(0, max(w + sd for w, sd in zip(welfares, sds)) * 1.16)
     fig.tight_layout()
-    out = FIGDIR / "fig_welfare_bars.pdf"
+    out = figdir / "fig_welfare_bars.pdf"
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     return out
 
 
-def main() -> None:
+def _ci_err(entry: dict) -> tuple[float, float]:
+    """Asymmetric half-widths (lo, hi) from a {'mean', 'ci95'} entry; zero if no CI."""
+    ci = entry.get("ci95")
+    if not ci:
+        return 0.0, 0.0
+    return entry["mean"] - ci[0], ci[1] - entry["mean"]
+
+
+def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
+    """Welfare vs harm exposure among the treated, one panel per sigma_h.
+
+    kappa = 0.30, c_harm = 1.0.  Filled markers rank on estimated tau_hat * ltv_hat;
+    hollow markers on the feasible oracle E[tau|X] E[V|X] ("oracle tau,V").  Error
+    bars are the 95% intervals stored in harm_sweep.json.  Welfare and exposure are
+    both evaluated on true quantities.
+    """
+    cells = [c for c in harm["cells"]
+             if c["kappa"] == HARM_KAPPA and c["c_harm"] == HARM_C]
+    sigmas = sorted({c["sigma_h"] for c in cells})
+    styles = {"tauV": ("#1f3b5c", "o", r"$\tau V$ (harm-blind)"),
+              "soft gate": ("#b34", "s", "soft gate"),
+              "hard cap": ("#2a7a2a", "^", "hard cap")}
+    fig, axes = plt.subplots(1, len(sigmas), figsize=(3.0 * len(sigmas) + 0.6, 3.6),
+                             sharey=True, squeeze=False)
+    for ax, sigma in zip(axes[0], sigmas):
+        for rule, (color, marker, _) in styles.items():
+            for oracle in (False, True):
+                name = rule + (ORACLE_SUFFIX if oracle else "")
+                match = [c for c in cells if c["sigma_h"] == sigma and c["rule"] == name]
+                if not match:
+                    continue
+                c = match[0]
+                xe, ye = _ci_err(c["harm_exposure"]), _ci_err(c["welfare"])
+                ax.errorbar(
+                    c["harm_exposure"]["mean"], c["welfare"]["mean"],
+                    xerr=[[xe[0]], [xe[1]]], yerr=[[ye[0]], [ye[1]]],
+                    fmt=marker, color=color, ecolor=color, capsize=2, markersize=7,
+                    markerfacecolor="white" if oracle else color, markeredgewidth=1.4,
+                    elinewidth=1.0, zorder=3)
+        ax.set_title(rf"$\sigma_h={sigma:g}$" + (" (oracle harm)" if sigma == 0 else ""))
+        ax.set_xlabel("harm exposure among treated")
+    axes[0][0].set_ylabel(r"welfare $W(\pi;\mathbf{1})$")
+    handles = [plt.Line2D([], [], marker=m, color=col, linestyle="", markersize=7, label=lab)
+               for col, m, lab in styles.values()]
+    handles += [plt.Line2D([], [], marker="o", color="#555", linestyle="", markersize=7,
+                           label="estimated $\\hat\\tau,\\hat V$"),
+                plt.Line2D([], [], marker="o", color="#555", linestyle="", markersize=7,
+                           markerfacecolor="white", markeredgewidth=1.4,
+                           label=r"oracle $\tau,V$ (feasible)")]
+    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, fontsize=8)
+    fig.suptitle(rf"Welfare vs harm exposure ($\kappa={HARM_KAPPA:.2f}$, $c_{{harm}}={HARM_C:g}$)")
+    fig.tight_layout(rect=(0, 0.14, 1, 1))
+    out = figdir / "fig_harm_frontier.pdf"
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+FIGURE_NAMES = ("fig_g_function.pdf", "fig_frontier.pdf", "fig_welfare_bars.pdf",
+                "fig_harm_frontier.pdf")
+
+
+def build_all(outdir: Path = OUTDIR, figdir: Path = FIGDIR, smoke: bool = False) -> list[Path]:
+    """Render every figure from outdir's JSONs into figdir."""
     _style()
-    with DATA.open() as fh:
-        data = json.load(fh)
-    paths = [fig_g_function(), fig_frontier(data), fig_welfare_bars(data)]
-    for p in paths:
+    figdir.mkdir(parents=True, exist_ok=True)
+    suffix = "_smoke" if smoke else ""
+    with (outdir / f"main{suffix}.json").open() as fh:
+        main = json.load(fh)
+    with (outdir / f"harm_sweep{suffix}.json").open() as fh:
+        harm = json.load(fh)
+    return [fig_g_function(figdir), fig_frontier(main, figdir),
+            fig_welfare_bars(main, figdir), fig_harm_frontier(harm, figdir)]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--smoke", action="store_true",
+                        help="read *_smoke.json and write to outputs/figures_smoke/")
+    args = parser.parse_args()
+    figdir = SMOKE_FIGDIR if args.smoke else FIGDIR
+    for p in build_all(OUTDIR, figdir, args.smoke):
         print(f"wrote {p.relative_to(REPO)}")
 
 
