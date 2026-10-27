@@ -265,7 +265,7 @@ def main():
         print(f"\n  {label}:")
         for kappa, row in out[label]['per_budget'].items():
             print(f"    kappa={kappa}: diff={row['diff_ltv_minus_cate']:+,.0f} "
-                  f"(d={row['cohens_d']}, p_holm={row['p_holm']:.4f}) "
+                  f"(d={row['cohens_d']:.3f}, p_holm={row['p_holm']:.4f}) "
                   f"CATE={row['cate_only_welfare']:,.0f} LTV={row['cate_x_ltv_welfare']:,.0f}")
         ks = out[label]['kappa_star']
         print(f"    kappa* point={ks['point']}, bootstrap={ks}")
