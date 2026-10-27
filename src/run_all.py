@@ -169,7 +169,7 @@ def tuned_params_file(args):
 # study_learners writes, so when both run it starts after study_learners finishes: the
 # tuning pilot is run once instead of twice in parallel.
 # Studies with their own worker pool (tuning pilot, scenarios) get --jobs too.
-INNER_PARALLEL = ('study_learners', 'study_robustness')
+INNER_PARALLEL = ('study_main', 'study_learners', 'study_robustness')
 AFTER = {'study_robustness': 'study_learners'}
 
 

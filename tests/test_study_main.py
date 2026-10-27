@@ -24,7 +24,24 @@ def test_aggregate_uses_ddof1():
     runs = [{'ate': a, 'welfare': w, 'risk_exposure': 0.5, 'mean_churn_mod': 0.1,
              'mean_ltv_cr': 1.0} for a, w in [(1, 1000), (2, 1500), (4, 4000)]]
     agg = study_main._aggregate_results({'S': runs}, ['S'])['S']
-    assert agg['welfare_sd'] == round(np.std([1000, 1500, 4000], ddof=1))
+    assert agg['welfare_sd'] == pytest.approx(np.std([1000, 1500, 4000], ddof=1))
+    assert agg['welfare_mean'] == pytest.approx(2166.6666666666665)   # stored unrounded
+
+
+def test_efficiency_is_mean_of_per_rep_ratios():
+    def runs(ws):
+        return [{'welfare': float(w)} for w in ws]
+    res = {'Random': runs([0, 100]), 'Oracle feasible (g=1)': runs([1000, 400]),
+           'Oracle hindsight (g=1)': runs([2000, 800])}
+    res.update({r: runs([500, 300]) for r in study_main.EFFICIENCY_RULES})
+    eff = study_main._efficiency_table(res, 2, 100)
+    rule = eff['rules']['Full Framework (Cal.)']
+    assert rule['level_ratio']['mean'] == pytest.approx((0.5 + 0.75) / 2)          # not 800/1400
+    assert rule['normalized']['mean'] == pytest.approx((0.5 + 200 / 300) / 2)
+    lo, hi = rule['normalized']['ci95']
+    assert lo < rule['normalized']['mean'] < hi
+    assert eff['feasible_over_hindsight']['mean'] == pytest.approx(0.5)
+    assert eff['oracle'] == 'Oracle feasible (g=1)'
 
 
 def test_oracle_tables_match_budget_runs():
@@ -53,6 +70,12 @@ def test_smoke_cli_writes_main_json_with_oracles():
         assert (out['oracle_main']['strategies'][nm]['welfare_mean']
                 == pytest.approx(out['oracle_budget']['strategies'][nm]['0.3']['welfare_mean']))
     assert 'tost_cal_vs_cate' in out['cate_misspec_paired']
+    w = out['main_results']['CATE Only']['welfare_mean']
+    assert w != round(w)                                # stored unrounded
+    for rule in study_main.EFFICIENCY_RULES:
+        e = out['efficiency']['rules'][rule]
+        for k in ('level_ratio', 'normalized'):
+            assert e[k]['ci95'][0] <= e[k]['mean'] <= e[k]['ci95'][1]
 
 
 def test_no_legacy_version_names():

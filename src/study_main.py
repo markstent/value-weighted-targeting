@@ -9,12 +9,18 @@ feasible tau*V oracle tables (oracle_main, oracle_budget) come from the same run
 Descriptive SDs across replications use ddof=1.
 
 Writes outputs/main.json (main_smoke.json with --smoke).
-Usage:  python study_main.py [--reps R] [--n-players N] [--smoke] [--verify-moments]
+Replications are independent (per-rep seeds 42 + 7r), so --jobs J runs them in a joblib
+worker pool with results in replication order: output is identical for every J.
+main_results and budget_sensitivity are stored unrounded (rounding happens when tables are
+formatted).  'efficiency' holds per-replication paired ratios against the feasible oracle.
+
+Usage:  python study_main.py [--reps R] [--n-players N] [--smoke] [--verify-moments] [--jobs J]
 """
 
 import argparse
 
 import numpy as np
+from joblib import Parallel, delayed
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from scipy import stats as scipy_stats
@@ -36,7 +42,7 @@ from core.policy import (
     target_topk, calibrate_theta_all,
 )
 from core.stats import (
-    holm_bonferroni, tost_paired, paired_test,
+    holm_bonferroni, tost_paired, paired_test, t_mean_ci,
 )
 
 # --- Configuration ---
@@ -224,21 +230,61 @@ def _oracle_budget_table(budget_results, reps, n):
 
 
 def _aggregate_results(all_results, strategy_names):
-    """Aggregate per-run results into summary statistics."""
+    """Aggregate per-run results into summary statistics (unrounded)."""
     agg = {}
     for name in strategy_names:
         runs = all_results[name]
         agg[name] = {
-            'ate_mean': round(np.mean([r['ate'] for r in runs]), 1),
-            'ate_sd': _sd([r['ate'] for r in runs], 1),
-            'welfare_mean': round(np.mean([r['welfare'] for r in runs]), 0),
-            'welfare_sd': _sd([r['welfare'] for r in runs], 0),
-            'risk_mean': round(np.mean([r['risk_exposure'] for r in runs]), 3),
-            'risk_sd': _sd([r['risk_exposure'] for r in runs], 3),
-            'mean_churn_mod': round(np.mean([r['mean_churn_mod'] for r in runs]), 3),
-            'mean_ltv_cr': round(np.mean([r['mean_ltv_cr'] for r in runs]), 0),
+            'ate_mean': float(np.mean([r['ate'] for r in runs])),
+            'ate_sd': _sd([r['ate'] for r in runs]),
+            'welfare_mean': float(np.mean([r['welfare'] for r in runs])),
+            'welfare_sd': _sd([r['welfare'] for r in runs]),
+            'risk_mean': float(np.mean([r['risk_exposure'] for r in runs])),
+            'risk_sd': _sd([r['risk_exposure'] for r in runs]),
+            'mean_churn_mod': float(np.mean([r['mean_churn_mod'] for r in runs])),
+            'mean_ltv_cr': float(np.mean([r['mean_ltv_cr'] for r in runs])),
         }
     return agg
+
+
+EFFICIENCY_RULES = ['CATE Only', 'CATE x LTV', 'Full Framework (Est.)',
+                    'Full Framework (Cal.)', 'Full Framework (Cal., plug-in)', 'S-Learner']
+EFFICIENCY_ORACLE = 'Oracle feasible (g=1)'
+
+
+def _efficiency_table(all_results, reps, n):
+    """Per-replication paired efficiency against the feasible oracle (g=1) at the default
+    budget.  The replications are shared across strategies, so each ratio is formed within a
+    replication and then averaged (mean of ratios, t-interval), never a ratio of means.
+
+    level_ratio = W_rule / W_oracle;  normalized = (W_rule - W_random) / (W_oracle - W_random)
+    (0 = random targeting, 1 = the feasible oracle).  Replications whose denominator is not
+    positive are excluded and counted.  'feasible_over_hindsight' = W_feasible / W_hindsight."""
+    def w(name):
+        return np.array([r['welfare'] for r in all_results[name]], dtype=float)
+
+    oracle, rand = w(EFFICIENCY_ORACLE), w('Random')
+    out = {'n_runs': reps, 'n_players': n, 'kappa': DEFAULT_BUDGET, 'oracle': EFFICIENCY_ORACLE,
+           'definition': 'mean over replications of the per-replication ratio',
+           'rules': {}}
+    ok = (oracle - rand) > 0
+    for rule in EFFICIENCY_RULES:
+        wr = w(rule)
+        out['rules'][rule] = {
+            'level_ratio': t_mean_ci(wr[oracle > 0] / oracle[oracle > 0]),
+            'normalized': t_mean_ci((wr[ok] - rand[ok]) / (oracle[ok] - rand[ok])),
+            'n_normalized': int(ok.sum()),
+        }
+    hind = w('Oracle hindsight (g=1)')
+    out['feasible_over_hindsight'] = t_mean_ci(oracle[hind > 0] / hind[hind > 0])
+    return out
+
+
+def _run_batch(reps, n_jobs=1, **kwargs):
+    """run_single_simulation for replications 0..reps-1 (seed SEED_BASE + 7r), in replication
+    order whatever n_jobs is."""
+    return Parallel(n_jobs=n_jobs)(
+        delayed(run_single_simulation)(SEED_BASE + run * 7, **kwargs) for run in range(reps))
 
 
 MAIN_STRATEGIES = ['Random', 'CATE Only', 'CATE x LTV',
@@ -263,7 +309,7 @@ def run_main(reps=None, n=None, kappa=DEFAULT_BUDGET):
     return _aggregate_results(all_results, MAIN_STRATEGIES)
 
 
-def run_study(reps=None, n=None):
+def run_study(reps=None, n=None, n_jobs=1):
     """Run every scenario and return the output dict (written by main as main.json)."""
     reps = N_RUNS if reps is None else reps
     n = N_PLAYERS if n is None else n
@@ -286,11 +332,7 @@ def run_study(reps=None, n=None):
     all_misspec = []
     all_cal_configs = []
 
-    for run in range(reps):
-        if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{reps}...")
-        seed = SEED_BASE + run * 7
-        results, frontier, misspec_inv, cal_cfg = run_single_simulation(seed, n_players=n)
+    for results, frontier, misspec_inv, cal_cfg in _run_batch(reps, n_jobs, n_players=n):
         for name, res in results.items():
             all_results[name].append(res)
         all_frontiers.append(frontier)
@@ -298,6 +340,7 @@ def run_study(reps=None, n=None):
         all_cal_configs.append(cal_cfg)
 
     output['main_results'] = _aggregate_results(all_results, strategy_names)
+    output['efficiency'] = _efficiency_table(all_results, reps, n)
 
     # Frontier
     n_configs = len(all_frontiers[0])
@@ -355,11 +398,7 @@ def run_study(reps=None, n=None):
     # =====================================================================
     print("\n--- Scenario 2: Main DGP, X-Learner ---")
     xl_results = {s: [] for s in strategy_names}
-    for run in range(reps):
-        if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{reps}...")
-        seed = SEED_BASE + run * 7
-        results, _, _, _ = run_single_simulation(seed, n_players=n, cate_method='xlearner')
+    for results, _, _, _ in _run_batch(reps, n_jobs, n_players=n, cate_method='xlearner'):
         for name, res in results.items():
             xl_results[name].append(res)
     output['xlearner_results'] = _aggregate_results(xl_results, strategy_names)
@@ -380,12 +419,8 @@ def run_study(reps=None, n=None):
     misspec_strats = ['CATE Only', 'CATE x LTV',
                       'Full Framework (Est.)', 'Full Framework (Cal.)']
     misspec_results = {s: [] for s in misspec_strats}
-    for run in range(reps):
-        if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{reps}...")
-        seed = SEED_BASE + run * 7
-        results, _, _, _ = run_single_simulation(
-            seed, n_players=n, est_func=estimate_components_misspec)
+    for results, _, _, _ in _run_batch(reps, n_jobs, n_players=n,
+                                       est_func=estimate_components_misspec):
         for name in misspec_strats:
             misspec_results[name].append(results[name])
 
@@ -424,12 +459,9 @@ def run_study(reps=None, n=None):
     # =====================================================================
     print("\n--- Scenario 4: CATE Misspecification, X-Learner ---")
     xl_misspec_results = {s: [] for s in misspec_strats}
-    for run in range(reps):
-        if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{reps}...")
-        seed = SEED_BASE + run * 7
-        results, _, _, _ = run_single_simulation(
-            seed, n_players=n, est_func=estimate_components_misspec, cate_method='xlearner')
+    for results, _, _, _ in _run_batch(reps, n_jobs, n_players=n,
+                                       est_func=estimate_components_misspec,
+                                       cate_method='xlearner'):
         for name in misspec_strats:
             xl_misspec_results[name].append(results[name])
 
@@ -454,12 +486,8 @@ def run_study(reps=None, n=None):
     null_strats = ['CATE Only', 'CATE x LTV',
                    'Full Framework (Est.)', 'Full Framework (Cal.)']
     null_results = {s: [] for s in null_strats}
-    for run in range(reps):
-        if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{reps}...")
-        seed = SEED_BASE + run * 7
-        results, _, _, _ = run_single_simulation(
-            seed, n_players=n, dgp_func=generate_population_null)
+    for results, _, _, _ in _run_batch(reps, n_jobs, n_players=n,
+                                       dgp_func=generate_population_null):
         for name in null_strats:
             null_results[name].append(results[name])
 
@@ -486,12 +514,8 @@ def run_study(reps=None, n=None):
     corr_strats = ['CATE Only', 'CATE x LTV',
                    'Full Framework (Est.)', 'Full Framework (Cal.)']
     corr_results = {s: [] for s in corr_strats}
-    for run in range(reps):
-        if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{reps}...")
-        seed = SEED_BASE + run * 7
-        results, _, _, _ = run_single_simulation(
-            seed, n_players=n, dgp_func=generate_population_correlated)
+    for results, _, _, _ in _run_batch(reps, n_jobs, n_players=n,
+                                       dgp_func=generate_population_correlated):
         for name in corr_strats:
             corr_results[name].append(results[name])
 
@@ -520,9 +544,7 @@ def run_study(reps=None, n=None):
     for kappa in BUDGET_FRACTIONS:
         print(f"  kappa={kappa}...")
         budget_results[str(kappa)] = {s: [] for s in strategy_names}
-        for run in range(reps):
-            seed = SEED_BASE + run * 7
-            results, _, _, _ = run_single_simulation(seed, n_players=n, budget_frac=kappa)
+        for results, _, _, _ in _run_batch(reps, n_jobs, n_players=n, budget_frac=kappa):
             for name, res in results.items():
                 budget_results[str(kappa)][name].append(res)
 
@@ -532,8 +554,8 @@ def run_study(reps=None, n=None):
         for name in strategy_names:
             if strat_runs[name]:
                 output['budget_sensitivity'][kappa_str][name] = {
-                    'welfare_mean': round(np.mean([r['welfare'] for r in strat_runs[name]]), 0),
-                    'ate_mean': round(np.mean([r['ate'] for r in strat_runs[name]]), 1),
+                    'welfare_mean': float(np.mean([r['welfare'] for r in strat_runs[name]])),
+                    'ate_mean': float(np.mean([r['ate'] for r in strat_runs[name]])),
                 }
 
     output['oracle_main'] = _oracle_table(
@@ -652,13 +674,14 @@ def verify_population_moments():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     add_common_args(parser)
+    parser.add_argument('--jobs', type=int, default=1, help='parallel worker processes')
     parser.add_argument('--verify-moments', action='store_true',
                         help='also check the hardcoded population moments (N=2M draw)')
     args = parser.parse_args(argv)
     reps, n = resolve_run_size(args, N_RUNS, N_PLAYERS)
     if args.verify_moments:
         verify_population_moments()
-    output = run_study(reps, n)
+    output = run_study(reps, n, n_jobs=args.jobs)
     name = 'main_smoke.json' if args.smoke else 'main.json'
     print(f"\nResults saved to {save_json(output, name)}")
 

@@ -4,6 +4,7 @@ import json
 import numpy as np
 
 import study_learners as sl
+import study_main as sm
 import study_robustness as sr
 from core.io import NumpyEncoder
 
@@ -26,4 +27,10 @@ def test_robustness_scenario_same_for_1_and_2_jobs():
     fn = sr.SCENARIOS['effective_welfare']
     a = fn(REPS, N, tuned, n_jobs=1)
     b = fn(REPS, N, tuned, n_jobs=2)
+    assert json.dumps(a, cls=NumpyEncoder, sort_keys=True) == json.dumps(b, cls=NumpyEncoder, sort_keys=True)
+
+
+def test_main_study_same_for_1_and_2_jobs():
+    a = sm.run_study(REPS, N, n_jobs=1)
+    b = sm.run_study(REPS, N, n_jobs=2)
     assert json.dumps(a, cls=NumpyEncoder, sort_keys=True) == json.dumps(b, cls=NumpyEncoder, sort_keys=True)

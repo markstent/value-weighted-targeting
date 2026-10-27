@@ -42,10 +42,11 @@ outputs/tuned_params_n<N>.json and never touch config/.
 
 Inference: for every kappa, paired_test_raw of each (learner, params, value model,
 rule) welfare against "T (default)" under the same value model and rule (tau-only
-against "T (default)" tau-only), and of E2E against "T (default)" with the misspec
-value model and rule tauV.  Holm
+against "T (default)" tau-only), of E2E against "T (default)" with the misspec
+value model and rule tauV, and of "S (tuned)" against "T (tuned)" per value model
+(tests_S_vs_T_tuned).  Holm
 (core.stats.holm_bonferroni) runs across ALL those comparisons within a kappa (the
-family is every comparison at that kappa).  Everything is unrounded in the JSON.
+family is every comparison at that kappa, the S-vs-T-tuned ones included).  Everything is unrounded in the JSON.
 
 Regret split (kappa = 0.30): core.policy.regret_split against the oracle
 (tau_bar, ltv_bar), per learner x params x value model: Shapley CATE/value shares
@@ -378,26 +379,38 @@ def comparison_pairs(keys):
     return pairs
 
 
+def tuned_pairs(keys):
+    """(S (tuned), T (tuned)) per value model: the paired S-vs-T comparison at tuned params."""
+    return [(f'S (tuned)|{vm}', f'T (tuned)|{vm}') for vm in ('misspec', 'wellspec', 'tau')
+            if f'S (tuned)|{vm}' in keys and f'T (tuned)|{vm}' in keys]
+
+
+def _test_row(welfare, j, key, base):
+    r = paired_test_raw(welfare[key][:, j], welfare[base][:, j])
+    return {'combo': key, 'baseline': base, 'diff': r['mean_diff'],
+            'ci95': r['ci_95'], 'se_diff': r['se_diff'], 't_stat': r['t_stat'],
+            'cohens_d': r['cohens_d'], 'p_raw': r['p_value']}
+
+
 def summarise_welfare(raw):
     """Per-combo mean/CI per kappa, and per kappa the paired test of every combo vs
-    "T (default)" with Holm across all comparisons within the kappa."""
+    "T (default)" (tests_vs_T_default) and of S (tuned) vs T (tuned) per value model
+    (tests_S_vs_T_tuned).  Holm runs over ONE family per kappa: all of those comparisons
+    together (n_comparisons_per_kappa)."""
     kappas = raw['kappas']
     welfare = raw['welfare']
     pairs = [p for p in comparison_pairs(list(welfare)) if p[1] in welfare]
+    extra = tuned_pairs(set(welfare))
     means = {key: [t_mean_ci(w[:, j]) for j in range(len(kappas))] for key, w in welfare.items()}
-    tests = {}
+    tests, tests_tuned = {}, {}
     for j, kp in enumerate(kappas):
-        rows = []
-        for key, base in pairs:
-            r = paired_test_raw(welfare[key][:, j], welfare[base][:, j])
-            rows.append({'combo': key, 'baseline': base, 'diff': r['mean_diff'],
-                         'ci95': r['ci_95'], 'se_diff': r['se_diff'], 't_stat': r['t_stat'],
-                         'cohens_d': r['cohens_d'], 'p_raw': r['p_value']})
+        rows = [_test_row(welfare, j, key, base) for key, base in pairs + extra]
         for row, p in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
             row['p_holm'] = float(p)
-        tests[str(kp)] = rows
-    return {'welfare': means, 'tests_vs_T_default': tests, 'kappas': kappas,
-            'n_comparisons_per_kappa': len(pairs)}
+        tests[str(kp)] = rows[:len(pairs)]
+        tests_tuned[str(kp)] = rows[len(pairs):]
+    return {'welfare': means, 'tests_vs_T_default': tests, 'tests_S_vs_T_tuned': tests_tuned,
+            'kappas': kappas, 'n_comparisons_per_kappa': len(pairs) + len(extra)}
 
 
 def summarise_regret(per_rep):

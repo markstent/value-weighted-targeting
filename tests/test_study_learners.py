@@ -89,8 +89,16 @@ def test_simulate_shapes_holm_and_regret():
     assert raw['welfare']['T (default)|tau'].shape == (3, 2)
     assert not any(k.endswith('|tauV') or k.count('|') > 1 for k in raw['welfare'])
     out = sl.summarise(raw)
-    # tauV: 4 combos x 2 vms - 2 baselines; tau only: 4 combos - 1 baseline; plus E2E
-    assert out['n_comparisons_per_kappa'] == 6 + 3 + 1
+    # tauV: 4 combos x 2 vms - 2 baselines; tau only: 4 combos - 1 baseline; plus E2E;
+    # plus S (tuned) vs T (tuned) for the three value models, all in one Holm family
+    assert out['n_comparisons_per_kappa'] == 6 + 3 + 1 + 3
+    for kp, rows in out['tests_S_vs_T_tuned'].items():
+        assert [(r['combo'], r['baseline']) for r in rows] == [
+            (f'S (tuned)|{vm}', f'T (tuned)|{vm}') for vm in ('misspec', 'wellspec', 'tau')]
+        for r in rows:
+            assert r['ci95'][0] <= r['diff'] <= r['ci95'][1]
+            assert r['p_holm'] >= r['p_raw']
+        assert len(out['tests_vs_T_default'][kp]) + len(rows) == out['n_comparisons_per_kappa']
     assert not any(r['combo'] == r['baseline'] for rows in out['tests_vs_T_default'].values()
                    for r in rows)
     for rows in out['tests_vs_T_default'].values():
