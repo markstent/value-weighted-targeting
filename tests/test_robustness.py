@@ -301,3 +301,16 @@ def test_flag_degenerate_needs_name_and_zero_value(caplog):
     assert comps['moved']['degenerate'] is False
     assert comps['aipw_zero']['degenerate'] is False
     assert [r.message for r in caplog.records if 'moved' in r.message]
+
+
+def test_aipw_calibration_stores_per_rep_regret():
+    cell = _run('aipw_calibration')['cells']['main']
+    for label, c in cell['comparisons'].items():
+        diffs = cell['per_rep_diff_vs_identity'][c['a']]
+        assert len(diffs) == REPS
+        assert sum(diffs) / REPS == pytest.approx(c['mean_diff'])
+    for key, r in cell['regret_vs_feasible'].items():
+        lo, hi = r['ci95']
+        assert lo <= r['mean'] <= hi
+        assert r['mean'] == pytest.approx(
+            cell['welfare']['Oracle feasible']['mean'] - cell['welfare'][key]['mean'])

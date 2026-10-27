@@ -70,7 +70,10 @@ Scenarios
       Comparison per arm and reference: per-replication CATE share (percent) misspec
       vs wellspec, over replications where both have a non-empty M.  The reported
       share (cate_share_pct) is of the replication-mean terms.
-  aipw_calibration  Main DGP, kappa 0.30: identity-selection rate and chosen
+  aipw_calibration  (also stores per_rep_diff_vs_identity, the per-replication
+      calibrated-minus-identity true-welfare differences, and regret_vs_feasible, mean and
+      t-interval over replications of feasible-oracle welfare minus each rule's welfare.)
+      Main DGP, kappa 0.30: identity-selection rate and chosen
       configs of the AIPW and the plug-in calibration objectives (the plug-in always
       picks identity: top-k tautology), and the true-welfare gain of each calibrated rule
       over the identity rule (CATE x LTV).  Comparisons: calibrated vs identity.  The two
@@ -119,7 +122,7 @@ from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import (
     DEFAULT_BUDGET, THETA_GRID, calibrate_theta_all, f_churn_vec, target_topk,
 )
-from core.stats import holm_bonferroni, paired_test_raw
+from core.stats import holm_bonferroni, paired_test_raw, t_mean_ci
 from study_learners import load_or_tune, welfare_at_kappa
 
 KAPPA = DEFAULT_BUDGET
@@ -549,6 +552,11 @@ def run_aipw_calibration(reps, n_players, tuned, n_jobs=1):
              for p in ARMS for o in ('aipw', 'plug-in')]
     cell = _cell(_stack([r['w'] for r in rows]), pairs)
     flag_degenerate(cell['comparisons'])
+    W = _stack([r['w'] for r in rows])
+    # per-replication paired quantities on TRUE welfare (replications shared by all arms)
+    cell['per_rep_diff_vs_identity'] = {a: (W[a] - W[b]).tolist() for a, b in pairs}
+    cell['regret_vs_feasible'] = {k: t_mean_ci(W['Oracle feasible'] - W[k]) for k in W
+                                  if k.startswith(('Identity', 'Calibrated'))}
     cell['selection'] = {p: {o: _calibration_summary([r['idx'][(p, o)] for r in rows])
                              for o in ('aipw', 'plugin')} for p in ARMS}
     cell['kappa'] = KAPPA
