@@ -155,8 +155,9 @@ def simulate(reps, n_players, c_harms=C_HARM_GRID, sigma_hs=SIGMA_H_GRID,
     """Run the sweep.  Returns {(c_harm, sigma_h, kappa, rule): per-rep lists}.
 
     Test seams (not for production use): _eval_harm_transform(harm) is applied to
-    the true harm only AFTER harm_hat has been computed from it, so it changes
-    evaluation but cannot reach any rule; _record, if a dict, receives every
+    the true harm only AFTER harm_hat has been computed from it and REBINDS the
+    variable `harm`, so every later use of true harm sees it (a rule that leaked
+    true harm would change its selection); _record, if a dict, receives every
     rule's selected index set under (rep, c_harm, sigma_h, kappa, rule)."""
     raw = {(c, s, kp, r): _new_cell() for c in c_harms for s in sigma_hs
            for kp in kappas for r in RULES}
@@ -180,14 +181,16 @@ def simulate(reps, n_players, c_harms=C_HARM_GRID, sigma_hs=SIGMA_H_GRID,
         for c in c_harms:
             # Same harm stream for every c: only the alignment changes.
             harm_all = draw_harm(feats, np.random.RandomState(seed_from(seed, HARM_STREAM)), c)
-            harm = harm_all[test_idx]
-            pop_harm = float(harm.mean())
-            share_high = float(np.mean(harm > H_LO))
-            corr = float(np.corrcoef(harm, ltv)[0, 1])
+            harm_c = harm_all[test_idx]
             for sigma in sigma_hs:
                 harm_hat = estimate_harm(
-                    harm, np.random.RandomState(seed_from(seed, HARM_ESTIMATE_STREAM)), sigma)
-                harm_eval = harm if _eval_harm_transform is None else _eval_harm_transform(harm)
+                    harm_c, np.random.RandomState(seed_from(seed, HARM_ESTIMATE_STREAM)), sigma)
+                # Test seam: rebind true harm itself once harm_hat is frozen, so any
+                # later use of `harm` (selection, evaluation, stats) sees the transform.
+                harm = harm_c if _eval_harm_transform is None else _eval_harm_transform(harm_c)
+                pop_harm = float(harm.mean())
+                share_high = float(np.mean(harm > H_LO))
+                corr = float(np.corrcoef(harm, ltv)[0, 1])
                 for kappa in kappas:
                     k = int(len(test_idx) * kappa)
                     sel, caps, feasible = select_rules(
@@ -197,7 +200,7 @@ def simulate(reps, n_players, c_harms=C_HARM_GRID, sigma_hs=SIGMA_H_GRID,
                         if _record is not None:
                             _record[(rep, c, sigma, kappa, rule)] = np.sort(t)
                         cell = raw[(c, sigma, kappa, rule)]
-                        exposure = float(harm_eval[t].mean())
+                        exposure = float(harm[t].mean())
                         capped = rule in CAPPED_RULES
                         cell['welfare'].append(compute_welfare(t, tau, ltv))
                         cell['exposure'].append(exposure)
