@@ -28,122 +28,27 @@ the numbers are comparable with simulation_v29.json:
 Usage:  python compute_revision_additions.py [N_RUNS]
 """
 
-import json
-import os
 import sys
 import numpy as np
 from collections import Counter
 from sklearn.model_selection import train_test_split
 
 from simulation_v38 import (
-    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, DEFAULT_BUDGET, BUDGET_FRACTIONS,
-    SEED_BASE, TREATMENT_PROB, POP_MEAN, POP_SD, _standardise,
-    generate_population, generate_population_null,
-    estimate_components, estimate_components_misspec, _estimate_ltv_churn,
-    _estimate_slearner, f_churn_vec, target_topk, compute_welfare,
-    compute_risk_exposure, calibrate_theta, run_single_simulation,
+    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE, run_single_simulation,
+)
+from core.io import save_json
+from core.dgp import (
+    generate_main, generate_null, generate_asym, generate_harm,
+)
+from core.estimators import (
+    estimate_components, _estimate_ltv_churn, _estimate_slearner, calibrate_theta,
+)
+from core.policy import (
+    DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare,
 )
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
-
-# Normalising constant for the asymmetric moderation p(1-p)^3 (max at p=0.25).
-_ASYM_PEAK = 0.25 * (1 - 0.25) ** 3  # = 0.10546875
-
-
-def churn_moderation_asym(p):
-    """Asymmetric inverse-U: peaks near p=0.25, decays faster at high churn."""
-    return np.clip(p * (1.0 - p) ** 3 / _ASYM_PEAK, 0.0, 1.0)
-
-
-def generate_population_asym(n, rng):
-    """Main DGP but with asymmetric churn moderation (Ascarza-style)."""
-    account_age = rng.normal(24, 8, n).clip(1, 60)
-    weekly_spend = np.exp(rng.normal(3.5, 0.8, n)).clip(5, 500)
-    login_freq = rng.poisson(4, n).clip(1, 15).astype(float)
-    bonus_history = rng.normal(3, 1.5, n).clip(0, 10)
-
-    z_spend = _standardise(weekly_spend, 'weekly_spend')
-    z_login = _standardise(login_freq, 'login_freq')
-    z_age = _standardise(account_age, 'account_age')
-    z_bonus = _standardise(bonus_history, 'bonus_history')
-
-    churn_logit = (-1.0 + 0.04 * (30 - account_age) - 0.25 * login_freq
-                   + 0.01 * (40 - weekly_spend) + 0.1 * z_bonus
-                   + rng.normal(0, 0.4, n))
-    true_churn = (1.0 / (1.0 + np.exp(-churn_logit))).clip(0.01, 0.99)
-    true_ltv = (weekly_spend * 10 + login_freq * 40 + account_age * 5
-                + rng.normal(0, 80, n)).clip(50, 8000)
-
-    tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
-    churn_moderation = churn_moderation_asym(true_churn)  # asymmetric
-    true_tau = (tau_base * churn_moderation + rng.normal(0, 0.03, n)).clip(-0.20, 0.40)
-
-    baseline = (0.6 + 0.15 * z_login + 0.05 * z_spend - 0.08 * z_age
-                + rng.normal(0, 0.05, n)).clip(0.05, 0.95)
-    y0_prob = baseline
-    y1_prob = (baseline + true_tau).clip(0.01, 0.99)
-    treatment = rng.binomial(1, TREATMENT_PROB, n)
-    y0 = rng.binomial(1, y0_prob)
-    y1 = rng.binomial(1, y1_prob)
-    y_obs = treatment * y1 + (1 - treatment) * y0
-
-    features = np.column_stack([account_age, weekly_spend, login_freq, bonus_history])
-    return {
-        'features': features,
-        'feature_names': ['account_age', 'weekly_spend', 'login_freq', 'bonus_history'],
-        'treatment': treatment, 'y_obs': y_obs, 'y0': y0, 'y1': y1,
-        'true_tau': true_tau, 'true_ltv': true_ltv, 'true_churn': true_churn,
-        'y0_prob': y0_prob, 'y1_prob': y1_prob,
-    }
-
-
-def generate_population_harm(n, rng):
-    """Main DGP plus a harm covariate correlated with LTV (via spend)."""
-    account_age = rng.normal(24, 8, n).clip(1, 60)
-    weekly_spend = np.exp(rng.normal(3.5, 0.8, n)).clip(5, 500)
-    login_freq = rng.poisson(4, n).clip(1, 15).astype(float)
-    bonus_history = rng.normal(3, 1.5, n).clip(0, 10)
-
-    z_spend = _standardise(weekly_spend, 'weekly_spend')
-    z_login = _standardise(login_freq, 'login_freq')
-    z_age = _standardise(account_age, 'account_age')
-    z_bonus = _standardise(bonus_history, 'bonus_history')
-
-    churn_logit = (-1.0 + 0.04 * (30 - account_age) - 0.25 * login_freq
-                   + 0.01 * (40 - weekly_spend) + 0.1 * z_bonus
-                   + rng.normal(0, 0.4, n))
-    true_churn = (1.0 / (1.0 + np.exp(-churn_logit))).clip(0.01, 0.99)
-    true_ltv = (weekly_spend * 10 + login_freq * 40 + account_age * 5
-                + rng.normal(0, 80, n)).clip(50, 8000)
-
-    tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
-    churn_moderation = 4.0 * true_churn * (1.0 - true_churn)
-    true_tau = (tau_base * churn_moderation + rng.normal(0, 0.03, n)).clip(-0.20, 0.40)
-
-    # Harm score in [0,1]: rises with spend (the LTV driver), so harm and value
-    # are positively correlated -- value-weighting will chase harmful players.
-    harm_logit = 1.1 * z_spend + 0.4 * z_login - 0.3 + rng.normal(0, 0.5, n)
-    true_harm = (1.0 / (1.0 + np.exp(-harm_logit))).clip(0.0, 1.0)
-
-    baseline = (0.6 + 0.15 * z_login + 0.05 * z_spend - 0.08 * z_age
-                + rng.normal(0, 0.05, n)).clip(0.05, 0.95)
-    y0_prob = baseline
-    y1_prob = (baseline + true_tau).clip(0.01, 0.99)
-    treatment = rng.binomial(1, TREATMENT_PROB, n)
-    y0 = rng.binomial(1, y0_prob)
-    y1 = rng.binomial(1, y1_prob)
-    y_obs = treatment * y1 + (1 - treatment) * y0
-
-    features = np.column_stack([account_age, weekly_spend, login_freq, bonus_history])
-    return {
-        'features': features,
-        'feature_names': ['account_age', 'weekly_spend', 'login_freq', 'bonus_history'],
-        'treatment': treatment, 'y_obs': y_obs, 'y0': y0, 'y1': y1,
-        'true_tau': true_tau, 'true_ltv': true_ltv, 'true_churn': true_churn,
-        'true_harm': true_harm, 'y0_prob': y0_prob, 'y1_prob': y1_prob,
-    }
-
 
 def h_protection(harm, h_lo=0.60, h_hi=0.90):
     """Harm-protection weight: 1 below h_lo, ramps to 0 above h_hi."""
@@ -167,7 +72,7 @@ def run_asymmetric():
     cal_configs = []
     for seed in SEEDS:
         results, _, _, cal_cfg = run_single_simulation(
-            seed, dgp_func=generate_population_asym)
+            seed, dgp_func=generate_asym)
         for s in strategy_names:
             welfare[s].append(results[s]['welfare'])
         cal_configs.append(cal_cfg)
@@ -209,10 +114,10 @@ def run_slearner_in_scenarios():
     # is a joint model over all features and does not use the decomposed CATE, so
     # its welfare equals the main-DGP S-Learner exactly. We compute the main-DGP
     # S-Learner here and report the identity rather than re-running misspec.
-    out['misspec_slearner'] = _mean_sd(_slearner_welfare_for_dgp(generate_population))
+    out['misspec_slearner'] = _mean_sd(_slearner_welfare_for_dgp(generate_main))
     out['misspec_note'] = 'identical to main-DGP S-Learner by construction (joint model, all features)'
     # Null DGP (no CATE-churn interaction): genuinely different data.
-    out['null_slearner'] = _mean_sd(_slearner_welfare_for_dgp(generate_population_null))
+    out['null_slearner'] = _mean_sd(_slearner_welfare_for_dgp(generate_null))
     return out
 
 
@@ -226,7 +131,7 @@ def run_effective_welfare():
     effective = {s: [] for s in strategy_names}
     for seed in SEEDS:
         rng = np.random.RandomState(seed)
-        data = generate_population(N_PLAYERS, rng)
+        data = generate_main(N_PLAYERS, rng)
         n = len(data['treatment'])
         idx = np.arange(n)
         train_idx, test_idx = train_test_split(idx, test_size=0.30, random_state=seed)
@@ -293,7 +198,7 @@ def run_harm_gate():
     pop_harm = []
     for seed in SEEDS:
         rng = np.random.RandomState(seed)
-        data = generate_population_harm(N_PLAYERS, rng)
+        data = generate_harm(N_PLAYERS, rng)
         idx = np.arange(len(data['treatment']))
         train_idx, test_idx = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(test_idx) * DEFAULT_BUDGET)
@@ -357,10 +262,7 @@ def main():
               f"welfare cost={b['welfare_cost_pct']}%, harm reduction={b['harm_reduction_pct']}%")
 
     out['_meta'] = {'n_runs': N_RUNS, 'kappa': DEFAULT_BUDGET, 'seeds_base': SEED_BASE}
-    path = os.path.join(os.path.dirname(__file__), '..', 'outputs',
-                        'simulation_v40_additions.json')
-    with open(path, 'w') as fp:
-        json.dump(out, fp, indent=2)
+    path = save_json(out, 'simulation_v40_additions.json')
     print(f"Saved {path}")
 
 

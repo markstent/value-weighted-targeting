@@ -1,0 +1,72 @@
+{
+  "Random": {
+    "ate_mean": 2.6,
+    "ate_sd": 3.3,
+    "welfare_mean": 341.0,
+    "welfare_sd": 392.0,
+    "risk_mean": 0.163,
+    "risk_sd": 0.003,
+    "mean_churn_mod": 0.504,
+    "mean_ltv_cr": 679.0
+  },
+  "CATE Only": {
+    "ate_mean": 5.2,
+    "ate_sd": 5.3,
+    "welfare_mean": 1752.0,
+    "welfare_sd": 484.0,
+    "risk_mean": 0.16,
+    "risk_sd": 0.015,
+    "mean_churn_mod": 0.502,
+    "mean_ltv_cr": 750.0
+  },
+  "CATE x LTV": {
+    "ate_mean": 4.6,
+    "ate_sd": 4.1,
+    "welfare_mean": 1317.0,
+    "welfare_sd": 549.0,
+    "risk_mean": 0.144,
+    "risk_sd": 0.017,
+    "mean_churn_mod": 0.461,
+    "mean_ltv_cr": 838.0
+  },
+  "Full Framework (Est.)": {
+    "ate_mean": 5.7,
+    "ate_sd": 3.0,
+    "welfare_mean": 1286.0,
+    "welfare_sd": 743.0,
+    "risk_mean": 0.154,
+    "risk_sd": 0.018,
+    "mean_churn_mod": 0.486,
+    "mean_ltv_cr": 796.0
+  },
+  "Full Framework (Cal.)": {
+    "ate_mean": 4.6,
+    "ate_sd": 4.1,
+    "welfare_mean": 1317.0,
+    "welfare_sd": 549.0,
+    "risk_mean": 0.144,
+    "risk_sd": 0.017,
+    "mean_churn_mod": 0.461,
+    "mean_ltv_cr": 838.0
+  },
+  "Full Framework (Oracle)": {
+    "ate_mean": 8.0,
+    "ate_sd": 3.5,
+    "welfare_mean": 7244.0,
+    "welfare_sd": 97.0,
+    "risk_mean": 0.188,
+    "risk_sd": 0.004,
+    "mean_churn_mod": 0.587,
+    "mean_ltv_cr": 593.0
+  },
+  "S-Learner": {
+    "ate_mean": 6.7,
+    "ate_sd": 0.9,
+    "welfare_mean": 2671.0,
+    "welfare_sd": 481.0,
+    "risk_mean": 0.153,
+    "risk_sd": 0.015,
+    "mean_churn_mod": 0.483,
+    "mean_ltv_cr": 764.0
+  }
+}

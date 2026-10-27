@@ -20,72 +20,28 @@
 Usage:  python compute_v43_additions.py [N_RUNS]
 """
 
-import json
-import os
 import sys
 import numpy as np
 from sklearn.model_selection import train_test_split
 
 from simulation_v38 import (
-    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, DEFAULT_BUDGET, SEED_BASE, TREATMENT_PROB,
-    _standardise, generate_population, estimate_components, estimate_components_misspec,
-    _estimate_ltv_churn, _estimate_slearner, _estimate_cate_xlearner,
-    target_topk, compute_welfare,
+    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
+)
+from core.io import save_json
+from core.dgp import (
+    generate_main, make_corr_dgp, generate_heavytail,
+)
+from core.estimators import (
+    estimate_components, estimate_components_misspec, _estimate_slearner, _estimate_cate_xlearner,
+)
+from core.policy import (
+    DEFAULT_BUDGET, target_topk, compute_welfare,
 )
 
 from sklearn.ensemble import GradientBoostingRegressor
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
-V_CORR_SCALE = 180.0  # maps standardised tau_base into LTV units (moderate corr ~+/-0.35)
-
-
-def _base_population(n, rng):
-    """Shared draws; returns the pieces needed to assemble V under variants."""
-    account_age = rng.normal(24, 8, n).clip(1, 60)
-    weekly_spend = np.exp(rng.normal(3.5, 0.8, n)).clip(5, 500)
-    login_freq = rng.poisson(4, n).clip(1, 15).astype(float)
-    bonus_history = rng.normal(3, 1.5, n).clip(0, 10)
-    z_spend = _standardise(weekly_spend, 'weekly_spend')
-    z_login = _standardise(login_freq, 'login_freq')
-    z_age = _standardise(account_age, 'account_age')
-    z_bonus = _standardise(bonus_history, 'bonus_history')
-    churn_logit = (-1.0 + 0.04 * (30 - account_age) - 0.25 * login_freq
-                   + 0.01 * (40 - weekly_spend) + 0.1 * z_bonus + rng.normal(0, 0.4, n))
-    true_churn = (1.0 / (1.0 + np.exp(-churn_logit))).clip(0.01, 0.99)
-    tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
-    churn_mod = 4.0 * true_churn * (1.0 - true_churn)
-    true_tau = (tau_base * churn_mod + rng.normal(0, 0.03, n)).clip(-0.20, 0.40)
-    baseline = (0.6 + 0.15 * z_login + 0.05 * z_spend - 0.08 * z_age
-                + rng.normal(0, 0.05, n)).clip(0.05, 0.95)
-    treatment = rng.binomial(1, TREATMENT_PROB, n)
-    y0 = rng.binomial(1, baseline)
-    y1 = rng.binomial(1, (baseline + true_tau).clip(0.01, 0.99))
-    y_obs = treatment * y1 + (1 - treatment) * y0
-    features = np.column_stack([account_age, weekly_spend, login_freq, bonus_history])
-    z_taubase = (tau_base - tau_base.mean()) / (tau_base.std() + 1e-12)
-    return dict(features=features, treatment=treatment, y_obs=y_obs, y0=y0, y1=y1,
-                true_tau=true_tau, true_churn=true_churn, z_taubase=z_taubase,
-                weekly_spend=weekly_spend, login_freq=login_freq, account_age=account_age)
-
-
-def make_corr_dgp(gamma):
-    def dgp(n, rng):
-        p = _base_population(n, rng)
-        base_v = 10 * p['weekly_spend'] + 40 * p['login_freq'] + 5 * p['account_age']
-        v = (base_v + gamma * V_CORR_SCALE * p['z_taubase']
-             + rng.normal(0, 80, n)).clip(50, 8000)
-        return {**p, 'true_ltv': v,
-                'feature_names': ['account_age', 'weekly_spend', 'login_freq', 'bonus_history']}
-    return dgp
-
-
-def heavytail_dgp(n, rng):
-    p = _base_population(n, rng)
-    base_v = 10 * p['weekly_spend'] + 40 * p['login_freq'] + 5 * p['account_age']
-    v = (base_v * np.exp(rng.normal(0, 1.0, n))).clip(50, 100000)  # multiplicative heavy tail
-    return {**p, 'true_ltv': v,
-            'feature_names': ['account_age', 'weekly_spend', 'login_freq', 'bonus_history']}
 
 
 def _strategy_welfare(dgp, kappa=DEFAULT_BUDGET):
@@ -121,7 +77,7 @@ def observational_diagnostic(est_func):
     cate_terms, value_terms = [], []
     for seed in SEEDS:
         rng = np.random.RandomState(seed)
-        data = generate_population(N_PLAYERS, rng)
+        data = generate_main(N_PLAYERS, rng)
         idx = np.arange(len(data['treatment']))
         tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(te) * DEFAULT_BUDGET)
@@ -166,7 +122,7 @@ def main():
               f"CATExLTV={r['CATE x LTV']:.0f} ({r['LTV_x_advantage_pct']:+.1f}%) S-L={r['S-Learner']:.0f}")
 
     print("B. Heavy-tailed LTV ...")
-    out['heavy_tail'] = _strategy_welfare(heavytail_dgp)
+    out['heavy_tail'] = _strategy_welfare(generate_heavytail)
     h = out['heavy_tail']
     print(f"   corr={h['corr_tau_V']:+.2f} CATE={h['CATE Only']:.0f} "
           f"CATExLTV={h['CATE x LTV']:.0f} ({h['LTV_x_advantage_pct']:+.1f}%) S-L={h['S-Learner']:.0f}")
@@ -181,10 +137,7 @@ def main():
               f"CATE share={d['cate_share_pct']}%")
 
     out['_meta'] = {'n_runs': N_RUNS, 'kappa': DEFAULT_BUDGET, 'seeds_base': SEED_BASE}
-    path = os.path.join(os.path.dirname(__file__), '..', 'outputs',
-                        'simulation_v43_additions.json')
-    with open(path, 'w') as fp:
-        json.dump(out, fp, indent=2)
+    path = save_json(out, 'simulation_v43_additions.json')
     print(f"Saved {path}")
 
 

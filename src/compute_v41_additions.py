@@ -19,17 +19,23 @@ Two analyses on the same 200 seeds:
 Usage:  python compute_v41_additions.py [N_RUNS]
 """
 
-import json
-import os
 import sys
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingRegressor
 
 from simulation_v38 import (
-    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, DEFAULT_BUDGET, SEED_BASE,
-    generate_population, estimate_components, estimate_components_misspec,
-    target_topk, compute_welfare,
+    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
+)
+from core.io import save_json
+from core.dgp import (
+    generate_main,
+)
+from core.estimators import (
+    estimate_components, estimate_components_misspec,
+)
+from core.policy import (
+    DEFAULT_BUDGET, target_topk, compute_welfare,
 )
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
@@ -41,7 +47,7 @@ def diagnostic_terms(est_func, label):
     cate_terms, value_terms, m_sizes = [], [], []
     for seed in SEEDS:
         rng = np.random.RandomState(seed)
-        data = generate_population(N_PLAYERS, rng)
+        data = generate_main(N_PLAYERS, rng)
         idx = np.arange(len(data['treatment']))
         tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(te) * DEFAULT_BUDGET)
@@ -74,7 +80,7 @@ def end_to_end_joint():
     welfare = []
     for seed in SEEDS:
         rng = np.random.RandomState(seed)
-        data = generate_population(N_PLAYERS, rng)
+        data = generate_main(N_PLAYERS, rng)
         idx = np.arange(len(data['treatment']))
         tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(te) * DEFAULT_BUDGET)
@@ -117,10 +123,7 @@ def main():
     print("   (compare: borrowed-V S-Learner 24,310; CATE x LTV 16,427)")
 
     out['_meta'] = {'n_runs': N_RUNS, 'kappa': DEFAULT_BUDGET, 'seeds_base': SEED_BASE}
-    path = os.path.join(os.path.dirname(__file__), '..', 'outputs',
-                        'simulation_v41_additions.json')
-    with open(path, 'w') as fp:
-        json.dump(out, fp, indent=2)
+    path = save_json(out, 'simulation_v41_additions.json')
     print(f"Saved {path}")
 
 

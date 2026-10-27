@@ -20,18 +20,25 @@
 Usage:  python compute_v42_additions.py [N_RUNS]
 """
 
-import json
-import os
 import sys
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingRegressor
 
 from simulation_v38 import (
-    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, DEFAULT_BUDGET, SEED_BASE,
-    generate_population, estimate_components, target_topk, compute_welfare,
+    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
 )
-from compute_revision_additions import generate_population_harm, h_protection
+from core.io import save_json
+from core.dgp import (
+    generate_main, generate_harm,
+)
+from core.estimators import (
+    estimate_components,
+)
+from core.policy import (
+    DEFAULT_BUDGET, target_topk, compute_welfare,
+)
+from compute_revision_additions import h_protection
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
@@ -55,7 +62,7 @@ def component_update():
     mis, well = [], []
     for seed in SEEDS:
         rng = np.random.RandomState(seed)
-        data = generate_population(N_PLAYERS, rng)
+        data = generate_main(N_PLAYERS, rng)
         idx = np.arange(len(data['treatment']))
         tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(te) * DEFAULT_BUDGET)
@@ -92,7 +99,7 @@ def harm_constraint():
     soft_w, soft_h, hard_w, hard_h, ung_w, ung_h = [], [], [], [], [], []
     for seed in SEEDS:
         rng = np.random.RandomState(seed)
-        data = generate_population_harm(N_PLAYERS, rng)
+        data = generate_harm(N_PLAYERS, rng)
         idx = np.arange(len(data['treatment']))
         tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(te) * DEFAULT_BUDGET)
@@ -145,10 +152,7 @@ def main():
     print(f"   hard - soft at matched harm: +{h['hard_minus_soft_welfare']:.0f} (+{h['hard_minus_soft_pct']}%)")
 
     out['_meta'] = {'n_runs': N_RUNS, 'kappa': DEFAULT_BUDGET, 'seeds_base': SEED_BASE}
-    path = os.path.join(os.path.dirname(__file__), '..', 'outputs',
-                        'simulation_v42_additions.json')
-    with open(path, 'w') as fp:
-        json.dump(out, fp, indent=2)
+    path = save_json(out, 'simulation_v42_additions.json')
     print(f"Saved {path}")
 
 

@@ -15,9 +15,16 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.model_selection import train_test_split
 
 from simulation_v38 import (
-    N_PLAYERS, N_RUNS, DEFAULT_BUDGET, SEED_BASE,
-    generate_population, compute_welfare, target_topk,
+    N_PLAYERS, N_RUNS, SEED_BASE,
+)
+from core.dgp import (
+    generate_main,
+)
+from core.estimators import (
     estimate_components,
+)
+from core.policy import (
+    DEFAULT_BUDGET, compute_welfare, target_topk,
 )
 
 
@@ -53,7 +60,7 @@ def run():
     for run_idx in range(N_RUNS):
         seed = SEED_BASE + run_idx * 7
         rng = np.random.RandomState(seed)
-        data = generate_population(N_PLAYERS, rng)
+        data = generate_main(N_PLAYERS, rng)
 
         n = len(data['treatment'])
         indices = np.arange(n)

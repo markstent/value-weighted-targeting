@@ -14,18 +14,26 @@ Same 200 seeds (SEED_BASE + 7r) as the published study; kappa = 0.30.
 Usage:  python compute_v45_additions.py [N_RUNS]
 """
 
-import json
-import os
 import sys
 import numpy as np
 from sklearn.model_selection import train_test_split
 
 from simulation_v38 import (
     N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
-    generate_population, estimate_components,
-    _estimate_slearner, target_topk, compute_welfare, _paired_test,
 )
-from compute_v44_additions import generate_population_adv
+from core.io import save_json
+from core.dgp import (
+    generate_main, generate_adv,
+)
+from core.estimators import (
+    estimate_components, _estimate_slearner,
+)
+from core.policy import (
+    target_topk, compute_welfare,
+)
+from core.stats import (
+    paired_test,
+)
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
@@ -71,7 +79,7 @@ def run_like_for_like(dgp_func, drop_idx, label):
 
     sl_full = np.array(sl_full)
     sl_drop = np.array(sl_drop)
-    pt = _paired_test(list(sl_drop), list(sl_full), f'{label} sl_drop vs full')
+    pt = paired_test(list(sl_drop), list(sl_full), f'{label} sl_drop vs full')
     return {
         'label': label,
         'dropped_feature_index': drop_idx,
@@ -92,9 +100,9 @@ def main():
     print("=" * 70)
     out = {}
     # published misspecification: drop login (index 2)
-    out['login_drop_main'] = run_like_for_like(generate_population, 2, 'login-drop (main DGP)')
+    out['login_drop_main'] = run_like_for_like(generate_main, 2, 'login-drop (main DGP)')
     # adversarial misspecification: drop bonus_history (index 3)
-    out['bonus_drop_adversarial'] = run_like_for_like(generate_population_adv, 3, 'bonus-drop (adversarial DGP)')
+    out['bonus_drop_adversarial'] = run_like_for_like(generate_adv, 3, 'bonus-drop (adversarial DGP)')
     out['meta'] = {'n_runs': N_RUNS, 'kappa': KAPPA, 'seeds': 'SEED_BASE + 7r'}
 
     for key in ['login_drop_main', 'bonus_drop_adversarial']:
@@ -105,17 +113,7 @@ def main():
         print(f"  degradation             : {r['degradation_abs']:,.0f} "
               f"({r['degradation_pct']}%), p={r['paired_p']}, d={r['cohens_d']}")
 
-    class NpEnc(json.JSONEncoder):
-        def default(self, o):
-            if isinstance(o, (np.integer,)): return int(o)
-            if isinstance(o, (np.floating,)): return float(o)
-            if isinstance(o, np.ndarray): return o.tolist()
-            return super().default(o)
-
-    path = os.path.join(os.path.dirname(__file__), '..', 'outputs',
-                        'simulation_v45_additions.json')
-    with open(path, 'w') as fp:
-        json.dump(out, fp, indent=2, cls=NpEnc)
+    path = save_json(out, 'simulation_v45_additions.json')
     print(f"\nSaved to {path}")
 
 

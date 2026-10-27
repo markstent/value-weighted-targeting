@@ -33,8 +33,6 @@ Runs three analyses, all on the same 200 seeds as the published simulation
 Usage:  python compute_v44_additions.py [N_RUNS]
 """
 
-import json
-import os
 import sys
 import numpy as np
 from collections import Counter
@@ -42,15 +40,21 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 
 from simulation_v38 import (
-    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, DEFAULT_BUDGET, TREATMENT_PROB,
-    SEED_BASE, POP_MEAN, POP_SD, _standardise,
-    generate_population, estimate_components, _estimate_ltv_churn,
-    _estimate_cate_tlearner, _estimate_slearner,
-    f_churn_vec, target_topk, compute_welfare,
-    THETA_GRID, DEFAULT_THETA_IDX, calibrate_theta,
-    holm_bonferroni, cohens_d_paired, ci_95, _paired_test,
+    N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
 )
-from compute_revision_additions import generate_population_asym
+from core.io import save_json
+from core.dgp import (
+    generate_main, generate_adv, generate_asym, TREATMENT_PROB,
+)
+from core.estimators import (
+    estimate_components, _estimate_ltv_churn, _estimate_cate_tlearner, _estimate_slearner, calibrate_theta,
+)
+from core.policy import (
+    DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare, THETA_GRID, DEFAULT_THETA_IDX,
+)
+from core.stats import (
+    holm_bonferroni, paired_test,
+)
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
@@ -169,7 +173,7 @@ def run_budget_inference(dgp_func, label):
     for kappa in REPORTED_BUDGETS:
         w_ltv = ltv[kappa]
         w_cate = cate[kappa]
-        pt = _paired_test(w_ltv, w_cate, f'{kappa} ltv vs cate')
+        pt = paired_test(w_ltv, w_cate, f'{kappa} ltv vs cate')
         per_budget[str(kappa)] = {
             'cate_only_welfare': round(float(np.mean(w_cate)), 0),
             'cate_x_ltv_welfare': round(float(np.mean(w_ltv)), 0),
@@ -264,7 +268,7 @@ def run_aipw_calibration():
         if (i + 1) % 50 == 0:
             print(f"    seed {i + 1}/{N_RUNS}")
         rng = np.random.RandomState(seed)
-        data = generate_population(N_PLAYERS, rng)
+        data = generate_main(N_PLAYERS, rng)
         n = len(data['treatment'])
         train_idx, test_idx = train_test_split(np.arange(n), test_size=0.30,
                                                random_state=seed)
@@ -322,56 +326,6 @@ def run_aipw_calibration():
 # C. Adversarial CATE misspecification (dropped feature absent from V)
 # ---------------------------------------------------------------------------
 
-def generate_population_adv(n, rng):
-    """Main DGP, but tau also depends on bonus_history, which is ABSENT from V.
-
-    Identical to generate_population except tau_base gains a +0.10*z_bonus term.
-    bonus_history drives tau here but does not enter the LTV equation, so a value
-    model cannot recover it when the CATE model drops bonus_history.
-    """
-    account_age = rng.normal(24, 8, n).clip(1, 60)
-    weekly_spend = np.exp(rng.normal(3.5, 0.8, n)).clip(5, 500)
-    login_freq = rng.poisson(4, n).clip(1, 15).astype(float)
-    bonus_history = rng.normal(3, 1.5, n).clip(0, 10)
-
-    z_spend = _standardise(weekly_spend, 'weekly_spend')
-    z_login = _standardise(login_freq, 'login_freq')
-    z_age = _standardise(account_age, 'account_age')
-    z_bonus = _standardise(bonus_history, 'bonus_history')
-
-    churn_logit = (-1.0 + 0.04 * (30 - account_age) - 0.25 * login_freq
-                   + 0.01 * (40 - weekly_spend) + 0.1 * z_bonus
-                   + rng.normal(0, 0.4, n))
-    true_churn = (1.0 / (1.0 + np.exp(-churn_logit))).clip(0.01, 0.99)
-
-    true_ltv = (weekly_spend * 10 + login_freq * 40 + account_age * 5
-                + rng.normal(0, 80, n)).clip(50, 8000)
-
-    # tau depends on bonus_history (absent from V); rest identical to main DGP
-    tau_base = (0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
-                + 0.10 * z_bonus)
-    churn_moderation = 4.0 * true_churn * (1.0 - true_churn)
-    true_tau = (tau_base * churn_moderation + rng.normal(0, 0.03, n)).clip(-0.20, 0.40)
-
-    baseline = (0.6 + 0.15 * z_login + 0.05 * z_spend - 0.08 * z_age
-                + rng.normal(0, 0.05, n)).clip(0.05, 0.95)
-    y0_prob = baseline
-    y1_prob = (baseline + true_tau).clip(0.01, 0.99)
-    treatment = rng.binomial(1, TREATMENT_PROB, n)
-    y0 = rng.binomial(1, y0_prob)
-    y1 = rng.binomial(1, y1_prob)
-    y_obs = treatment * y1 + (1 - treatment) * y0
-
-    features = np.column_stack([account_age, weekly_spend, login_freq, bonus_history])
-    return {
-        'features': features,
-        'feature_names': ['account_age', 'weekly_spend', 'login_freq', 'bonus_history'],
-        'treatment': treatment, 'y_obs': y_obs, 'y0': y0, 'y1': y1,
-        'true_tau': true_tau, 'true_ltv': true_ltv, 'true_churn': true_churn,
-        'y0_prob': y0_prob, 'y1_prob': y1_prob,
-    }
-
-
 def estimate_components_misspec_adv(data, train_idx, test_idx, cate_method='tlearner'):
     """CATE model drops bonus_history (index 3); LTV and churn keep all features."""
     X = data['features']
@@ -399,7 +353,6 @@ def _run_adv_scenario(est_func, dgp_func, kappa):
         tau_hat, ltv_hat, _ = est_func(data, train_idx, test_idx)
         true_tau = data['true_tau'][test_idx]
         true_ltv = data['true_ltv'][test_idx]
-        k = int(len(test_idx) * kappa)
         cate.append(_welfare_at_kappa(tau_hat, kappa, true_tau, true_ltv))
         ltv.append(_welfare_at_kappa(tau_hat * ltv_hat, kappa, true_tau, true_ltv))
         # S-Learner uses all features (sees bonus_history)
@@ -414,12 +367,12 @@ def run_adversarial_misspec(kappa=0.30):
     print("  [C] adversarial misspecification (drop bonus_history, absent from V)")
     # adversarial DGP, adversarial dropout
     cate, ltv, sl = _run_adv_scenario(
-        estimate_components_misspec_adv, generate_population_adv, kappa)
+        estimate_components_misspec_adv, generate_adv, kappa)
     # same adversarial DGP, well-specified estimation (reference)
     cate_ws, ltv_ws, sl_ws = _run_adv_scenario(
-        estimate_components, generate_population_adv, kappa)
+        estimate_components, generate_adv, kappa)
 
-    pt = _paired_test(list(ltv), list(cate), 'adv ltv vs cate')
+    pt = paired_test(list(ltv), list(cate), 'adv ltv vs cate')
     return {
         'kappa': kappa,
         'adversarial_dropout': {
@@ -454,8 +407,8 @@ def main():
     print("=" * 70)
 
     out = {}
-    out['budget_inference_main'] = run_budget_inference(generate_population, 'symmetric main')
-    out['budget_inference_asym'] = run_budget_inference(generate_population_asym, 'asymmetric')
+    out['budget_inference_main'] = run_budget_inference(generate_main, 'symmetric main')
+    out['budget_inference_asym'] = run_budget_inference(generate_asym, 'asymmetric')
     out['aipw_calibration'] = run_aipw_calibration()
     out['adversarial_misspec'] = run_adversarial_misspec(kappa=0.30)
     out['adversarial_misspec_tight'] = run_adversarial_misspec(kappa=0.10)
@@ -497,22 +450,7 @@ def main():
         print(f"           [well-specified ref] "
               f"CATE={r['cate_only']:,.0f} LTV={r['cate_x_ltv']:,.0f} SL={r['s_learner']:,.0f}")
 
-    class NumpyEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, (np.integer,)):
-                return int(obj)
-            if isinstance(obj, (np.floating,)):
-                return float(obj)
-            if isinstance(obj, (np.bool_,)):
-                return bool(obj)
-            if isinstance(obj, np.ndarray):
-                return obj.tolist()
-            return super().default(obj)
-
-    output_path = os.path.join(os.path.dirname(__file__), '..',
-                               'outputs', 'simulation_v44_additions.json')
-    with open(output_path, 'w') as fp:
-        json.dump(out, fp, indent=2, cls=NumpyEncoder)
+    output_path = save_json(out, 'simulation_v44_additions.json')
     print(f"\nSaved to {output_path}")
 
 
