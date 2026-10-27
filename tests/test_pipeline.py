@@ -42,4 +42,7 @@ def test_smoke_fresh_clone(tmp_path):
         assert (gen / path.name).exists(), path.name
     for rel, digest in manifest['generated_tex'].items():
         assert run_all.sha256(clone / rel) == digest
-    assert not (clone / 'docs' / 'generated').exists()    # smoke never writes the tracked dir
+    # a smoke run never touches the tracked tables
+    dirty = subprocess.run(['git', 'status', '--porcelain', '--', 'docs/generated'], cwd=clone,
+                           capture_output=True, text=True, check=True).stdout
+    assert dirty == ''
