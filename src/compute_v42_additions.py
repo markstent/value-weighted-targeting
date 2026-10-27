@@ -17,7 +17,6 @@ Usage:  python compute_v42_additions.py [N_RUNS]
 import sys
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import GradientBoostingRegressor
 
 from simulation_v38 import (
     N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
@@ -25,8 +24,7 @@ from simulation_v38 import (
 from core.io import save_json
 from core.dgp import generate_main
 from core.estimators import (
-    VALUE_STREAM_V42, seed_from,
-    estimate_components,
+    estimate_components, _wellspec_value_model,
 )
 from core.policy import (
     DEFAULT_BUDGET, target_topk, compute_welfare,
@@ -34,18 +32,6 @@ from core.policy import (
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
-
-
-def _wellspec_value_model(Xtr, Xte, seed):
-    """A correctly-specified value model: trained on the true LTV functional form."""
-    rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V42))
-    # True DGP LTV form: 10*spend + 40*login + 5*age (cf. simulation_v38 eq for V).
-    target = (10 * Xtr[:, 1] + 40 * Xtr[:, 2] + 5 * Xtr[:, 0]
-              + rng_v.normal(0, 80, len(Xtr))).clip(50, 8000)
-    m = GradientBoostingRegressor(
-        n_estimators=80, max_depth=3, learning_rate=0.1, random_state=0)
-    m.fit(Xtr, target)
-    return m.predict(Xte).clip(50, 8000)
 
 
 def component_update():

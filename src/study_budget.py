@@ -1,0 +1,252 @@
+"""Budget crossover kappa*: which component drives it?
+
+Below kappa*, ranking on tau alone ("tau only") beats ranking on tau * V
+("tauV"); above it the order reverses.  With TRUE components tau * V dominates at
+every kappa, so kappa* is an estimation phenomenon.  This study isolates the
+source with a 4 x 3 grid of cells, each a pair (tau source, V source):
+
+  tau source:  oracle (feasible E[tau|X]), T, X or S (that CATE learner's tau_hat)
+  V source:    oracle (feasible E[V|X]), misspec (the deliberately misspecified
+               proxy), wellspec (the well-specified value model)
+
+For each cell, the score tau_src * V_src is compared with tau_src alone at every
+kappa in budget_grid.  Welfare is ALWAYS evaluated on the realised true tau and V
+of the test split.  Every learner and value model is fitted ONCE per replication
+on the training split; conditional_means is called once per replication on the
+test features; all cells and kappas reuse them.
+
+S-learner: only its tau_hat = mu(x,1) - mu(x,0) is used (never a tau*V joint
+output).  That tau_hat does not take ltv_hat as an input at all, so it is the
+same in every cell; the misspecified proxy's ltv_hat is only ever a V source.
+
+kappa*: the first grid kappa at which the mean welfare difference (tauV minus tau
+only) changes from <= 0 to > 0.  It is a grid value, not an interpolation.  A
+curve with no such change (tauV ahead throughout, tau only ahead throughout, or
+a change in the other direction only) has no kappa*.  The CI is a percentile
+bootstrap over replications (2000 resamples, seeded via seed_from); resamples
+with no crossover are never dropped silently: frac_with_crossover is exactly
+n_crossover / n_boot and the counts are reported.
+
+Inference: per cell, a paired t-test of tauV vs tau only at each kappa, Holm
+across ALL kappa of that cell (the family is every kappa for one comparison).
+p-values are unrounded (core.stats.paired_test rounds to 4 places, which is lossy
+for Holm); Holm itself is core.stats.holm_bonferroni.
+
+Usage:  python study_budget.py [--reps R] [--n-players N] [--smoke]
+"""
+
+import argparse
+
+import numpy as np
+from scipy import stats as scipy_stats
+from sklearn.model_selection import train_test_split
+
+from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
+from core.dgp import DGPS, FEATURE_NAMES, conditional_means
+from core.estimators import (
+    BOOT_STREAM, ORACLE_STREAM, _estimate_cate_slearner, _estimate_cate_tlearner,
+    _estimate_cate_xlearner, _wellspec_value_model, estimate_components, seed_from,
+)
+from core.io import add_common_args, resolve_run_size, save_json
+from core.policy import compute_welfare, target_topk
+from core.stats import cohens_d_paired, holm_bonferroni
+
+# Rounded so int(n * kappa) is identical to the grid the published v44 numbers used.
+budget_grid = np.round(np.arange(0.05, 0.501, 0.025), 3)
+REPORTED_BUDGETS = (0.10, 0.20, 0.30, 0.50)
+TAU_SOURCES = ('oracle', 'T', 'X', 'S')
+V_SOURCES = ('oracle', 'misspec', 'wellspec')
+ORACLE_MC = 200
+N_BOOT = 2000
+
+
+def welfare_at_kappa(scores, kappa, true_tau, true_ltv):
+    """True welfare of the top-k set by `scores`, k = int(n * kappa)."""
+    k = int(len(scores) * kappa)
+    return compute_welfare(target_topk(scores, k), true_tau, true_ltv)
+
+
+def cell_key(tau_src, v_src):
+    return f'{tau_src}|{v_src}'
+
+
+def _tau_hat(source, Xtr, Xte, Wtr, Ytr):
+    return {'T': _estimate_cate_tlearner, 'X': _estimate_cate_xlearner,
+            'S': _estimate_cate_slearner}[source](Xtr, Xte, Wtr, Ytr)
+
+
+def simulate(reps, n_players, dgp_name='main', tau_sources=TAU_SOURCES,
+             v_sources=V_SOURCES, kappas=budget_grid):
+    """Per-rep welfare of tauV and tau-only for every (tau source, V source) cell.
+
+    Returns {cell_key: {'tauV': (reps, K) array, 'tau': (reps, K) array}}."""
+    kappas = np.asarray(kappas, dtype=float)
+    keys = [cell_key(t, v) for t in tau_sources for v in v_sources]
+    out = {key: {'tauV': np.empty((reps, len(kappas))), 'tau': np.empty((reps, len(kappas)))}
+           for key in keys}
+    for rep in range(reps):
+        seed = SEED_BASE + rep * 7
+        data = DGPS[dgp_name](n_players, np.random.RandomState(seed))
+        idx = np.arange(len(data['treatment']))
+        train_idx, test_idx = train_test_split(idx, test_size=0.30, random_state=seed)
+        true_tau = data['true_tau'][test_idx]
+        true_ltv = data['true_ltv'][test_idx]
+        X, W, Y = data['features'], data['treatment'], data['y_obs']
+        Xtr, Xte, Wtr, Ytr = X[train_idx], X[test_idx], W[train_idx], Y[train_idx]
+
+        # One fit per component per rep, reused across cells and kappas.
+        taus, vs = {}, {}
+        for src in tau_sources:
+            if src == 'oracle':
+                continue
+            taus[src] = _tau_hat(src, Xtr, Xte, Wtr, Ytr)
+        if 'misspec' in v_sources:
+            _, vs['misspec'], _ = estimate_components(data, train_idx, test_idx, seed=seed)
+        if 'wellspec' in v_sources:
+            vs['wellspec'] = _wellspec_value_model(Xtr, Xte, seed)
+        if 'oracle' in tau_sources or 'oracle' in v_sources:
+            feats = {name: X[test_idx, i] for i, name in enumerate(FEATURE_NAMES)}
+            cm = conditional_means(dgp_name, feats, n_mc=ORACLE_MC,
+                                   seed=seed_from(seed, ORACLE_STREAM))
+            taus['oracle'], vs['oracle'] = cm['tau_bar'], cm['ltv_bar']
+
+        for t in tau_sources:
+            for v in v_sources:
+                cell = out[cell_key(t, v)]
+                s_tauv, s_tau = taus[t] * vs[v], taus[t]
+                for j, kappa in enumerate(kappas):
+                    cell['tauV'][rep, j] = welfare_at_kappa(s_tauv, kappa, true_tau, true_ltv)
+                    cell['tau'][rep, j] = welfare_at_kappa(s_tau, kappa, true_tau, true_ltv)
+    return out
+
+
+def crossover_kappa(mean_diff, grid):
+    """First grid kappa where mean_diff goes from <= 0 to > 0; NaN if it never does."""
+    d = np.asarray(mean_diff, dtype=float)
+    for j in range(len(d) - 1):
+        if d[j] <= 0 < d[j + 1]:
+            return float(np.asarray(grid)[j + 1])
+    return float('nan')
+
+
+def bootstrap_crossover(diff, grid, n_boot=N_BOOT, seed=0):
+    """Percentile bootstrap of kappa* over replications.
+
+    diff: (reps, K) per-rep welfare difference (tauV minus tau only).  Resamples
+    with no crossover are counted, never dropped: frac_with_crossover is
+    n_crossover / n_boot.  ci95 is over the crossover resamples only (None if
+    there are none)."""
+    diff = np.asarray(diff, dtype=float)
+    n = len(diff)
+    rng = np.random.RandomState(seed)
+    idx = rng.randint(0, n, (n_boot, n))
+    stars = np.array([crossover_kappa(diff[row].mean(axis=0), grid) for row in idx])
+    found = ~np.isnan(stars)
+    n_cross = int(found.sum())
+    res = {'n_boot': n_boot, 'n_crossover': n_cross, 'n_no_crossover': n_boot - n_cross,
+           'frac_with_crossover': n_cross / n_boot, 'median': None, 'ci95': None}
+    if n_cross:
+        res['median'] = float(np.median(stars[found]))
+        res['ci95'] = [float(np.percentile(stars[found], 2.5)),
+                       float(np.percentile(stars[found], 97.5))]
+    return res
+
+
+def _t_ci(x):
+    x = np.asarray(x, dtype=float)
+    m = float(x.mean())
+    if len(x) < 2:
+        return {'mean': m, 'ci95': None}
+    half = scipy_stats.t.ppf(0.975, df=len(x) - 1) * x.std(ddof=1) / np.sqrt(len(x))
+    return {'mean': m, 'ci95': [m - half, m + half]}
+
+
+def paired_inference(w_tauv, w_tau, grid):
+    """Per-kappa paired t-test of tauV vs tau only, Holm across all kappa."""
+    w_tauv, w_tau = np.asarray(w_tauv, float), np.asarray(w_tau, float)
+    rows, raw = [], []
+    for j, kappa in enumerate(grid):
+        a, b = w_tauv[:, j], w_tau[:, j]
+        d = a - b
+        if len(d) < 2 or np.ptp(d) == 0:
+            t_stat, p = float('nan'), (1.0 if np.all(d == 0) else 0.0)
+        else:
+            t_stat, p = scipy_stats.ttest_rel(a, b)
+        raw.append(float(p))
+        rows.append({'kappa': float(kappa), 'tauV': _t_ci(a), 'tau_only': _t_ci(b),
+                     'diff': _t_ci(d), 't_stat': float(t_stat),
+                     'cohens_d': cohens_d_paired(a, b) if len(d) > 1 else None,
+                     'p_raw': float(p)})
+    for row, p_holm in zip(rows, holm_bonferroni(raw)):
+        row['p_holm'] = float(p_holm)
+    return rows
+
+
+def summarise(raw, grid=budget_grid, n_boot=N_BOOT):
+    """Per-cell per-kappa welfare + Holm p-values + kappa* (point, CI, frac)."""
+    boot_seed = seed_from(SEED_BASE, BOOT_STREAM)
+    cells = {}
+    for key, w in raw.items():
+        diff = w['tauV'] - w['tau']
+        mean_diff = diff.mean(axis=0)
+        point = crossover_kappa(mean_diff, grid)
+        cells[key] = {
+            'per_kappa': paired_inference(w['tauV'], w['tau'], grid),
+            'kappa_star': {'point': None if np.isnan(point) else point,
+                           **bootstrap_crossover(diff, grid, n_boot, boot_seed)},
+        }
+    return {'cells': cells, 'kappa_grid': [float(k) for k in grid]}
+
+
+def run_budget_inference(dgp_name, label, reps, n_players=N_PLAYERS):
+    """compute_v44's budget table (T-learner tau_hat, misspecified V) for one DGP.
+
+    Same cell as the paper's CATE only vs CATE x LTV comparison; Holm runs across
+    all kappa of the grid, not the four reported budgets."""
+    print(f"  [A] budget inference + crossover ({label})")
+    raw = simulate(reps, n_players, dgp_name, tau_sources=('T',), v_sources=('misspec',))
+    cell = summarise(raw)['cells'][cell_key('T', 'misspec')]
+    per_budget = {}
+    for row in cell['per_kappa']:
+        if round(row['kappa'], 3) in REPORTED_BUDGETS:
+            per_budget[str(round(row['kappa'], 3))] = {
+                'cate_only_welfare': row['tau_only']['mean'],
+                'cate_x_ltv_welfare': row['tauV']['mean'],
+                'diff_ltv_minus_cate': row['diff']['mean'],
+                't_stat': row['t_stat'], 'cohens_d': row['cohens_d'],
+                'ci_95': row['diff']['ci95'], 'p_value': row['p_raw'],
+                'p_holm': row['p_holm'],
+            }
+    return {'per_budget': per_budget, 'kappa_star': cell['kappa_star'],
+            'kappa_grid': [float(k) for k in budget_grid],
+            'mean_diff_curve': [r['diff']['mean'] for r in cell['per_kappa']]}
+
+
+def _print_table(summary):
+    print(f"{'cell (tau|V)':<18} {'kappa*':>7} {'95% CI':>15} {'frac_x':>7} {'no-x':>5}  min p_holm")
+    for key, c in summary['cells'].items():
+        ks = c['kappa_star']
+        pt = 'none' if ks['point'] is None else f"{ks['point']:.3f}"
+        ci = 'n/a' if ks['ci95'] is None else f"[{ks['ci95'][0]:.3f},{ks['ci95'][1]:.3f}]"
+        p = min(r['p_holm'] for r in c['per_kappa'])
+        print(f"{key:<18} {pt:>7} {ci:>15} {ks['frac_with_crossover']:>7.3f} "
+              f"{ks['n_no_crossover']:>5}  {p:.4g}")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    add_common_args(parser)
+    args = parser.parse_args(argv)
+    reps, n_players = resolve_run_size(args, N_RUNS, N_PLAYERS)
+    print(f"Budget 2x2 | reps={reps}, n={n_players}, "
+          f"{len(TAU_SOURCES) * len(V_SOURCES)} cells x {len(budget_grid)} kappa")
+    summary = summarise(simulate(reps, n_players))
+    summary['_meta'] = {'n_runs': reps, 'n_players': n_players, 'seeds_base': SEED_BASE,
+                        'n_boot': N_BOOT, 'tau_sources': list(TAU_SOURCES),
+                        'v_sources': list(V_SOURCES), 'dgp': 'main'}
+    _print_table(summary)
+    print(f"Saved {save_json(summary, 'budget_2x2.json')}")
+
+
+if __name__ == '__main__':
+    main()

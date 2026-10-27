@@ -134,8 +134,8 @@ def estimate_components_misspec(data, train_idx, test_idx, cate_method='tlearner
     return tau_hat, ltv_hat, churn_hat
 
 
-def _estimate_slearner(X_train, X_test, W_train, Y_train, ltv_hat):
-    """S-Learner: single model with treatment as feature [C3]."""
+def _estimate_cate_slearner(X_train, X_test, W_train, Y_train):
+    """S-Learner CATE: predicted mu(x, 1) - mu(x, 0) from one model with treatment as a feature."""
     X_aug = np.column_stack([X_train, W_train])
     slearner = GradientBoostingRegressor(
         n_estimators=100, max_depth=4, learning_rate=0.1, random_state=0)
@@ -143,5 +143,21 @@ def _estimate_slearner(X_train, X_test, W_train, Y_train, ltv_hat):
     n_test = len(X_test)
     pred_t1 = slearner.predict(np.column_stack([X_test, np.ones(n_test)]))
     pred_t0 = slearner.predict(np.column_stack([X_test, np.zeros(n_test)]))
-    tau_sl = pred_t1 - pred_t0
-    return tau_sl * ltv_hat
+    return pred_t1 - pred_t0
+
+
+def _estimate_slearner(X_train, X_test, W_train, Y_train, ltv_hat):
+    """S-Learner: single model with treatment as feature [C3]; returns tau_sl * ltv_hat."""
+    return _estimate_cate_slearner(X_train, X_test, W_train, Y_train) * ltv_hat
+
+
+def _wellspec_value_model(Xtr, Xte, seed):
+    """A correctly-specified value model: trained on the true LTV functional form."""
+    rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V42))
+    # True DGP LTV form: 10*spend + 40*login + 5*age (cf. simulation_v38 eq for V).
+    target = (10 * Xtr[:, 1] + 40 * Xtr[:, 2] + 5 * Xtr[:, 0]
+              + rng_v.normal(0, 80, len(Xtr))).clip(50, 8000)
+    m = GradientBoostingRegressor(
+        n_estimators=80, max_depth=3, learning_rate=0.1, random_state=0)
+    m.fit(Xtr, target)
+    return m.predict(Xte).clip(50, 8000)

@@ -3,12 +3,12 @@
 Runs three analyses, all on the same 200 seeds as the published simulation
 (SEED_BASE + 7r) so the numbers are comparable with simulation_v29.json:
 
-  A. Budget-sensitivity INFERENCE + crossover budget kappa* (review #7). The
+  A. (now implemented in study_budget.py) Budget-sensitivity INFERENCE + crossover budget kappa* (review #7). The
      published budget table (Table: budget sensitivity) reports welfare means
      only, while the paper's title claim -- that pure CATE beats value-weighting
      at tight budgets and the ranking reverses as the budget grows -- rests on
-     it. We add paired t-tests, Holm-Bonferroni correction across the budget
-     family, Cohen's d, and 95% CIs for the CATE Only vs CATE x LTV comparison,
+     it. We add paired t-tests, Holm-Bonferroni correction across all kappa of
+     the grid (one family per comparison), Cohen's d, and 95% CIs for the CATE Only vs CATE x LTV comparison,
      and estimate the crossover budget kappa* (where CATE x LTV overtakes CATE
      Only) with a bootstrap CI, for both the symmetric main DGP and the
      asymmetric-moderation DGP.
@@ -53,7 +53,10 @@ from core.policy import (
     DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare, THETA_GRID, DEFAULT_THETA_IDX, calibrate_theta_all,
 )
 from core.stats import (
-    holm_bonferroni, paired_test,
+    paired_test,
+)
+from study_budget import (
+    REPORTED_BUDGETS, budget_grid, run_budget_inference, welfare_at_kappa as _welfare_at_kappa,
 )
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
@@ -64,141 +67,7 @@ SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
 # A. Budget-sensitivity inference + crossover kappa*
 # ---------------------------------------------------------------------------
 
-# Fine grid for the crossover search; the four reported budgets are a subset.
-KAPPA_GRID = [round(0.05 + 0.025 * i, 3) for i in range(19)]  # 0.05 .. 0.50
-REPORTED_BUDGETS = [0.10, 0.20, 0.30, 0.50]
-
-
-def _fit_test_components(seed, dgp_func):
-    """Fit T-Learner + LTV once per seed; return test-set arrays.
-
-    Components do not depend on the budget kappa, so we fit once and sweep
-    kappa by re-selecting the top-k set. tau_hat and ltv_hat are the estimated
-    components; true_tau/true_ltv are the oracle test-set quantities used to
-    score welfare.
-    """
-    rng = np.random.RandomState(seed)
-    data = dgp_func(N_PLAYERS, rng)
-    n = len(data['treatment'])
-    indices = np.arange(n)
-    train_idx, test_idx = train_test_split(indices, test_size=0.30,
-                                           random_state=seed)
-    tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx, seed=seed)
-    true_tau = data['true_tau'][test_idx]
-    true_ltv = data['true_ltv'][test_idx]
-    return tau_hat, ltv_hat, true_tau, true_ltv
-
-
-def _welfare_at_kappa(scores, kappa, true_tau, true_ltv):
-    k = int(len(scores) * kappa)
-    targeted = target_topk(scores, k)
-    return compute_welfare(targeted, true_tau, true_ltv)
-
-
-def _budget_curves(dgp_func):
-    """Per-seed welfare for CATE Only and CATE x LTV across the kappa grid."""
-    cate = {kappa: [] for kappa in KAPPA_GRID}
-    ltv = {kappa: [] for kappa in KAPPA_GRID}
-    for i, seed in enumerate(SEEDS):
-        if (i + 1) % 50 == 0:
-            print(f"    seed {i + 1}/{N_RUNS}")
-        tau_hat, ltv_hat, true_tau, true_ltv = _fit_test_components(seed, dgp_func)
-        s_cate = tau_hat
-        s_ltv = tau_hat * ltv_hat
-        for kappa in KAPPA_GRID:
-            cate[kappa].append(_welfare_at_kappa(s_cate, kappa, true_tau, true_ltv))
-            ltv[kappa].append(_welfare_at_kappa(s_ltv, kappa, true_tau, true_ltv))
-    return cate, ltv
-
-
-def _crossover_kappa(cate, ltv, kappa_grid):
-    """Interpolated kappa where mean(CATE x LTV - CATE Only) crosses zero."""
-    diffs = np.array([np.mean(np.array(ltv[k]) - np.array(cate[k]))
-                      for k in kappa_grid])
-    ks = np.array(kappa_grid)
-    # find first sign change from negative to positive
-    for j in range(len(ks) - 1):
-        if diffs[j] <= 0 <= diffs[j + 1]:
-            # linear interpolation of the zero crossing
-            frac = -diffs[j] / (diffs[j + 1] - diffs[j])
-            return float(ks[j] + frac * (ks[j + 1] - ks[j]))
-    if diffs[0] > 0:
-        return float(ks[0])   # already positive at the tightest budget
-    return float('nan')       # no crossover in range (CATE Only wins throughout)
-
-
-def _bootstrap_crossover(cate, ltv, kappa_grid, n_boot=2000, seed=0):
-    """Bootstrap CI for the crossover kappa* by resampling replications."""
-    rng = np.random.RandomState(seed)
-    n = N_RUNS
-    cate_arr = {k: np.array(cate[k]) for k in kappa_grid}
-    ltv_arr = {k: np.array(ltv[k]) for k in kappa_grid}
-    ks = np.array(kappa_grid)
-    crossings = []
-    for _ in range(n_boot):
-        idx = rng.randint(0, n, n)
-        diffs = np.array([np.mean(ltv_arr[k][idx] - cate_arr[k][idx])
-                          for k in kappa_grid])
-        star = float('nan')
-        for j in range(len(ks) - 1):
-            if diffs[j] <= 0 <= diffs[j + 1]:
-                frac = -diffs[j] / (diffs[j + 1] - diffs[j])
-                star = float(ks[j] + frac * (ks[j + 1] - ks[j]))
-                break
-        else:
-            if diffs[0] > 0:
-                star = float(ks[0])
-        crossings.append(star)
-    crossings = np.array([c for c in crossings if not np.isnan(c)])
-    if len(crossings) == 0:
-        return None
-    return {
-        'median': round(float(np.median(crossings)), 4),
-        'ci_lo': round(float(np.percentile(crossings, 2.5)), 4),
-        'ci_hi': round(float(np.percentile(crossings, 97.5)), 4),
-        'frac_with_crossover': round(len(crossings) / n_boot, 3),
-    }
-
-
-def run_budget_inference(dgp_func, label):
-    print(f"  [A] budget inference + crossover ({label})")
-    cate, ltv = _budget_curves(dgp_func)
-
-    # Paired inference at the four reported budgets (CATE x LTV vs CATE Only),
-    # Holm-corrected across the budget family.
-    per_budget = {}
-    raw_p = []
-    keys = []
-    for kappa in REPORTED_BUDGETS:
-        w_ltv = ltv[kappa]
-        w_cate = cate[kappa]
-        pt = paired_test(w_ltv, w_cate, f'{kappa} ltv vs cate')
-        per_budget[str(kappa)] = {
-            'cate_only_welfare': round(float(np.mean(w_cate)), 0),
-            'cate_x_ltv_welfare': round(float(np.mean(w_ltv)), 0),
-            'diff_ltv_minus_cate': pt['mean_diff'],
-            'se_diff': pt['se_diff'],
-            't_stat': pt['t_stat'],
-            'p_value': pt['p_value'],
-            'cohens_d': pt['cohens_d'],
-            'ci_95': pt['ci_95'],
-        }
-        raw_p.append(pt['p_value'])
-        keys.append(str(kappa))
-    corrected = holm_bonferroni(raw_p)
-    for i, key in enumerate(keys):
-        per_budget[key]['p_holm'] = round(float(corrected[i]), 4)
-
-    kappa_star = _crossover_kappa(cate, ltv, KAPPA_GRID)
-    boot = _bootstrap_crossover(cate, ltv, KAPPA_GRID)
-    return {
-        'per_budget': per_budget,
-        'kappa_star_point': round(kappa_star, 4) if not np.isnan(kappa_star) else None,
-        'kappa_star_bootstrap': boot,
-        'kappa_grid': KAPPA_GRID,
-        'mean_diff_curve': [round(float(np.mean(np.array(ltv[k]) - np.array(cate[k]))), 1)
-                            for k in KAPPA_GRID],
-    }
+# Implemented in study_budget (single implementation, Holm across all kappa).
 
 
 # ---------------------------------------------------------------------------
@@ -374,16 +243,16 @@ def main():
     print("=" * 70)
 
     out = {}
-    out['budget_inference_main'] = run_budget_inference(generate_main, 'symmetric main')
-    out['budget_inference_asym'] = run_budget_inference(generate_asym, 'asymmetric')
+    out['budget_inference_main'] = run_budget_inference('main', 'symmetric main', N_RUNS)
+    out['budget_inference_asym'] = run_budget_inference('asym', 'asymmetric', N_RUNS)
     out['aipw_calibration'] = run_aipw_calibration()
     out['adversarial_misspec'] = run_adversarial_misspec(kappa=0.30)
     out['adversarial_misspec_tight'] = run_adversarial_misspec(kappa=0.10)
     out['meta'] = {
         'n_runs': N_RUNS,
         'seeds': 'SEED_BASE + 7r',
-        'kappa_grid': KAPPA_GRID,
-        'reported_budgets': REPORTED_BUDGETS,
+        'kappa_grid': [float(k) for k in budget_grid],
+        'reported_budgets': list(REPORTED_BUDGETS),
     }
 
     # ---- print summary ----
@@ -393,11 +262,10 @@ def main():
         print(f"\n  {label}:")
         for kappa, row in out[label]['per_budget'].items():
             print(f"    kappa={kappa}: diff={row['diff_ltv_minus_cate']:+,.0f} "
-                  f"(d={row['cohens_d']}, p_holm={row['p_holm']}) "
+                  f"(d={row['cohens_d']}, p_holm={row['p_holm']:.4f}) "
                   f"CATE={row['cate_only_welfare']:,.0f} LTV={row['cate_x_ltv_welfare']:,.0f}")
-        ks = out[label]['kappa_star_bootstrap']
-        print(f"    kappa* point={out[label]['kappa_star_point']}, "
-              f"bootstrap={ks}")
+        ks = out[label]['kappa_star']
+        print(f"    kappa* point={ks['point']}, bootstrap={ks}")
 
     print("\nB. AIPW vs PLUG-IN CALIBRATION")
     a = out['aipw_calibration']
