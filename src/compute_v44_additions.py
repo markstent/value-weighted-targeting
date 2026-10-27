@@ -211,8 +211,8 @@ def run_aipw_calibration():
     plugin_idx = []
     # true test welfare of the calibrated rule minus the identity rule.
     # The plug-in objective selects identity by construction (regret 0).
-    # AIPW selected non-identity configs in 0 of 10 replications (identity
-    # rate 0/10 on both DGPs); at
+    # AIPW selected the identity config in 0 of 10 replications on both the
+    # null and main DGPs (N=10000 check, not produced by this script); at
     # N=10000, kappa=0.30, 10 reps (seeds 42+7r) its mean regret is negative
     # on both the null DGP (-4400, SE 2563) and the main DGP (-1040, SE 684),
     # with large per-rep spread (regret of both signs). That is consistent
