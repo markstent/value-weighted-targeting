@@ -107,9 +107,13 @@ def draw_features_correlated(n, rng):
 # --- Structural steps ---
 
 def _structural(f, rng, *, moderation, bonus_in_tau=False, with_harm=False,
-                with_ltv=True):
+                with_ltv=True, noise_scale=1.0):
     """Shared latent structure. RNG order: churn noise, [ltv noise], tau noise,
-    [harm noise], baseline noise."""
+    [harm noise], baseline noise.
+
+    noise_scale multiplies every noise sd (1.0 reproduces the original draws
+    bit-for-bit; 0.0 gives the noise-free structure used by the feasible oracle
+    tests)."""
     account_age = f['account_age']
     weekly_spend = f['weekly_spend']
     login_freq = f['login_freq']
@@ -122,13 +126,13 @@ def _structural(f, rng, *, moderation, bonus_in_tau=False, with_harm=False,
 
     churn_logit = (-1.0 + 0.04 * (30 - account_age) - 0.25 * login_freq
                    + 0.01 * (40 - weekly_spend) + 0.1 * z_bonus
-                   + rng.normal(0, 0.4, n))
+                   + rng.normal(0, 0.4 * noise_scale, n))
     true_churn = (1.0 / (1.0 + np.exp(-churn_logit))).clip(0.01, 0.99)
 
     out = {}
     if with_ltv:
         out['true_ltv'] = (weekly_spend * 10 + login_freq * 40 + account_age * 5
-                           + rng.normal(0, 80, n)).clip(50, 8000)
+                           + rng.normal(0, 80 * noise_scale, n)).clip(50, 8000)
 
     if bonus_in_tau:
         tau_base = (0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
@@ -136,19 +140,19 @@ def _structural(f, rng, *, moderation, bonus_in_tau=False, with_harm=False,
     else:
         tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
     if moderation is None:
-        true_tau = (tau_base + rng.normal(0, 0.03, n)).clip(-0.20, 0.40)
+        true_tau = (tau_base + rng.normal(0, 0.03 * noise_scale, n)).clip(-0.20, 0.40)
     else:
         true_tau = (tau_base * moderation(true_churn)
-                    + rng.normal(0, 0.03, n)).clip(-0.20, 0.40)
+                    + rng.normal(0, 0.03 * noise_scale, n)).clip(-0.20, 0.40)
 
     if with_harm:
         # Harm score in [0,1]: rises with spend (the LTV driver), so harm and value
         # are positively correlated -- value-weighting will chase harmful players.
-        harm_logit = 1.1 * z_spend + 0.4 * z_login - 0.3 + rng.normal(0, 0.5, n)
+        harm_logit = 1.1 * z_spend + 0.4 * z_login - 0.3 + rng.normal(0, 0.5 * noise_scale, n)
         out['true_harm'] = (1.0 / (1.0 + np.exp(-harm_logit))).clip(0.0, 1.0)
 
     baseline = (0.6 + 0.15 * z_login + 0.05 * z_spend - 0.08 * z_age
-                + rng.normal(0, 0.05, n)).clip(0.05, 0.95)
+                + rng.normal(0, 0.05 * noise_scale, n)).clip(0.05, 0.95)
     out.update({
         'true_tau': true_tau, 'true_churn': true_churn,
         'y0_prob': baseline,
@@ -158,40 +162,40 @@ def _structural(f, rng, *, moderation, bonus_in_tau=False, with_harm=False,
     return out
 
 
-def structural_main(f, rng):
-    return _structural(f, rng, moderation=churn_moderation_sym)
+def structural_main(f, rng, noise_scale=1.0):
+    return _structural(f, rng, moderation=churn_moderation_sym, noise_scale=noise_scale)
 
 
-def structural_null(f, rng):
+def structural_null(f, rng, noise_scale=1.0):
     """No CATE-churn interaction (m=1)."""
-    return _structural(f, rng, moderation=None)
+    return _structural(f, rng, moderation=None, noise_scale=noise_scale)
 
 
-def structural_correlated(f, rng):
-    return _structural(f, rng, moderation=churn_moderation_sym)
+def structural_correlated(f, rng, noise_scale=1.0):
+    return _structural(f, rng, moderation=churn_moderation_sym, noise_scale=noise_scale)
 
 
-def structural_asym(f, rng):
-    return _structural(f, rng, moderation=churn_moderation_asym)
+def structural_asym(f, rng, noise_scale=1.0):
+    return _structural(f, rng, moderation=churn_moderation_asym, noise_scale=noise_scale)
 
 
-def structural_harm(f, rng):
-    return _structural(f, rng, moderation=churn_moderation_sym, with_harm=True)
+def structural_harm(f, rng, noise_scale=1.0):
+    return _structural(f, rng, moderation=churn_moderation_sym, with_harm=True, noise_scale=noise_scale)
 
 
-def structural_adv(f, rng):
+def structural_adv(f, rng, noise_scale=1.0):
     """tau also depends on bonus_history, which is absent from V."""
-    return _structural(f, rng, moderation=churn_moderation_sym, bonus_in_tau=True)
+    return _structural(f, rng, moderation=churn_moderation_sym, bonus_in_tau=True, noise_scale=noise_scale)
 
 
-def structural_corr_gamma(f, rng):
+def structural_corr_gamma(f, rng, noise_scale=1.0):
     """Legacy order: no LTV here; LTV noise is drawn after the outcome draws."""
-    return _structural(f, rng, moderation=churn_moderation_sym, with_ltv=False)
+    return _structural(f, rng, moderation=churn_moderation_sym, with_ltv=False, noise_scale=noise_scale)
 
 
-def structural_heavytail(f, rng):
+def structural_heavytail(f, rng, noise_scale=1.0):
     """Legacy order: no LTV here; LTV noise is drawn after the outcome draws."""
-    return _structural(f, rng, moderation=churn_moderation_sym, with_ltv=False)
+    return _structural(f, rng, moderation=churn_moderation_sym, with_ltv=False, noise_scale=noise_scale)
 
 
 # --- Assembly ---
@@ -253,6 +257,25 @@ def generate_adv(n, rng):
     return _generate(n, rng, draw_features, structural_adv)
 
 
+def _late_ltv_corr_gamma(f, s, rng, n, gamma=0.0, noise_scale=1.0, tau_base_stats=None):
+    """LTV with gamma * standardised tau_base (tunes corr(tau, V))."""
+    tau_base = s['tau_base']
+    mean, sd = ((tau_base.mean(), tau_base.std()) if tau_base_stats is None
+                else tau_base_stats)
+    z_taubase = (tau_base - mean) / (sd + 1e-12)
+    base_v = (10 * f['weekly_spend'] + 40 * f['login_freq']
+              + 5 * f['account_age'])
+    return (base_v + gamma * V_CORR_SCALE * z_taubase
+            + rng.normal(0, 80 * noise_scale, n)).clip(50, 8000)
+
+
+def _late_ltv_heavytail(f, s, rng, n, noise_scale=1.0):
+    """Multiplicative lognormal heavy-tailed LTV."""
+    base_v = (10 * f['weekly_spend'] + 40 * f['login_freq']
+              + 5 * f['account_age'])
+    return (base_v * np.exp(rng.normal(0, 1.0 * noise_scale, n))).clip(50, 100000)
+
+
 def _generate_late_ltv(n, rng, structural, ltv_fn):
     f = draw_features(n, rng)
     s = structural(f, rng)
@@ -263,23 +286,14 @@ def _generate_late_ltv(n, rng, structural, ltv_fn):
 
 def generate_corr_gamma(n, rng, gamma=0.0):
     """LTV carries gamma * standardised tau_base (tunes corr(tau, V))."""
-    def ltv(f, s, rng, n):
-        tau_base = s['tau_base']
-        z_taubase = (tau_base - tau_base.mean()) / (tau_base.std() + 1e-12)
-        base_v = (10 * f['weekly_spend'] + 40 * f['login_freq']
-                  + 5 * f['account_age'])
-        return (base_v + gamma * V_CORR_SCALE * z_taubase
-                + rng.normal(0, 80, n)).clip(50, 8000)
-    return _generate_late_ltv(n, rng, structural_corr_gamma, ltv)
+    return _generate_late_ltv(
+        n, rng, structural_corr_gamma,
+        lambda f, s, rng, n: _late_ltv_corr_gamma(f, s, rng, n, gamma=gamma))
 
 
 def generate_heavytail(n, rng):
     """Multiplicative lognormal heavy-tailed LTV."""
-    def ltv(f, s, rng, n):
-        base_v = (10 * f['weekly_spend'] + 40 * f['login_freq']
-                  + 5 * f['account_age'])
-        return (base_v * np.exp(rng.normal(0, 1.0, n))).clip(50, 100000)
-    return _generate_late_ltv(n, rng, structural_heavytail, ltv)
+    return _generate_late_ltv(n, rng, structural_heavytail, _late_ltv_heavytail)
 
 
 def make_corr_dgp(gamma):
@@ -299,3 +313,76 @@ DGPS = {
     'corr_gamma': generate_corr_gamma,
     'heavytail': generate_heavytail,
 }
+
+
+# --- Conditional means E[. | X] for the feasible oracle ---
+
+_STRUCTURAL = {
+    'main': structural_main, 'null': structural_null,
+    'correlated': structural_correlated, 'asym': structural_asym,
+    'harm': structural_harm, 'adv': structural_adv,
+    'corr_gamma': structural_corr_gamma, 'heavytail': structural_heavytail,
+}
+
+# Rough float64 temporaries per simulated unit inside one structural call.
+_BYTES_PER_UNIT = 8 * 24
+DEFAULT_CHUNK_BYTES = 200 * 2**20
+
+
+def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
+                      noise_scale=1.0, tau_base_stats=None,
+                      max_units_per_chunk=None):
+    """Monte Carlo E[tau|X], E[V|X], E[churn|X] (and E[harm|X] for 'harm').
+
+    Features are held fixed; the structural step is re-run n_mc times per unit
+    with fresh noise (churn-logit, tau, LTV and harm noise).  Clipping happens
+    inside each draw, so the average is the true conditional mean of the clipped
+    variable.  Uses its own RandomState(seed), so it never touches the
+    simulation's main RNG stream.  Units are processed in chunks so peak memory
+    stays near DEFAULT_CHUNK_BYTES.
+
+    features: dict of 1-D arrays keyed by FEATURE_NAMES.
+    gamma / tau_base_stats: corr_gamma only.  tau_base_stats=(mean, sd) fixes the
+    standardisation of tau_base (default: moments of the features passed in).
+    Returns dict of arrays; '*_se' entries are Monte Carlo standard errors.
+    """
+    structural = _STRUCTURAL[dgp_name]
+    rng = np.random.RandomState(seed)
+    n = len(features['account_age'])
+    if max_units_per_chunk is None:
+        max_units_per_chunk = DEFAULT_CHUNK_BYTES // _BYTES_PER_UNIT
+    step = max(1, max_units_per_chunk // n_mc)
+
+    if dgp_name == 'corr_gamma' and tau_base_stats is None:
+        tb = structural(features, np.random.RandomState(0), noise_scale=0.0)['tau_base']
+        tau_base_stats = (tb.mean(), tb.std())
+
+    names = ['tau', 'ltv', 'churn'] + (['harm'] if dgp_name == 'harm' else [])
+    mean = {k: np.empty(n) for k in names}
+    se = {k: np.empty(n) for k in names}
+
+    for lo in range(0, n, step):
+        hi = min(n, lo + step)
+        m = hi - lo
+        rep = {k: np.repeat(np.asarray(v)[lo:hi], n_mc) for k, v in features.items()}
+        s = structural(rep, rng, noise_scale=noise_scale)
+        draws = {'tau': s['true_tau'], 'churn': s['true_churn']}
+        if 'true_harm' in s:
+            draws['harm'] = s['true_harm']
+        if 'true_ltv' in s:
+            draws['ltv'] = s['true_ltv']
+        elif dgp_name == 'corr_gamma':
+            draws['ltv'] = _late_ltv_corr_gamma(
+                rep, s, rng, m * n_mc, gamma=gamma, noise_scale=noise_scale,
+                tau_base_stats=tau_base_stats)
+        else:
+            draws['ltv'] = _late_ltv_heavytail(rep, s, rng, m * n_mc,
+                                               noise_scale=noise_scale)
+        for k in names:
+            d = draws[k].reshape(m, n_mc)
+            mean[k][lo:hi] = d.mean(axis=1)
+            se[k][lo:hi] = d.std(axis=1, ddof=1) / np.sqrt(n_mc) if n_mc > 1 else 0.0
+
+    out = {f'{k}_bar': mean[k] for k in names}
+    out.update({f'{k}_se': se[k] for k in names})
+    return out

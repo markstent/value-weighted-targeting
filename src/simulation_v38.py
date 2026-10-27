@@ -21,6 +21,7 @@ from core.dgp import (
     TREATMENT_PROB, POP_MEAN, POP_SD, DGP_SPEC, generate_main as generate_population,
     generate_null as generate_population_null,
     generate_correlated as generate_population_correlated,
+    DGPS, FEATURE_NAMES, conditional_means,
 )
 from core.estimators import (
     _estimate_slearner, estimate_components, estimate_components_misspec,
@@ -40,11 +41,18 @@ N_PLAYERS = 10000
 N_RUNS = 200
 BUDGET_FRACTIONS = [0.10, 0.20, 0.30, 0.50]
 SEED_BASE = 42
+ORACLE_MC = 400          # noise draws per unit for the feasible oracle
+ORACLE_SEED_OFFSET = 10**6   # separate stream: never touches the main RNG
+ORACLE_STRATEGIES = ['Oracle hindsight (g=1)', 'Oracle feasible (g=1)',
+                     'Oracle feasible (theta0)']
+_DGP_NAME = {f: name for name, f in DGPS.items()}
+_DGP_NAME[generate_population] = 'main'
 
 # --- Main simulation loop ---
 
 def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
-                          est_func=None, cate_method='tlearner', n_players=None):
+                          est_func=None, cate_method='tlearner', n_players=None,
+                          dgp_name=None):
     if n_players is None:
         n_players = N_PLAYERS
     if dgp_func is None:
@@ -85,6 +93,20 @@ def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
     strategies['Full Framework (Oracle)'] = (data['true_tau'][test_idx]
                                               * data['true_ltv'][test_idx]
                                               * g_oracle)
+
+    # Oracles. Hindsight ranks on realised tau, V (includes idiosyncratic noise,
+    # unreachable by any X-measurable rule); feasible ranks on E[tau|X] E[V|X].
+    # Welfare of all of them is evaluated on realised true_tau, true_ltv.
+    strategies['Oracle hindsight (g=1)'] = true_tau * true_ltv
+    dgp_name = dgp_name or _DGP_NAME.get(dgp_func)
+    if dgp_name is not None:
+        feats = {nm: data['features'][test_idx, i]
+                 for i, nm in enumerate(FEATURE_NAMES)}
+        cm = conditional_means(dgp_name, feats, n_mc=ORACLE_MC,
+                               seed=seed + ORACLE_SEED_OFFSET)
+        tv_bar = cm['tau_bar'] * cm['ltv_bar']
+        strategies['Oracle feasible (g=1)'] = tv_bar
+        strategies['Oracle feasible (theta0)'] = tv_bar * f_churn_vec(cm['churn_bar'])
 
     # S-Learner baseline [C3]
     X_train = data['features'][train_idx]
@@ -167,7 +189,7 @@ def _aggregate_results(all_results, strategy_names):
 
 MAIN_STRATEGIES = ['Random', 'CATE Only', 'CATE x LTV',
                    'Full Framework (Est.)', 'Full Framework (Cal.)',
-                   'Full Framework (Oracle)', 'S-Learner']
+                   'Full Framework (Oracle)', 'S-Learner'] + ORACLE_STRATEGIES
 
 
 def run_main(reps=None, n=None, kappa=DEFAULT_BUDGET):
@@ -195,7 +217,7 @@ def main():
 
     strategy_names = ['Random', 'CATE Only', 'CATE x LTV',
                       'Full Framework (Est.)', 'Full Framework (Cal.)',
-                      'Full Framework (Oracle)', 'S-Learner']
+                      'Full Framework (Oracle)', 'S-Learner'] + ORACLE_STRATEGIES
 
     output = {}
 

@@ -167,7 +167,8 @@ def fig_welfare_bars(data: dict) -> Path:
         "Full Framework (Cal.)",
         "S-Learner",
         "Full Framework (Oracle)",
-        "tauV Oracle",
+        "Oracle feasible (g=1)",
+        "Oracle hindsight (g=1)",
     ]
     display = {
         "Random": "Random",
@@ -177,7 +178,8 @@ def fig_welfare_bars(data: dict) -> Path:
         "Full Framework (Cal.)": "Full (calibrated $g$)",
         "S-Learner": "S-Learner",
         "Full Framework (Oracle)": "Full-framework oracle ($\\theta_0$)",
-        "tauV Oracle": r"$\tau V$ oracle ($g\equiv 1$)",
+        "Oracle feasible (g=1)": r"Feasible $E[\tau|X]E[V|X]$ oracle ($g\equiv 1$)",
+        "Oracle hindsight (g=1)": r"Hindsight $\tau V$ oracle ($g\equiv 1$)",
     }
 
     welfares = [data["main_results"][k]["welfare_mean"] for k in order]
@@ -188,7 +190,7 @@ def fig_welfare_bars(data: dict) -> Path:
     y = np.arange(len(order))
     colors = []
     for k in order:
-        if k == "tauV Oracle":
+        if k in ("Oracle hindsight (g=1)", "Oracle feasible (g=1)"):
             colors.append("#1a5a1a")
         elif k == "Full Framework (Oracle)":
             colors.append("#2a7a2a")
