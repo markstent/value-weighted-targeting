@@ -50,7 +50,7 @@ from core.estimators import (
     LTV_STREAM, estimate_components, _estimate_ltv_churn, _estimate_cate_tlearner, _estimate_slearner,
 )
 from core.policy import (
-    DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare, THETA_GRID, DEFAULT_THETA_IDX, calibrate_theta,
+    DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare, THETA_GRID, DEFAULT_THETA_IDX, calibrate_theta_all,
 )
 from core.stats import (
     holm_bonferroni, paired_test,
@@ -211,14 +211,17 @@ def run_aipw_calibration():
     plugin_idx = []
     # true test welfare of the calibrated rule minus the identity rule.
     # The plug-in objective selects identity by construction (regret 0).
-    # AIPW selects non-identity configs in (almost) every replication; at
+    # AIPW selected non-identity configs in 0 of 10 replications (identity
+    # rate 0/10 on both DGPs); at
     # N=10000, kappa=0.30, 10 reps (seeds 42+7r) its mean regret is negative
     # on both the null DGP (-4400, SE 2563) and the main DGP (-1040, SE 684),
     # with large per-rep spread (regret of both signs). That is consistent
     # with AIPW selection being high-variance and, on average, not welfare
     # improving; it is not significantly different from 0 at 10 reps, so we
     # claim no welfare gain from calibration rather than a proven loss.
-    # (Proposition 3: calibration cannot beat the identity rule in expectation.)
+    # Motivation only: Proposition 3 implies no g improves on identity at the
+    # population optimum (true tau and V); with estimated components this need
+    # not hold, and here it is not observed.
     aipw_cost = []
     plugin_cost = []
     for i, seed in enumerate(SEEDS):
@@ -238,8 +241,8 @@ def run_aipw_calibration():
         w_identity = _welfare_at_kappa(tau_hat * ltv_hat, DEFAULT_BUDGET,
                                        true_tau, true_ltv)
 
-        cfg_a = calibrate_theta(data, train_idx, seed, DEFAULT_BUDGET,
-                                objective='aipw')
+        cals = calibrate_theta_all(data, train_idx, seed, DEFAULT_BUDGET)
+        cfg_a = cals['aipw']
         a_idx = THETA_GRID.index(cfg_a)
         aipw_idx.append(a_idx)
         g_a = f_churn_vec(churn_hat, **cfg_a)
@@ -248,8 +251,7 @@ def run_aipw_calibration():
         aipw_cost.append(w_a - w_identity)
 
         # plug-in selection on the same seed, for a matched comparison
-        cfg_p = calibrate_theta(data, train_idx, seed, DEFAULT_BUDGET,
-                                objective='plugin')
+        cfg_p = cals['plugin']
         p_idx = THETA_GRID.index(cfg_p) if cfg_p in THETA_GRID else DEFAULT_THETA_IDX
         plugin_idx.append(p_idx)
         g_p = f_churn_vec(churn_hat, **cfg_p)
@@ -276,9 +278,13 @@ def run_aipw_calibration():
         'plugin': _summ(plugin_idx, plugin_cost),
         'note': ('config index 0 is the near-identity g~1; index 3 is default '
                  'theta0. mean_true_welfare_vs_identity is the oracle test-welfare '
-                 'of the calibrated rule minus the g=1 (CATE x LTV) rule; <= 0 '
-                 'confirms calibration cannot beat the identity on true welfare '
-                 '(Proposition 3), regardless of scoring rule.'),
+                 'of the calibrated rule minus the g=1 (CATE x LTV) rule. The plug-in '
+                 'objective selects identity by construction (regret 0). '
+                 'Proposition 3 implies no g improves on identity at the '
+                 'population optimum (true tau and V); with estimated '
+                 'components this need not hold, so a negative or zero mean '
+                 'regret here is an empirical observation, not a consequence '
+                 'of the proposition.'),
     }
 
 
