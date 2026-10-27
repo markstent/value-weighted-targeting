@@ -78,3 +78,40 @@ def test_estimate_harm_clips_and_is_identity_at_zero():
     out = estimate_harm(h, np.random.RandomState(0), 0.0)
     assert np.all(np.isfinite(out))
     np.testing.assert_allclose(out[1], 0.3, atol=1e-12)
+
+
+def test_hard_cap_binds_at_sigma0():
+    raw = simulate(reps=3, n_players=3000, c_harms=[1.0], sigma_hs=[0.0], kappas=[0.30])
+    for rule in ('hard cap', 'hard cap (oracle tau,V)'):
+        cell = raw[(1.0, 0.0, 0.30, rule)]
+        gap = np.array(cell['cap']) - np.array(cell['exposure'])
+        assert np.all(np.abs(gap) < 0.005), gap
+
+
+def test_selection_never_sees_true_harm():
+    import inspect
+    from study_harm import select_rules
+    assert not any('true' in p for p in inspect.signature(select_rules).parameters)
+    rng = np.random.RandomState(4)
+    n, k = 1500, 450
+    tau_hat, tau_bar = rng.normal(0.05, 0.05, n), rng.normal(0.05, 0.05, n)
+    ltv_hat, ltv_bar = rng.uniform(100, 2000, n), rng.uniform(100, 2000, n)
+    true_harm = rng.uniform(0.05, 0.95, n)
+    harm_hat = estimate_harm(true_harm, rng, 0.5)
+    a = select_rules(tau_hat, ltv_hat, tau_bar, ltv_bar, harm_hat, k)
+    _ = true_harm[rng.permutation(n)]          # permuting true harm cannot matter
+    b = select_rules(tau_hat, ltv_hat, tau_bar, ltv_bar, harm_hat, k)
+    for rule in a[0]:
+        np.testing.assert_array_equal(a[0][rule], b[0][rule])
+
+
+def test_soft_gate_has_no_violation_rate_and_oracle_flag():
+    raw = simulate(reps=2, n_players=2000, c_harms=[1.0], sigma_hs=[0.0, 0.5], kappas=[0.30])
+    s = summarise(raw, n_boot=50)
+    for e in s['cells']:
+        assert e['oracle_harm'] == (e['sigma_h'] == 0.0)
+        if e['rule'].startswith('soft gate'):
+            assert e['cap_violation_rate'] is None and e['overshoot'] is not None
+        if e['rule'].startswith('hard cap'):
+            assert e['cap_violation_rate'] is not None and e['overshoot'] is not None
+        assert 0.3 < e['pop_mean_harm'] < 0.6 and 0 < e['share_harm_gt_0_6'] < 1
