@@ -6,30 +6,44 @@ model both live here now) and compute_depth_ablation.py, whose depth-matched
 S/T comparison is superseded by the tuned comparison below.  (compute_v45_additions.py,
 the like-for-like feature drop, is untouched here.)
 
-Learners: T, X, S (legacy fits) and DR, R (cross-fitted, e = 0.5 known; see
+Learners compared: T, X, S (legacy fits) and DR (cross-fitted, e = 0.5 known; see
 core.estimators), each with "default" params (the legacy fit for T/X/S, a depth-3
-100-tree fit for DR/R) and "tuned" params.  Value models: misspec (the deliberately
+100-tree fit for DR) and "tuned" params.  The R-learner (estimate_cate_r) is NOT in
+the comparison: with the propensity known and equal to 0.5, DR and R are
+algebraically the same estimator up to how E[Y|X] versus mu0, mu1 are estimated
+(2(W-1/2)(Y-m) and the AIPW pseudo-outcome have the same conditional mean, and R's
+weights (W-e)^2 are constant), and their tuned R-losses agree to six decimals;
+tests/test_estimators.py checks that their tau_hat correlate above 0.99.  Value models: misspec (the deliberately
 misspecified proxy) and wellspec.  Rules: tau_hat * V_hat ("tauV") and tau_hat
-alone ("tau").  Every learner and value model is fitted ONCE per replication and
+alone ("tau"), which ignores V and so is scored once per learner with no value-model
+dimension.  Every learner and value model is fitted ONCE per replication and
 reused across rules, kappas, the regret split and the diagnostic.  "E2E" is the
 end-to-end model of v41 (one model trained on V_proxy * Y, scored by the
 treated-minus-control difference); its definition is unchanged and it is not tuned.
 Welfare is always evaluated on the realised TRUE tau and V of the test split.
 "oracle" always means the feasible E[tau|X], E[V|X] of core.dgp.conditional_means.
 
-Tuning (frozen in outputs/tuned_params.json): grid max_depth {2,3,4} x n_estimators
-{100,300} x learning_rate {0.05,0.1}.  Per learner, a pilot of 5 replications with
+Tuning (frozen in the tracked config/tuned_params.json): grid max_depth {1,2,3,4} x
+n_estimators {25,50,100,300} x learning_rate {0.005,0.01,0.02,0.05,0.1} (80 configs).
+The first 48-config grid (trees from 50, rate from 0.01) put T, X and DR at the trees=50
+and/or rate=0.01 edge, so both axes were extended one step (trees 25, rate 0.005),
+once.  Each learner's optimum is checked against the grid edges and the check is
+recorded in the file's _meta.  Per learner, a pilot of 5 replications with
 seeds 10_000 + 7r (disjoint from the evaluation seeds 42 + 7r, r < 200) is run; in
 each, the training split is cross-fitted into 2 folds, the learner is fitted on one
 fold and scored on the other by the R-loss
 mean(((Y - m_hat) - (W - e) * tau_hat)^2), where m_hat = E[Y|X] is fitted on the
 fitting fold (default GB classifier, shared by all configs).  The config with the
 lowest mean loss wins (ties go to the earlier grid entry).  The pilot runs only if
-the frozen file is missing or --retune is given; the main run reads the file.
+the frozen file is missing or --retune is given; the main run reads the file and
+raises if its _meta (grid, pilot seeds, n, dgp) differs from the current code.  The
+tracked file is full-size only: other run sizes (including --smoke) use
+outputs/tuned_params_n<N>.json and never touch config/.
 
 Inference: for every kappa, paired_test_raw of each (learner, params, value model,
-rule) welfare against "T (default)" under the same value model and rule, and of E2E
-against "T (default)" with the misspec value model and rule tauV.  Holm
+rule) welfare against "T (default)" under the same value model and rule (tau-only
+against "T (default)" tau-only), and of E2E against "T (default)" with the misspec
+value model and rule tauV.  Holm
 (core.stats.holm_bonferroni) runs across ALL those comparisons within a kappa (the
 family is every comparison at that kappa).  Everything is unrounded in the JSON.
 
@@ -59,11 +73,13 @@ from sklearn.model_selection import KFold, train_test_split
 from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import DGPS, FEATURE_NAMES, conditional_means
 from core.estimators import (
-    CROSSFIT_STREAM, DEFAULT_PARAMS, LEARNERS, LTV_STREAM, ORACLE_STREAM,
+    CROSSFIT_STREAM, DEFAULT_PARAMS, LTV_STREAM, ORACLE_STREAM,
     _estimate_cate_tlearner, _estimate_ltv_proxy,
     _wellspec_value_model, estimate_cate, seed_from,
 )
-from core.io import OUTPUT_DIR, SMOKE_N_PLAYERS, add_common_args, resolve_run_size, save_json
+from pathlib import Path
+
+from core.io import OUTPUT_DIR, add_common_args, resolve_run_size, save_json
 from core.policy import DEFAULT_BUDGET, PROPENSITY, compute_welfare, regret_split, target_topk
 from core.stats import holm_bonferroni, paired_test_raw, t_mean_ci
 
@@ -71,19 +87,20 @@ KAPPAS = (0.10, 0.20, 0.30, 0.50)
 REGRET_KAPPA = DEFAULT_BUDGET
 PSETS = ('tuned', 'default')
 VALUE_MODELS = ('misspec', 'wellspec')
-RULES = ('tauV', 'tau')
+COMPARED_LEARNERS = ('T', 'X', 'S', 'DR')   # R is algebraically DR at e = 0.5 (docstring)
 ORACLE_MC = 200
 BASELINE = 'T (default)'
-BASELINE_CELL = f'{BASELINE}|misspec|tauV'
+BASELINE_CELL = f'{BASELINE}|misspec'
 E2E_KEY = 'E2E'
 LOGIN_COL = FEATURE_NAMES.index('login_freq')
+CONFIG_DIR = Path(__file__).resolve().parents[1] / 'config'
 
 GRID = [{'max_depth': d, 'n_estimators': n, 'learning_rate': lr}
-        for d, n, lr in itertools.product((2, 3, 4), (100, 300), (0.05, 0.1))]
+        for d, n, lr in itertools.product((1, 2, 3, 4), (25, 50, 100, 300),
+                                          (0.005, 0.01, 0.02, 0.05, 0.1))]
 PILOT_REPS = 5
 PILOT_SEED_BASE = 10_000
 TUNED_FILE = 'tuned_params.json'
-TUNED_FILE_SMOKE = 'tuned_params_smoke.json'
 
 
 def pilot_seeds(n_reps=PILOT_REPS):
@@ -95,8 +112,10 @@ def label(learner, pset):
     return f'{learner} ({pset})'
 
 
-def combo_key(learner, pset, vm, rule):
-    return f'{label(learner, pset)}|{vm}|{rule}'
+def combo_key(learner, pset, vm=None):
+    """'L (pset)|vm' is the tau_hat * V_hat rule; 'L (pset)|tau' is tau_hat alone
+    (it ignores V, so it has no value-model dimension)."""
+    return f'{label(learner, pset)}|{vm if vm else "tau"}'
 
 
 def welfare_at_kappa(scores, kappa, true_tau, true_ltv):
@@ -154,33 +173,77 @@ def tune_learner(learner, grid=GRID, seeds=None, n_players=N_PLAYERS, dgp_name='
             'losses': [float(x) for x in losses]}
 
 
-def tune_all(n_players=N_PLAYERS, n_jobs=1, grid=GRID, seeds=None, dgp_name='main'):
+def boundary_check(grid, params):
+    """Per axis: 'floor' / 'ceiling' if params sits at the grid minimum / maximum of
+    that axis, else 'interior'.  A depth-1 floor is reported as 'hard_floor' (no
+    shallower tree exists); trees and rate floors are extendable axes."""
+    out = {}
+    for axis in ('max_depth', 'n_estimators', 'learning_rate'):
+        vals = sorted({g[axis] for g in grid})
+        if params[axis] == vals[0]:
+            out[axis] = 'hard_floor' if axis == 'max_depth' and vals[0] == 1 else 'floor'
+        elif params[axis] == vals[-1]:
+            out[axis] = 'ceiling'
+        else:
+            out[axis] = 'interior'
+    return out
+
+
+def make_meta(n_players, grid=GRID, seeds=None, dgp_name='main'):
     seeds = pilot_seeds() if seeds is None else seeds
-    out = {'learners': {}, '_meta': {
-        'grid': grid, 'pilot_seeds': seeds, 'n_players': n_players, 'dgp': dgp_name,
-        'criterion': 'mean cross-fitted R-loss, 2 folds of the pilot training split'}}
-    for learner in LEARNERS:
+    return {'grid': grid, 'pilot_seeds': seeds, 'n_players': n_players, 'dgp': dgp_name,
+            'learners': list(COMPARED_LEARNERS),
+            'criterion': 'mean cross-fitted R-loss, 2 folds of the pilot training split'}
+
+
+def tune_all(n_players=N_PLAYERS, n_jobs=1, grid=GRID, seeds=None, dgp_name='main'):
+    out = {'learners': {}, '_meta': make_meta(n_players, grid, seeds, dgp_name)}
+    seeds = out['_meta']['pilot_seeds']
+    for learner in COMPARED_LEARNERS:
         t0 = time.perf_counter()
-        out['learners'][learner] = tune_learner(learner, grid, seeds, n_players, dgp_name, n_jobs)
-        print(f"  tuned {learner:>2}: {out['learners'][learner]['params']} "
-              f"R-loss={out['learners'][learner]['mean_loss']:.6f} "
+        res = tune_learner(learner, grid, seeds, n_players, dgp_name, n_jobs)
+        out['learners'][learner] = res
+        out['_meta'].setdefault('boundary_check', {})[learner] = boundary_check(grid, res['params'])
+        print(f"  tuned {learner:>2}: {res['params']} R-loss={res['mean_loss']:.6f} "
+              f"edges={out['_meta']['boundary_check'][learner]} "
               f"({time.perf_counter() - t0:.0f}s)", flush=True)
     return out
 
 
-def load_or_tune(smoke=False, retune=False, n_players=N_PLAYERS, n_jobs=1):
-    """Frozen tuned params {learner: params}; runs the pilot only if the file is
-    missing or retune is set.  Smoke runs use their own file and pilot size."""
-    name = TUNED_FILE_SMOKE if smoke else TUNED_FILE
-    path = OUTPUT_DIR / name
+def tuned_path(n_players):
+    """Tracked config file for the full-size pilot; an untracked outputs/ file for any
+    other run size (smoke included), so a small run never overwrites the config."""
+    if n_players == N_PLAYERS:
+        return CONFIG_DIR / TUNED_FILE
+    return OUTPUT_DIR / f'tuned_params_n{n_players}.json'
+
+
+def _check_meta(frozen_meta, expected, path):
+    for key in ('grid', 'pilot_seeds', 'n_players', 'dgp'):
+        if frozen_meta.get(key) != expected[key]:
+            raise ValueError(
+                f"{path}: frozen tuning _meta[{key!r}] = {frozen_meta.get(key)!r} differs from "
+                f"the current code's {expected[key]!r}; rerun with --retune")
+
+
+def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
+    """Frozen tuned params {learner: params} for runs of size n_players.
+
+    Runs the pilot (at n_players) only if the file is missing or retune is set;
+    otherwise reads it and raises ValueError if its _meta (grid, pilot seeds, n,
+    dgp) differs from the current code."""
+    path = tuned_path(n_players)
     if retune or not path.exists():
-        print(f"Tuning pilot ({'smoke size' if smoke else 'full size'}), writing {name}")
-        frozen = tune_all(SMOKE_N_PLAYERS if smoke else n_players, n_jobs)
-        save_json(frozen, name)
+        print(f"Tuning pilot at n={n_players}, writing {path}")
+        frozen = tune_all(n_players, n_jobs)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as fp:
+            json.dump(frozen, fp, indent=2)
     else:
         print(f"Reading frozen tuned params from {path}")
         frozen = json.loads(path.read_text())
-    return {l: frozen['learners'][l]['params'] for l in LEARNERS}
+        _check_meta(frozen['_meta'], make_meta(n_players), path)
+    return {l: frozen['learners'][l]['params'] for l in COMPARED_LEARNERS}
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +278,7 @@ def diagnostic_rep(tau_hat, v_hat, tau, v, k):
 # ---------------------------------------------------------------------------
 # One replication, simulation
 # ---------------------------------------------------------------------------
-def run_rep(rep, n_players, tuned, dgp_name='main', learners=LEARNERS, kappas=KAPPAS):
+def run_rep(rep, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, kappas=KAPPAS):
     """Fit everything once for one replication and score all combos."""
     seed = SEED_BASE + rep * 7
     t = defaultdict(float)
@@ -253,10 +316,10 @@ def run_rep(rep, n_players, tuned, dgp_name='main', learners=LEARNERS, kappas=KA
     welfare = {}
     for (learner, pset), tau_hat in taus.items():
         for vm in VALUE_MODELS:
-            welfare[combo_key(learner, pset, vm, 'tauV')] = [
+            welfare[combo_key(learner, pset, vm)] = [
                 welfare_at_kappa(tau_hat * vs[vm], kp, true_tau, true_ltv) for kp in kappas]
-            welfare[combo_key(learner, pset, vm, 'tau')] = [
-                welfare_at_kappa(tau_hat, kp, true_tau, true_ltv) for kp in kappas]
+        welfare[combo_key(learner, pset)] = [
+            welfare_at_kappa(tau_hat, kp, true_tau, true_ltv) for kp in kappas]
     welfare[E2E_KEY] = [welfare_at_kappa(e2e, kp, true_tau, true_ltv) for kp in kappas]
     lap('welfare')
 
@@ -278,7 +341,7 @@ def run_rep(rep, n_players, tuned, dgp_name='main', learners=LEARNERS, kappas=KA
     return {'welfare': welfare, 'regret': regret, 'diagnostic': diag, 'timing': dict(t)}
 
 
-def simulate(reps, n_players, tuned, dgp_name='main', learners=LEARNERS, kappas=KAPPAS,
+def simulate(reps, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, kappas=KAPPAS,
              n_jobs=1):
     """Per-rep welfare for every combo (and E2E), regret splits, diagnostics, timing.
 
@@ -298,16 +361,16 @@ def simulate(reps, n_players, tuned, dgp_name='main', learners=LEARNERS, kappas=
 # Summaries
 # ---------------------------------------------------------------------------
 def comparison_pairs(keys):
-    """(key, baseline key) for every non-baseline combo; E2E against BASELINE_CELL."""
+    """(key, baseline key) for every non-baseline combo, same value model (tau-only against
+    tau-only); E2E against BASELINE_CELL."""
     pairs = []
     for key in keys:
-        if key == BASELINE_CELL:
-            continue
         if key == E2E_KEY:
             pairs.append((key, BASELINE_CELL))
             continue
-        _, vm, rule = key.split('|')
-        pairs.append((key, f'{BASELINE}|{vm}|{rule}'))
+        base = f'{BASELINE}|{key.split("|")[1]}'
+        if key != base:                      # a baseline is not compared with itself
+            pairs.append((key, base))
     return pairs
 
 
@@ -419,7 +482,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     reps, n_players = resolve_run_size(args, N_RUNS, N_PLAYERS)
     print(f"CATE learner x value model | reps={reps}, n={n_players}")
-    tuned = load_or_tune(smoke=args.smoke, retune=args.retune, n_jobs=args.jobs)
+    tuned = load_or_tune(n_players=n_players, retune=args.retune, n_jobs=args.jobs)
     summary = summarise(simulate(reps, n_players, tuned, n_jobs=args.jobs))
     summary['_meta'] = {'n_runs': reps, 'n_players': n_players, 'seeds_base': SEED_BASE,
                         'kappas': list(KAPPAS), 'tuned_params': tuned, 'dgp': 'main'}

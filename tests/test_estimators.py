@@ -58,3 +58,11 @@ def test_learners_and_defaults_cover_all_five():
     assert set(DEFAULT_PARAMS) == set(LEARNERS)
     for p in DEFAULT_PARAMS.values():
         assert set(p) == {'max_depth', 'n_estimators', 'learning_rate'}
+
+
+def test_dr_and_r_agree_when_propensity_known():
+    X, W, Y = _rct(30000, lambda X: 0.25 * X[:, 0] + 0.1 * X[:, 1], 7)
+    args = (X[:25000], X[25000:], W[:25000], Y[:25000], P_FAST)
+    dr = estimate_cate_dr(*args, seed=3)
+    r = estimate_cate_r(*args, seed=3)
+    assert np.corrcoef(dr, r)[0, 1] > 0.99
