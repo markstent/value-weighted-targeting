@@ -20,19 +20,23 @@ def seed_from(seed, stream):
     return (seed * 1_000_003 + stream) % 2**31
 
 
-def _estimate_ltv_churn(X_train, X_test, W_train, Y_train, seed, stream=LTV_STREAM):
-    """Shared LTV and churn estimation (used by all CATE methods).
+def _estimate_ltv_proxy(X_train, X_test, seed, stream=LTV_STREAM):
+    """Misspecified LTV proxy (drops age, nonlinear spend, different coefficients).
 
-    The LTV-proxy noise is seeded by seed_from(seed, stream), where seed is the
+    The proxy noise is seeded by seed_from(seed, stream), where seed is the
     replication seed."""
-    # LTV: misspecified proxy (drops age, nonlinear spend, different coefficients)
     rng_ltv = np.random.RandomState(seed_from(seed, stream))
     ltv_proxy = (12 * X_train[:, 1]**0.9 + 35 * X_train[:, 2]
                  + rng_ltv.normal(0, 200, len(X_train)))
     ltv_model = GradientBoostingRegressor(
         n_estimators=80, max_depth=3, learning_rate=0.1, random_state=0)
     ltv_model.fit(X_train, ltv_proxy)
-    ltv_hat = ltv_model.predict(X_test).clip(50, 8000)
+    return ltv_model.predict(X_test).clip(50, 8000)
+
+
+def _estimate_ltv_churn(X_train, X_test, W_train, Y_train, seed, stream=LTV_STREAM):
+    """Shared LTV and churn estimation (used by all CATE methods)."""
+    ltv_hat = _estimate_ltv_proxy(X_train, X_test, seed, stream)
 
     # Churn: binary control non-retention as proxy
     ctrl_mask = W_train == 0

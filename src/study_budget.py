@@ -19,18 +19,21 @@ S-learner: only its tau_hat = mu(x,1) - mu(x,0) is used (never a tau*V joint
 output).  That tau_hat does not take ltv_hat as an input at all, so it is the
 same in every cell; the misspecified proxy's ltv_hat is only ever a V source.
 
-kappa*: the first grid kappa at which the mean welfare difference (tauV minus tau
-only) changes from <= 0 to > 0.  It is a grid value, not an interpolation.  A
-curve with no such change (tauV ahead throughout, tau only ahead throughout, or
-a change in the other direction only) has no kappa*.  The CI is a percentile
-bootstrap over replications (2000 resamples, seeded via seed_from); resamples
-with no crossover are never dropped silently: frac_with_crossover is exactly
-n_crossover / n_boot and the counts are reported.
+kappa*: the smallest grid kappa at which the mean welfare difference (tauV minus
+tau only) is > 0 there and at every larger grid kappa (a stable up-crossing; a tie
+at 0 is not > 0).  It is a grid value, not an interpolation.  Every point estimate
+and bootstrap resample is classified: "crossing" (kappa* above the grid minimum),
+"below_grid" (diff > 0 everywhere, tauV leads throughout) or "above_grid" (diff <=
+0 at the grid maximum, tau only still leads).  All three counts are reported, plus
+n_sign_changes across the grid.  The CI is an UNCONDITIONAL percentile bootstrap
+over replications (2000 resamples, seeded via seed_from): below_grid sorts as the
+grid minimum, above_grid as the grid maximum, and a bound that is such a censored
+value is labelled "<min" / ">max".  ci95_conditional_on_crossing uses crossing
+resamples only.  frac_with_crossover = n_crossing / n_boot.
 
-Inference: per cell, a paired t-test of tauV vs tau only at each kappa, Holm
-across ALL kappa of that cell (the family is every kappa for one comparison).
-p-values are unrounded (core.stats.paired_test rounds to 4 places, which is lossy
-for Holm); Holm itself is core.stats.holm_bonferroni.
+Inference: per cell, core.stats.paired_test_raw of tauV vs tau only at each kappa,
+Holm (core.stats.holm_bonferroni) across ALL kappa of that cell (the family is every
+kappa for one comparison).  Everything is unrounded in the JSON.
 
 Usage:  python study_budget.py [--reps R] [--n-players N] [--smoke]
 """
@@ -45,11 +48,11 @@ from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import DGPS, FEATURE_NAMES, conditional_means
 from core.estimators import (
     BOOT_STREAM, ORACLE_STREAM, _estimate_cate_slearner, _estimate_cate_tlearner,
-    _estimate_cate_xlearner, _wellspec_value_model, estimate_components, seed_from,
+    _estimate_cate_xlearner, _estimate_ltv_proxy, _wellspec_value_model, seed_from,
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import compute_welfare, target_topk
-from core.stats import cohens_d_paired, holm_bonferroni
+from core.stats import holm_bonferroni, paired_test_raw
 
 # Rounded so int(n * kappa) is identical to the grid the published v44 numbers used.
 budget_grid = np.round(np.arange(0.05, 0.501, 0.025), 3)
@@ -101,7 +104,7 @@ def simulate(reps, n_players, dgp_name='main', tau_sources=TAU_SOURCES,
                 continue
             taus[src] = _tau_hat(src, Xtr, Xte, Wtr, Ytr)
         if 'misspec' in v_sources:
-            _, vs['misspec'], _ = estimate_components(data, train_idx, test_idx, seed=seed)
+            vs['misspec'] = _estimate_ltv_proxy(Xtr, Xte, seed)
         if 'wellspec' in v_sources:
             vs['wellspec'] = _wellspec_value_model(Xtr, Xte, seed)
         if 'oracle' in tau_sources or 'oracle' in v_sources:
@@ -120,35 +123,74 @@ def simulate(reps, n_players, dgp_name='main', tau_sources=TAU_SOURCES,
     return out
 
 
+CROSSING, BELOW_GRID, ABOVE_GRID = 'crossing', 'below_grid', 'above_grid'
+_OUTCOME_RANK = {BELOW_GRID: 0, CROSSING: 1, ABOVE_GRID: 2}
+
+
+def classify_kappa_star(mean_diff, grid):
+    """(kappa*, outcome, n_sign_changes) for a mean difference curve (tauV - tau only).
+
+    kappa* is the smallest grid kappa at which the difference is > 0 there and at
+    every larger grid kappa (a stable up-crossing; a tie at 0 is not > 0).
+      crossing    kappa* exists and is above the grid minimum
+      below_grid  diff > 0 everywhere: tauV leads throughout (kappa* = NaN)
+      above_grid  diff <= 0 at the grid maximum: tau only still leads (kappa* = NaN)
+    n_sign_changes counts changes of (diff > 0) across consecutive grid points."""
+    pos = np.asarray(mean_diff, dtype=float) > 0
+    grid = np.asarray(grid, dtype=float)
+    n_changes = int(np.sum(pos[1:] != pos[:-1]))
+    if pos.all():
+        return float('nan'), BELOW_GRID, n_changes
+    if not pos[-1]:
+        return float('nan'), ABOVE_GRID, n_changes
+    last_nonpos = int(np.max(np.nonzero(~pos)[0]))
+    return float(grid[last_nonpos + 1]), CROSSING, n_changes
+
+
 def crossover_kappa(mean_diff, grid):
-    """First grid kappa where mean_diff goes from <= 0 to > 0; NaN if it never does."""
-    d = np.asarray(mean_diff, dtype=float)
-    for j in range(len(d) - 1):
-        if d[j] <= 0 < d[j + 1]:
-            return float(np.asarray(grid)[j + 1])
-    return float('nan')
+    """kappa* (see classify_kappa_star); NaN unless the outcome is 'crossing'."""
+    return classify_kappa_star(mean_diff, grid)[0]
 
 
 def bootstrap_crossover(diff, grid, n_boot=N_BOOT, seed=0):
     """Percentile bootstrap of kappa* over replications.
 
-    diff: (reps, K) per-rep welfare difference (tauV minus tau only).  Resamples
-    with no crossover are counted, never dropped: frac_with_crossover is
-    n_crossover / n_boot.  ci95 is over the crossover resamples only (None if
-    there are none)."""
+    diff: (reps, K) per-rep welfare difference (tauV minus tau only).  Every
+    resample is classified crossing / below_grid / above_grid and all three are
+    counted; none is dropped.  ci95 is UNCONDITIONAL: below_grid resamples sort as
+    the grid minimum and above_grid as the grid maximum, and ci95_labels marks a
+    bound that is such a censored value ('<min' / '>max', else None).
+    ci95_conditional_on_crossing uses the crossing resamples only (None if none).
+    frac_with_crossover = n_crossing / n_boot."""
     diff = np.asarray(diff, dtype=float)
+    grid = np.asarray(grid, dtype=float)
     n = len(diff)
     rng = np.random.RandomState(seed)
     idx = rng.randint(0, n, (n_boot, n))
-    stars = np.array([crossover_kappa(diff[row].mean(axis=0), grid) for row in idx])
-    found = ~np.isnan(stars)
-    n_cross = int(found.sum())
-    res = {'n_boot': n_boot, 'n_crossover': n_cross, 'n_no_crossover': n_boot - n_cross,
-           'frac_with_crossover': n_cross / n_boot, 'median': None, 'ci95': None}
+    cls = [classify_kappa_star(diff[row].mean(axis=0), grid) for row in idx]
+    outcomes = np.array([c[1] for c in cls])
+    stars = np.array([c[0] for c in cls])
+    values = np.where(outcomes == BELOW_GRID, grid.min(),
+                      np.where(outcomes == ABOVE_GRID, grid.max(), stars))
+    rank = np.array([_OUTCOME_RANK[o] for o in outcomes])
+    order = np.lexsort((rank, values))          # by value, ties: below < crossing < above
+    sv, so = values[order], outcomes[order]
+    i_lo, i_hi = int(np.floor(0.025 * (n_boot - 1))), int(np.ceil(0.975 * (n_boot - 1)))
+    label = {BELOW_GRID: '<min', ABOVE_GRID: '>max', CROSSING: None}
+    n_cross = int(np.sum(outcomes == CROSSING))
+    res = {'n_boot': n_boot, 'n_crossing': n_cross,
+           'n_below_grid': int(np.sum(outcomes == BELOW_GRID)),
+           'n_above_grid': int(np.sum(outcomes == ABOVE_GRID)),
+           'frac_with_crossover': n_cross / n_boot,
+           'median': float(np.median(values)),
+           'ci95': [float(sv[i_lo]), float(sv[i_hi])],
+           'ci95_labels': [label[so[i_lo]], label[so[i_hi]]],
+           'ci95_conditional_on_crossing': None}
+    res['n_no_crossover'] = n_boot - n_cross
     if n_cross:
-        res['median'] = float(np.median(stars[found]))
-        res['ci95'] = [float(np.percentile(stars[found], 2.5)),
-                       float(np.percentile(stars[found], 97.5))]
+        c = stars[outcomes == CROSSING]
+        res['ci95_conditional_on_crossing'] = [float(np.percentile(c, 2.5)),
+                                               float(np.percentile(c, 97.5))]
     return res
 
 
@@ -162,22 +204,17 @@ def _t_ci(x):
 
 
 def paired_inference(w_tauv, w_tau, grid):
-    """Per-kappa paired t-test of tauV vs tau only, Holm across all kappa."""
+    """Per-kappa paired t-test of tauV vs tau only (core.stats.paired_test_raw),
+    Holm across all kappa.  Everything is unrounded."""
     w_tauv, w_tau = np.asarray(w_tauv, float), np.asarray(w_tau, float)
-    rows, raw = [], []
+    rows = []
     for j, kappa in enumerate(grid):
         a, b = w_tauv[:, j], w_tau[:, j]
-        d = a - b
-        if len(d) < 2 or np.ptp(d) == 0:
-            t_stat, p = float('nan'), (1.0 if np.all(d == 0) else 0.0)
-        else:
-            t_stat, p = scipy_stats.ttest_rel(a, b)
-        raw.append(float(p))
+        r = paired_test_raw(a, b)
         rows.append({'kappa': float(kappa), 'tauV': _t_ci(a), 'tau_only': _t_ci(b),
-                     'diff': _t_ci(d), 't_stat': float(t_stat),
-                     'cohens_d': cohens_d_paired(a, b) if len(d) > 1 else None,
-                     'p_raw': float(p)})
-    for row, p_holm in zip(rows, holm_bonferroni(raw)):
+                     'diff': _t_ci(a - b), 'se_diff': r['se_diff'], 't_stat': r['t_stat'],
+                     'cohens_d': r['cohens_d'], 'p_raw': r['p_value']})
+    for row, p_holm in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
         row['p_holm'] = float(p_holm)
     return rows
 
@@ -189,10 +226,11 @@ def summarise(raw, grid=budget_grid, n_boot=N_BOOT):
     for key, w in raw.items():
         diff = w['tauV'] - w['tau']
         mean_diff = diff.mean(axis=0)
-        point = crossover_kappa(mean_diff, grid)
+        point, outcome, n_changes = classify_kappa_star(mean_diff, grid)
         cells[key] = {
             'per_kappa': paired_inference(w['tauV'], w['tau'], grid),
             'kappa_star': {'point': None if np.isnan(point) else point,
+                           'point_outcome': outcome, 'n_sign_changes': n_changes,
                            **bootstrap_crossover(diff, grid, n_boot, boot_seed)},
         }
     return {'cells': cells, 'kappa_grid': [float(k) for k in grid]}
@@ -213,7 +251,8 @@ def run_budget_inference(dgp_name, label, reps, n_players=N_PLAYERS):
                 'cate_only_welfare': row['tau_only']['mean'],
                 'cate_x_ltv_welfare': row['tauV']['mean'],
                 'diff_ltv_minus_cate': row['diff']['mean'],
-                't_stat': row['t_stat'], 'cohens_d': row['cohens_d'],
+                'se_diff': row['se_diff'], 't_stat': row['t_stat'],
+                'cohens_d': row['cohens_d'],
                 'ci_95': row['diff']['ci95'], 'p_value': row['p_raw'],
                 'p_holm': row['p_holm'],
             }
@@ -223,14 +262,15 @@ def run_budget_inference(dgp_name, label, reps, n_players=N_PLAYERS):
 
 
 def _print_table(summary):
-    print(f"{'cell (tau|V)':<18} {'kappa*':>7} {'95% CI':>15} {'frac_x':>7} {'no-x':>5}  min p_holm")
+    print(f"{'cell (tau|V)':<16} {'kappa*':>10} {'95% CI':>17} {'cross':>5} {'<grid':>5} {'>grid':>5} {'chg':>3}  min p_holm")
     for key, c in summary['cells'].items():
         ks = c['kappa_star']
-        pt = 'none' if ks['point'] is None else f"{ks['point']:.3f}"
-        ci = 'n/a' if ks['ci95'] is None else f"[{ks['ci95'][0]:.3f},{ks['ci95'][1]:.3f}]"
+        pt = ks['point_outcome'] if ks['point'] is None else f"{ks['point']:.3f}"
+        lab = [l or '' for l in ks['ci95_labels']]
+        ci = f"[{lab[0]}{ks['ci95'][0]:.3f},{lab[1]}{ks['ci95'][1]:.3f}]"
         p = min(r['p_holm'] for r in c['per_kappa'])
-        print(f"{key:<18} {pt:>7} {ci:>15} {ks['frac_with_crossover']:>7.3f} "
-              f"{ks['n_no_crossover']:>5}  {p:.4g}")
+        print(f"{key:<16} {pt:>10} {ci:>17} {ks['n_crossing']:>5} {ks['n_below_grid']:>5} "
+              f"{ks['n_above_grid']:>5} {ks['n_sign_changes']:>3}  {p:.4g}")
 
 
 def main(argv=None):

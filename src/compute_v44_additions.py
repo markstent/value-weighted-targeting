@@ -3,7 +3,10 @@
 Runs three analyses, all on the same 200 seeds as the published simulation
 (SEED_BASE + 7r) so the numbers are comparable with simulation_v29.json:
 
-  A. (now implemented in study_budget.py) Budget-sensitivity INFERENCE + crossover budget kappa* (review #7). The
+  A. (now implemented in study_budget.py; JSON schema changes: kappa_star replaces
+     kappa_star_point/kappa_star_bootstrap and is now a stable up-crossing grid value
+     with below/above-grid counts, p-values and cohens_d are unrounded, se_diff is kept,
+     Holm family is all 19 kappa) Budget-sensitivity INFERENCE + crossover budget kappa* (review #7). The
      published budget table (Table: budget sensitivity) reports welfare means
      only, while the paper's title claim -- that pure CATE beats value-weighting
      at tight budgets and the ranking reverses as the budget grows -- rests on

@@ -56,17 +56,40 @@ def ci_95(x, y):
     return (round(float(mean_d - margin), 0), round(float(mean_d + margin), 0))
 
 
-def paired_test(w1, w2, label=None):
-    """Paired t-test with effect size and CI (label is informational only)."""
-    diff = np.array(w1) - np.array(w2)
-    t_stat, p_val = scipy_stats.ttest_rel(w1, w2)
-    d = cohens_d_paired(w1, w2)
-    lo, hi = ci_95(w1, w2)
+def paired_test_raw(w1, w2, label=None):
+    """Paired t-test with effect size and t-interval, all UNROUNDED (the single
+    implementation; label is informational only).  A zero-variance difference has
+    t_stat NaN and p = 1 if the mean difference is 0 else 0."""
+    w1, w2 = np.asarray(w1, dtype=float), np.asarray(w2, dtype=float)
+    diff = w1 - w2
+    n = len(diff)
+    mean = float(np.mean(diff))
+    sd = float(np.std(diff, ddof=1)) if n > 1 else float('nan')
+    se = sd / np.sqrt(n) if n > 1 else float('nan')
+    if n > 1 and sd == 0:
+        t_stat, p_val = float('nan'), (1.0 if mean == 0 else 0.0)
+    else:
+        t_stat, p_val = scipy_stats.ttest_rel(w1, w2)
+    half = scipy_stats.t.ppf(0.975, df=n - 1) * se if n > 1 else float('nan')
     return {
-        'mean_diff': round(float(np.mean(diff)), 0),
-        'se_diff': round(float(np.std(diff, ddof=1) / np.sqrt(len(diff))), 0),
-        't_stat': round(float(t_stat), 2),
-        'p_value': round(float(p_val), 4),
-        'cohens_d': d,
-        'ci_95': [lo, hi],
+        'mean_diff': mean,
+        'se_diff': float(se),
+        't_stat': float(t_stat),
+        'p_value': float(p_val),
+        'cohens_d': (0.0 if sd == 0 else mean / sd) if n > 1 else float('nan'),
+        'ci_95': [mean - float(half), mean + float(half)],
+    }
+
+
+def paired_test(w1, w2, label=None):
+    """paired_test_raw rounded for presentation (diffs/se/CI to integers, t to 2,
+    p to 4, d to 3 places)."""
+    r = paired_test_raw(w1, w2, label)
+    return {
+        'mean_diff': round(r['mean_diff'], 0),
+        'se_diff': round(r['se_diff'], 0),
+        't_stat': round(r['t_stat'], 2),
+        'p_value': round(r['p_value'], 4),
+        'cohens_d': round(r['cohens_d'], 3),
+        'ci_95': [round(r['ci_95'][0], 0), round(r['ci_95'][1], 0)],
     }
