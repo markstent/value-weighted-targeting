@@ -59,7 +59,7 @@ def run_like_for_like(dgp_func, drop_idx, label):
         n = len(data['treatment'])
         train_idx, test_idx = train_test_split(np.arange(n), test_size=0.30,
                                                random_state=seed)
-        tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx)
+        tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx, seed=seed)
         true_tau = data['true_tau'][test_idx]
         true_ltv = data['true_ltv'][test_idx]
         k = int(len(test_idx) * KAPPA)

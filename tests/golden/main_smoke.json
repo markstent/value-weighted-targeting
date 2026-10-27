@@ -20,34 +20,34 @@
     "mean_ltv_cr": 750.0
   },
   "CATE x LTV": {
-    "ate_mean": 4.6,
-    "ate_sd": 4.1,
-    "welfare_mean": 1317.0,
-    "welfare_sd": 549.0,
+    "ate_mean": 5.6,
+    "ate_sd": 3.2,
+    "welfare_mean": 1350.0,
+    "welfare_sd": 571.0,
     "risk_mean": 0.144,
-    "risk_sd": 0.017,
-    "mean_churn_mod": 0.461,
-    "mean_ltv_cr": 838.0
+    "risk_sd": 0.016,
+    "mean_churn_mod": 0.46,
+    "mean_ltv_cr": 831.0
   },
   "Full Framework (Est.)": {
-    "ate_mean": 5.7,
+    "ate_mean": 5.9,
     "ate_sd": 3.0,
-    "welfare_mean": 1286.0,
-    "welfare_sd": 743.0,
-    "risk_mean": 0.154,
-    "risk_sd": 0.018,
-    "mean_churn_mod": 0.486,
-    "mean_ltv_cr": 796.0
+    "welfare_mean": 1214.0,
+    "welfare_sd": 574.0,
+    "risk_mean": 0.151,
+    "risk_sd": 0.017,
+    "mean_churn_mod": 0.481,
+    "mean_ltv_cr": 800.0
   },
   "Full Framework (Cal.)": {
-    "ate_mean": 4.6,
-    "ate_sd": 4.1,
-    "welfare_mean": 1317.0,
-    "welfare_sd": 549.0,
+    "ate_mean": 5.6,
+    "ate_sd": 3.2,
+    "welfare_mean": 1350.0,
+    "welfare_sd": 571.0,
     "risk_mean": 0.144,
-    "risk_sd": 0.017,
-    "mean_churn_mod": 0.461,
-    "mean_ltv_cr": 838.0
+    "risk_sd": 0.016,
+    "mean_churn_mod": 0.46,
+    "mean_ltv_cr": 831.0
   },
   "Full Framework (Oracle)": {
     "ate_mean": 8.0,
@@ -60,13 +60,13 @@
     "mean_ltv_cr": 593.0
   },
   "S-Learner": {
-    "ate_mean": 6.7,
-    "ate_sd": 0.9,
-    "welfare_mean": 2671.0,
-    "welfare_sd": 481.0,
+    "ate_mean": 6.1,
+    "ate_sd": 0.8,
+    "welfare_mean": 2597.0,
+    "welfare_sd": 741.0,
     "risk_mean": 0.153,
     "risk_sd": 0.015,
     "mean_churn_mod": 0.483,
-    "mean_ltv_cr": 764.0
+    "mean_ltv_cr": 772.0
   }
 }

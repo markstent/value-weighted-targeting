@@ -7,11 +7,26 @@ from sklearn.model_selection import train_test_split
 from core.policy import (DEFAULT_BUDGET, DEFAULT_THETA_IDX, THETA_GRID,
                          f_churn_vec, target_topk)
 
+# Independent RNG streams per replication seed (see seed_from).
+LTV_STREAM = 0        # LTV-proxy noise for the deployed estimator
+CALIB_STREAM = 1      # LTV-proxy noise for the calibration (validation) fit
+VALUE_STREAM_V41 = 2  # end-to-end joint value model (compute_v41)
+VALUE_STREAM_V42 = 3  # well-specified value model (compute_v42)
+VALUE_STREAM_V43 = 4  # richer reference value model (compute_v43)
 
-def _estimate_ltv_churn(X_train, X_test, W_train, Y_train, train_idx):
-    """Shared LTV and churn estimation (used by all CATE methods)."""
+
+def seed_from(seed, stream):
+    """Deterministic child seed for (replication seed, stream); replaces hash()."""
+    return (seed * 1_000_003 + stream) % 2**31
+
+
+def _estimate_ltv_churn(X_train, X_test, W_train, Y_train, seed, stream=LTV_STREAM):
+    """Shared LTV and churn estimation (used by all CATE methods).
+
+    The LTV-proxy noise is seeded by seed_from(seed, stream), where seed is the
+    replication seed."""
     # LTV: misspecified proxy (drops age, nonlinear spend, different coefficients)
-    rng_ltv = np.random.RandomState(hash(tuple(train_idx[:5])) % (2**31))
+    rng_ltv = np.random.RandomState(seed_from(seed, stream))
     ltv_proxy = (12 * X_train[:, 1]**0.9 + 35 * X_train[:, 2]
                  + rng_ltv.normal(0, 200, len(X_train)))
     ltv_model = GradientBoostingRegressor(
@@ -75,7 +90,8 @@ def _estimate_cate_xlearner(X_train, X_test, W_train, Y_train):
     return tau_hat
 
 
-def estimate_components(data, train_idx, test_idx, cate_method='tlearner'):
+def estimate_components(data, train_idx, test_idx, cate_method='tlearner', *,
+                        seed, stream=LTV_STREAM):
     """Estimate CATE, LTV, and churn from training data."""
     X = data['features']
     W = data['treatment']
@@ -88,11 +104,13 @@ def estimate_components(data, train_idx, test_idx, cate_method='tlearner'):
     else:
         tau_hat = _estimate_cate_tlearner(X_train, X_test, W_train, Y_train)
 
-    ltv_hat, churn_hat = _estimate_ltv_churn(X_train, X_test, W_train, Y_train, train_idx)
+    ltv_hat, churn_hat = _estimate_ltv_churn(X_train, X_test, W_train, Y_train,
+                                              seed, stream)
     return tau_hat, ltv_hat, churn_hat
 
 
-def estimate_components_misspec(data, train_idx, test_idx, cate_method='tlearner'):
+def estimate_components_misspec(data, train_idx, test_idx, cate_method='tlearner', *,
+                                seed, stream=LTV_STREAM):
     """Estimate with MISSPECIFIED CATE model: login_freq dropped."""
     X = data['features']
     W = data['treatment']
@@ -111,7 +129,8 @@ def estimate_components_misspec(data, train_idx, test_idx, cate_method='tlearner
         tau_hat = _estimate_cate_tlearner(X_train_cate, X_test_cate, W_train, Y_train)
 
     # LTV and churn use ALL features
-    ltv_hat, churn_hat = _estimate_ltv_churn(X_train, X_test, W_train, Y_train, train_idx)
+    ltv_hat, churn_hat = _estimate_ltv_churn(X_train, X_test, W_train, Y_train,
+                                              seed, stream)
     return tau_hat, ltv_hat, churn_hat
 
 
@@ -139,7 +158,8 @@ def calibrate_theta(data, train_idx, seed, k, est_func=None, cate_method='tlearn
     val_idx = train_idx[val_rel]
 
     tau_val, ltv_val, churn_val = est_func(data, est_idx, val_idx,
-                                           cate_method=cate_method)
+                                           cate_method=cate_method,
+                                           seed=seed, stream=CALIB_STREAM)
     k_val = int(len(val_idx) * DEFAULT_BUDGET)
 
     best_welfare = -np.inf

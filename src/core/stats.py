@@ -1,4 +1,4 @@
-"""Paired-comparison statistics."""
+"""Paired-comparison statistics (all standard deviations use ddof=1)."""
 
 import numpy as np
 from scipy import stats as scipy_stats
@@ -64,7 +64,7 @@ def paired_test(w1, w2, label=None):
     lo, hi = ci_95(w1, w2)
     return {
         'mean_diff': round(float(np.mean(diff)), 0),
-        'se_diff': round(float(np.std(diff) / np.sqrt(len(diff))), 0),  # ddof=0, legacy
+        'se_diff': round(float(np.std(diff, ddof=1) / np.sqrt(len(diff))), 0),
         't_stat': round(float(t_stat), 2),
         'p_value': round(float(p_val), 4),
         'cohens_d': d,

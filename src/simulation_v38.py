@@ -67,7 +67,7 @@ def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
     y1 = data['y1'][test_idx]
 
     tau_hat, ltv_hat, churn_hat = est_func(data, train_idx, test_idx,
-                                           cate_method=cate_method)
+                                           cate_method=cate_method, seed=seed)
 
     g_hat = f_churn_vec(churn_hat)
     g_oracle = f_churn_vec(true_churn)

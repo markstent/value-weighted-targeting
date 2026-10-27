@@ -102,7 +102,7 @@ def _slearner_welfare_for_dgp(dgp_func):
         true_ltv = data['true_ltv'][test_idx]
         X_tr, X_te = data['features'][train_idx], data['features'][test_idx]
         W_tr, Y_tr = data['treatment'][train_idx], data['y_obs'][train_idx]
-        ltv_hat, _ = _estimate_ltv_churn(X_tr, X_te, W_tr, Y_tr, train_idx)
+        ltv_hat, _ = _estimate_ltv_churn(X_tr, X_te, W_tr, Y_tr, seed)
         sl = _estimate_slearner(X_tr, X_te, W_tr, Y_tr, ltv_hat)
         welfare.append(compute_welfare(target_topk(sl, k), true_tau, true_ltv))
     return welfare
@@ -142,7 +142,7 @@ def run_effective_welfare():
         true_churn = data['true_churn'][test_idx]
         eff_tau = (data['y1_prob'][test_idx] - data['y0_prob'][test_idx])
 
-        tau_hat, ltv_hat, churn_hat = estimate_components(data, train_idx, test_idx)
+        tau_hat, ltv_hat, churn_hat = estimate_components(data, train_idx, test_idx, seed=seed)
         g_oracle = f_churn_vec(true_churn)
         cal_cfg = calibrate_theta(data, train_idx, seed, k)
         g_cal = f_churn_vec(churn_hat, **cal_cfg)
@@ -216,7 +216,7 @@ def run_harm_gate():
         o_gw.append(compute_welfare(t, true_tau, true_ltv)); o_gh.append(float(np.mean(true_harm[t])))
 
         # --- Estimated rule ---
-        tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx)
+        tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx, seed=seed)
         t = target_topk(tau_hat * ltv_hat, k)
         e_uw.append(compute_welfare(t, true_tau, true_ltv)); e_uh.append(float(np.mean(true_harm[t])))
         t = target_topk(tau_hat * ltv_hat * h, k)

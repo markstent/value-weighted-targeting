@@ -77,7 +77,7 @@ def run():
         Y_train = data['y_obs'][train_idx]
 
         # Shared value-model estimate (same misspecified LTV as the main run)
-        _, ltv_hat, _ = estimate_components(data, train_idx, test_idx)
+        _, ltv_hat, _ = estimate_components(data, train_idx, test_idx, seed=seed)
 
         # (a) S-Learner at depth 3
         sl3_scores = slearner_at_depth(

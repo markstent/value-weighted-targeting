@@ -32,6 +32,7 @@ from core.dgp import (
     generate_main,
 )
 from core.estimators import (
+    LTV_STREAM, seed_from,
     estimate_components, estimate_components_misspec,
 )
 from core.policy import (
@@ -53,7 +54,7 @@ def diagnostic_terms(est_func, label):
         k = int(len(te) * DEFAULT_BUDGET)
         tau = data['true_tau'][te]
         V = data['true_ltv'][te]
-        tauh, Vh, _ = est_func(data, tr, te)
+        tauh, Vh, _ = est_func(data, tr, te, seed=seed)
         pi_star = set(target_topk(tau * V, k).tolist())
         pi_hat = set(target_topk(tauh * Vh, k).tolist())
         M = np.array(sorted(pi_star.symmetric_difference(pi_hat)), dtype=int)
@@ -88,7 +89,7 @@ def end_to_end_joint():
         Xtr, Xte, Wtr, Ytr = X[tr], X[te], W[tr], Y[tr]
         # Same misspecified value proxy form the decomposed pipeline trains on,
         # so the only difference from the borrowed-V S-Learner is joint vs. separate.
-        rng_v = np.random.RandomState(hash(tuple(tr[:5].tolist())) % (2**31))
+        rng_v = np.random.RandomState(seed_from(seed, LTV_STREAM))
         vproxy = (12 * Xtr[:, 1] ** 0.9 + 35 * Xtr[:, 2]
                   + rng_v.normal(0, 200, len(Xtr))).clip(50, 8000)
         target = vproxy * Ytr  # value-weighted outcome

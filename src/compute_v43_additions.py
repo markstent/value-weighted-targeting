@@ -32,6 +32,7 @@ from core.dgp import (
     generate_main, make_corr_dgp, generate_heavytail,
 )
 from core.estimators import (
+    VALUE_STREAM_V43, seed_from,
     estimate_components, estimate_components_misspec, _estimate_slearner, _estimate_cate_xlearner,
 )
 from core.policy import (
@@ -56,7 +57,7 @@ def _strategy_welfare(dgp, kappa=DEFAULT_BUDGET):
         k = int(len(te) * kappa)
         tau, V = data['true_tau'][te], data['true_ltv'][te]
         corr_tv.append(float(np.corrcoef(data['true_tau'], data['true_ltv'])[0, 1]))
-        tauh, vh, _ = estimate_components(data, tr, te)
+        tauh, vh, _ = estimate_components(data, tr, te, seed=seed)
         Xtr, Xte = data['features'][tr], data['features'][te]
         Wtr, Ytr = data['treatment'][tr], data['y_obs'][tr]
         sl_score = _estimate_slearner(Xtr, Xte, Wtr, Ytr, vh)
@@ -81,14 +82,14 @@ def observational_diagnostic(est_func):
         idx = np.arange(len(data['treatment']))
         tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(te) * DEFAULT_BUDGET)
-        tauh, vh, _ = est_func(data, tr, te)               # deployed (T-Learner, misspec V)
+        tauh, vh, _ = est_func(data, tr, te, seed=seed)               # deployed (T-Learner, misspec V)
         # Reference: richer X-Learner tau on ALL features, all-feature value model.
         Xtr, Xte = data['features'][tr], data['features'][te]
         Wtr, Ytr = data['treatment'][tr], data['y_obs'][tr]
         tau_ref = _estimate_cate_xlearner(Xtr, Xte, Wtr, Ytr)
         # Richer value reference: deeper/larger ensemble on the same observable proxy
         # target, so disagreement with the deployed value model is observable (no oracle).
-        rng_v = np.random.RandomState((hash(tuple(tr[:5].tolist())) + 7) % (2**31))
+        rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V43))
         vproxy = (12 * Xtr[:, 1] ** 0.9 + 35 * Xtr[:, 2]
                   + rng_v.normal(0, 200, len(Xtr)))
         vref_model = GradientBoostingRegressor(

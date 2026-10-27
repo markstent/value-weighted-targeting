@@ -33,6 +33,7 @@ from core.dgp import (
     generate_main, generate_harm,
 )
 from core.estimators import (
+    VALUE_STREAM_V42, seed_from,
     estimate_components,
 )
 from core.policy import (
@@ -44,9 +45,9 @@ N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
 
 
-def _wellspec_value_model(Xtr, Xte, seed_idx):
+def _wellspec_value_model(Xtr, Xte, seed):
     """A correctly-specified value model: trained on the true LTV functional form."""
-    rng_v = np.random.RandomState((hash(tuple(seed_idx[:5].tolist())) + 1) % (2**31))
+    rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V42))
     # True DGP LTV form: 10*spend + 40*login + 5*age (cf. simulation_v38 eq for V).
     target = (10 * Xtr[:, 1] + 40 * Xtr[:, 2] + 5 * Xtr[:, 0]
               + rng_v.normal(0, 80, len(Xtr))).clip(50, 8000)
@@ -67,8 +68,8 @@ def component_update():
         tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
         k = int(len(te) * DEFAULT_BUDGET)
         tau, V = data['true_tau'][te], data['true_ltv'][te]
-        tauh, vh_mis, _ = estimate_components(data, tr, te)  # misspecified value
-        vh_well = _wellspec_value_model(data['features'][tr], data['features'][te], tr)
+        tauh, vh_mis, _ = estimate_components(data, tr, te, seed=seed)  # misspecified value
+        vh_well = _wellspec_value_model(data['features'][tr], data['features'][te], seed)
         mis.append(compute_welfare(target_topk(tauh * vh_mis, k), tau, V))
         well.append(compute_welfare(target_topk(tauh * vh_well, k), tau, V))
     a, b = float(np.mean(mis)), float(np.mean(well))

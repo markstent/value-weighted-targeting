@@ -47,7 +47,7 @@ from core.dgp import (
     generate_main, generate_adv, generate_asym, TREATMENT_PROB,
 )
 from core.estimators import (
-    estimate_components, _estimate_ltv_churn, _estimate_cate_tlearner, _estimate_slearner, calibrate_theta,
+    CALIB_STREAM, LTV_STREAM, estimate_components, _estimate_ltv_churn, _estimate_cate_tlearner, _estimate_slearner, calibrate_theta,
 )
 from core.policy import (
     DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare, THETA_GRID, DEFAULT_THETA_IDX,
@@ -84,7 +84,7 @@ def _fit_test_components(seed, dgp_func):
     indices = np.arange(n)
     train_idx, test_idx = train_test_split(indices, test_size=0.30,
                                            random_state=seed)
-    tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx)
+    tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx, seed=seed)
     true_tau = data['true_tau'][test_idx]
     true_ltv = data['true_ltv'][test_idx]
     return tau_hat, ltv_hat, true_tau, true_ltv
@@ -221,7 +221,8 @@ def _aipw_calibrate(data, train_idx, seed, e=PROPENSITY):
     val_idx = train_idx[val_rel]
 
     # plug-in components on the (est -> val) split, exactly as the published rule
-    tau_val, ltv_val, churn_val = estimate_components(data, est_idx, val_idx)
+    tau_val, ltv_val, churn_val = estimate_components(data, est_idx, val_idx, seed=seed,
+                                                       stream=CALIB_STREAM)
 
     # AIPW pseudo-outcome on the validation fold
     X = data['features']
@@ -275,7 +276,8 @@ def run_aipw_calibration():
         k = int(len(test_idx) * DEFAULT_BUDGET)
 
         # deployed components on the full train -> test
-        tau_hat, ltv_hat, churn_hat = estimate_components(data, train_idx, test_idx)
+        tau_hat, ltv_hat, churn_hat = estimate_components(
+            data, train_idx, test_idx, seed=seed)
         true_tau = data['true_tau'][test_idx]
         true_ltv = data['true_ltv'][test_idx]
         w_identity = _welfare_at_kappa(tau_hat * ltv_hat, DEFAULT_BUDGET,
@@ -326,7 +328,8 @@ def run_aipw_calibration():
 # C. Adversarial CATE misspecification (dropped feature absent from V)
 # ---------------------------------------------------------------------------
 
-def estimate_components_misspec_adv(data, train_idx, test_idx, cate_method='tlearner'):
+def estimate_components_misspec_adv(data, train_idx, test_idx, cate_method='tlearner', *,
+                                    seed, stream=LTV_STREAM):
     """CATE model drops bonus_history (index 3); LTV and churn keep all features."""
     X = data['features']
     W = data['treatment']
@@ -338,7 +341,7 @@ def estimate_components_misspec_adv(data, train_idx, test_idx, cate_method='tlea
     tau_hat = _estimate_cate_tlearner(
         X_train[:, cate_cols], X_test[:, cate_cols], W_train, Y_train)
     ltv_hat, churn_hat = _estimate_ltv_churn(
-        X_train, X_test, W_train, Y_train, train_idx)
+        X_train, X_test, W_train, Y_train, seed, stream)
     return tau_hat, ltv_hat, churn_hat
 
 
@@ -350,7 +353,7 @@ def _run_adv_scenario(est_func, dgp_func, kappa):
         n = len(data['treatment'])
         train_idx, test_idx = train_test_split(np.arange(n), test_size=0.30,
                                                random_state=seed)
-        tau_hat, ltv_hat, _ = est_func(data, train_idx, test_idx)
+        tau_hat, ltv_hat, _ = est_func(data, train_idx, test_idx, seed=seed)
         true_tau = data['true_tau'][test_idx]
         true_ltv = data['true_ltv'][test_idx]
         cate.append(_welfare_at_kappa(tau_hat, kappa, true_tau, true_ltv))
