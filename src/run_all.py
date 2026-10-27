@@ -85,40 +85,39 @@ def package_versions():
     return out
 
 
-STALE_EXIT = 97   # exit code recorded when a step exits 0 but its outputs are missing or stale
+MISSING_EXIT = 97   # exit code recorded when a step exits 0 but an expected output is missing
 
 
-def check_outputs(expected, started):
-    """Return an error string naming expected files that are missing or older than started."""
-    problems = []
-    for path in expected:
-        if not path.exists():
-            problems.append(f'{path.name} missing')
-        elif path.stat().st_mtime < started:
-            problems.append(f'{path.name} stale')
-    return '; '.join(problems) or None
+def check_outputs(expected):
+    """Return an error string naming expected files that do not exist, or None.
+
+    Existence alone proves freshness: run_step deletes every expected output before the
+    step starts, so a file that exists afterwards was written by this step.  No mtime
+    comparison is made, because coarse timestamp resolution (HFS+, FAT, NFS/SMB) or clock
+    skew would make it fail falsely, most likely for fast steps."""
+    missing = [path.name for path in expected if not path.exists()]
+    return '; '.join(f'{n} missing' for n in missing) or None
 
 
 def run_step(name, script, flags, expected=()):
     """Run src/<script> with flags, logging to outputs/logs/<name>.log.
 
-    Every expected output is deleted first.  After a zero exit each must exist with
-    mtime >= the step start, otherwise the step is recorded as failed (exit 97) with an
-    'error' naming the file, so a study that writes nothing is never certified."""
+    Every expected output is deleted first.  After a zero exit each must exist, otherwise
+    the step is recorded as failed (exit 97) with an 'error' naming the file, so a study
+    that writes nothing is never certified."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log = LOG_DIR / f'{name}.log'
     for path in expected:
         path.unlink(missing_ok=True)
-    started = time.time()
     t0 = time.perf_counter()
     with open(log, 'w') as fp:
         proc = subprocess.run([sys.executable, str(SRC / script), *flags], cwd=REPO,
                               stdout=fp, stderr=subprocess.STDOUT)
     code, error = proc.returncode, None
     if code == 0:
-        error = check_outputs(expected, started)
+        error = check_outputs(expected)
         if error:
-            code = STALE_EXIT
+            code = MISSING_EXIT
     rec = {'name': name, 'exit_code': code,
            'wall_seconds': round(time.perf_counter() - t0, 2),
            'log': str(log.relative_to(REPO))}

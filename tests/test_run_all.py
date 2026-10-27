@@ -51,7 +51,7 @@ def test_failure_is_named_and_manifest_written(tmp_path, monkeypatch, capsys):
 def test_manifest_hashes_outputs(tmp_path, monkeypatch):
     monkeypatch.setattr(run_all, 'OUTPUT_DIR', tmp_path)
     (tmp_path / 'main_smoke.json').write_text('{}')
-    steps = [{'name': 'study_main', 'exit_code': 0}, {'name': 'study_harm', 'exit_code': run_all.STALE_EXIT}]
+    steps = [{'name': 'study_main', 'exit_code': 0}, {'name': 'study_harm', 'exit_code': run_all.MISSING_EXIT}]
     (tmp_path / 'harm_sweep_smoke.json').write_text('{"stale": 1}')   # failed step: not certified
     m = run_all.build_manifest(_args(), steps, ['study_main', 'study_harm'], {}, 't')
     assert m['json_files'] == {'main_smoke.json': run_all.sha256(tmp_path / 'main_smoke.json')}
@@ -97,10 +97,10 @@ def test_study_exiting_zero_without_output_fails(tmp_path, monkeypatch):
     _fake_src(tmp_path, monkeypatch, 'pass\n')
     out = tmp_path / 'main.json'
     rec = run_all.run_step('fake', 'fake.py', [], [out])
-    assert rec['exit_code'] == run_all.STALE_EXIT and 'main.json missing' in rec['error']
+    assert rec['exit_code'] == run_all.MISSING_EXIT and 'main.json missing' in rec['error']
 
 
-def test_stale_output_from_previous_run_is_deleted_and_fails(tmp_path, monkeypatch):
+def test_preexisting_output_is_deleted_before_the_step(tmp_path, monkeypatch):
     _fake_src(tmp_path, monkeypatch, 'pass\n')
     out = tmp_path / 'main.json'
     out.write_text('{"old": 1}')
