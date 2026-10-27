@@ -14,7 +14,10 @@ Common conventions (all scenarios)
   * Learner policy: every scenario that fits a CATE learner reports two arms, the
     legacy learner with default params ("CATE Only", "CATE x LTV", ...) and the tuned
     T-learner of config/tuned_params.json (labelled "(tuned)"), loaded through
-    study_learners.load_or_tune.  Only tau_hat changes between arms; the value and
+    study_learners.load_or_tune.  The tuned params were fitted on the MAIN DGP only (the pilot
+    of study_learners) and are reused unchanged on every other DGP (null, correlated, asym,
+    heavytail, corr_gamma, adv): a fixed-hyperparameter choice, recorded as tuned_on "main"
+    in robustness.json _meta.  Only tau_hat changes between arms; the value and
     churn models, the S-learner and the X-learner reference keep their legacy fits.
   * Oracle rows come in two kinds: "Oracle hindsight" ranks on the realised tau * V
     (unreachable by any X-measurable rule) and "Oracle feasible" ranks on
@@ -33,10 +36,12 @@ Common conventions (all scenarios)
 
 Scenarios
   slearner_scenarios (v40 B, extended)  CATE x LTV vs CATE Only vs the S-learner on the
-      main DGP, the null DGP (no CATE-churn interaction) and the correlated-feature
-      DGP.  The main cell is the legacy "misspec S-learner": the S-learner is a joint
-      model over all features, so its welfare there is the main-DGP S-learner
-      by construction.  Comparisons: CATE x LTV vs CATE Only, S-Learner vs CATE x LTV,
+      main DGP, the null DGP (no CATE-churn interaction), the correlated-feature DGP
+      and the misspec cell (main DGP, login_freq dropped from the T-learner CATE model
+      in both arms, S-learner keeping all features; the S-learner is a joint model over
+      all features so its welfare there equals the main-cell S-learner by construction,
+      but its comparison with the login-dropped decomposition is what the paper
+      contrasts).  Comparisons: CATE x LTV vs CATE Only, S-Learner vs CATE x LTV,
       tuned vs default CATE x LTV, Oracle feasible vs CATE x LTV.
   asym (v40 A)  The same strategies on the asymmetric-moderation DGP (tau attenuates
       faster at high churn) plus Full Framework (Est.) (default theta) and Full
@@ -68,7 +73,9 @@ Scenarios
   aipw_calibration (v44 B)  Main DGP, kappa 0.30: identity-selection rate and chosen
       configs of the AIPW and the plug-in calibration objectives (the plug-in always
       picks identity: top-k tautology), and the true-welfare gain of each calibrated rule
-      over the identity rule (CATE x LTV).  Comparisons: calibrated vs identity.
+      over the identity rule (CATE x LTV).  Comparisons: calibrated vs identity.  The two
+      plug-in comparisons are exactly zero by construction; they stay in the output
+      with "degenerate": true and p_holm None and are NOT in the Holm family.
   adversarial (v44 C)  Adversarial CATE misspecification on the adv DGP (tau also depends
       on bonus_history, which is absent from V): drop bonus_history from the CATE model
       so the value model cannot recover it, at kappa 0.30 and 0.10, with the
@@ -220,8 +227,14 @@ def _cell(welfare, pairs):
 
 
 def _apply_holm(cells):
-    """Add p_holm to every comparison, pooled over all cells; returns the family size."""
-    comps = [c for cell in cells.values() for c in cell['comparisons'].values()]
+    """Add p_holm to every non-degenerate comparison, pooled over all cells; returns
+    the family size.  A comparison flagged degenerate (zero by construction) is kept
+    but excluded: its p_holm is None."""
+    all_c = [c for cell in cells.values() for c in cell['comparisons'].values()]
+    comps = [c for c in all_c if not c.get('degenerate')]
+    for c in all_c:
+        if c.get('degenerate'):
+            c['p_holm'] = None
     if comps:
         adj = holm_bonferroni(np.array([c['p_value'] for c in comps]))
         for c, a in zip(comps, adj):
@@ -251,9 +264,9 @@ def _calibration_summary(idxs):
 # ---------------------------------------------------------------------------
 # slearner_scenarios, asym, corr_sweep, heavy_tail: the generic DGP comparison
 # ---------------------------------------------------------------------------
-def _dgp_rep(seed, *, dgp_func, n_players, tuned, kappa, calibrate):
+def _dgp_rep(seed, *, dgp_func, n_players, tuned, kappa, calibrate, cols=ALL_COLS):
     rep = _setup(dgp_func, seed, n_players)
-    taus = _tau_arms(rep, tuned)
+    taus = _tau_arms(rep, tuned, cols)
     ltv_hat, churn_hat = _estimate_ltv_churn(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, seed)
     wel = lambda s: welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
     w, cal_idx = {}, {}
@@ -286,9 +299,11 @@ def _dgp_pairs(calibrate):
 def _dgp_scenario(dgp_cells, family, reps, n_players, tuned, n_jobs, *,
                   kappa=KAPPA, calibrate=False):
     cells = {}
-    for name, dgp_func in dgp_cells.items():
+    for name, spec in dgp_cells.items():
+        dgp_func, cols = spec if isinstance(spec, tuple) else (spec, ALL_COLS)
         rows = _map(partial(_dgp_rep, dgp_func=dgp_func, n_players=n_players,
-                            tuned=tuned, kappa=kappa, calibrate=calibrate), reps, n_jobs)
+                            tuned=tuned, kappa=kappa, calibrate=calibrate, cols=cols),
+                    reps, n_jobs)
         cell = _cell(_stack([r['w'] for r in rows]), _dgp_pairs(calibrate))
         cell['kappa'] = kappa
         cell['corr_tau_V'] = float(np.mean([r['corr_tau_V'] for r in rows]))
@@ -302,11 +317,14 @@ def _dgp_scenario(dgp_cells, family, reps, n_players, tuned, n_jobs, *,
 
 def run_slearner_scenarios(reps, n_players, tuned, n_jobs=1):
     out = _dgp_scenario(
-        {k: DGPS[k] for k in ('main', 'null', 'correlated')},
-        'all comparisons in the main, null and correlated cells',
+        {'main': DGPS['main'], 'null': DGPS['null'], 'correlated': DGPS['correlated'],
+         'misspec': (DGPS['main'], LOGIN_DROP_COLS)},
+        'all comparisons in the main, null, correlated and misspec cells',
         reps, n_players, tuned, n_jobs)
-    out['main_note'] = ('main cell = legacy misspec S-learner: identical to the main-DGP '
-                        'S-learner by construction (joint model, all features)')
+    out['misspec_note'] = ('misspec cell: main DGP, the T-learner CATE model (both arms) drops '
+                           'login_freq while the S-learner keeps all four features, as in the '
+                           'paper; S-Learner vs CATE x LTV there is the paired test of that '
+                           'contrast.  The main cell is the full-feature comparison.')
     return out
 
 
@@ -512,15 +530,19 @@ def run_aipw_calibration(reps, n_players, tuned, n_jobs=1):
     pairs = [(_arm(f'Calibrated ({o})', p), _arm('Identity (g=1)', p))
              for p in ARMS for o in ('aipw', 'plug-in')]
     cell = _cell(_stack([r['w'] for r in rows]), pairs)
+    for c in cell['comparisons'].values():
+        # the plug-in objective always selects identity, so its difference is exactly 0
+        # (p = 1) by construction: kept in the output, excluded from the Holm family
+        c['degenerate'] = c['a'].startswith('Calibrated (plug-in)')
     cell['selection'] = {p: {o: _calibration_summary([r['idx'][(p, o)] for r in rows])
                              for o in ('aipw', 'plugin')} for p in ARMS}
     cell['kappa'] = KAPPA
-    out = _finish({'main': cell}, 'calibrated vs identity, both objectives and arms',
+    out = _finish({'main': cell}, 'AIPW-calibrated vs identity, both arms (the degenerate plug-in comparisons are excluded)',
                   kappa=KAPPA)
     out['note'] = ('config index 0 is the near-identity g~1; index 3 is default theta0.  '
                    'A comparison mean_diff is the true test welfare of the calibrated rule '
                    'minus the g=1 (CATE x LTV) rule.  The plug-in objective selects '
-                   'identity by construction (difference exactly 0, p = 1).  Proposition 3 '
+                   'identity by construction (difference exactly 0, p = 1; flagged degenerate and excluded from the Holm family).  Proposition 3 '
                    'implies no g improves on identity at the population optimum (true tau '
                    'and V); with estimated components that need not hold, so a negative '
                    'or zero mean is an empirical observation, not a consequence of the '
@@ -659,7 +681,7 @@ def main(argv=None):
     tuned = load_or_tune(n_players=n_players, retune=args.retune, n_jobs=args.jobs)
     out, timing = run_all(reps, n_players, tuned, n_jobs=args.jobs)
     out['_meta'] = {'n_runs': reps, 'n_players': n_players, 'seeds_base': SEED_BASE,
-                    'kappa': KAPPA, 'tuned_T_params': tuned['T'],
+                    'kappa': KAPPA, 'tuned_T_params': tuned['T'], 'tuned_on': 'main',
                     'seconds_by_scenario': timing,
                     'seconds_per_rep': sum(timing.values()) / reps}
     name = 'robustness_smoke.json' if args.smoke else 'robustness.json'

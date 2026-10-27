@@ -37,6 +37,9 @@ def _check_cells(out, strategies=()):
         assert (cell['welfare']['Oracle feasible']['mean']
                 <= cell['welfare']['Oracle hindsight']['mean'] + 1e-9)
         for c in cell['comparisons'].values():
+            if c.get('degenerate'):
+                assert c['p_holm'] is None and c['mean_diff'] == 0.0 and c['p_value'] == 1.0
+                continue
             assert {'p_value', 'p_holm', 'mean_diff', 'ci_95', 'cohens_d'} <= set(c)
             assert c['p_holm'] >= c['p_value'] - 1e-12 and c['p_holm'] <= 1.0
             assert c['mean_diff'] != round(c['mean_diff'])   # stored unrounded
@@ -53,8 +56,16 @@ def test_scenarios_registry_is_complete():
 
 def test_slearner_scenarios_main_null_correlated():
     out = _run('slearner_scenarios')
-    assert set(out['cells']) == {'main', 'null', 'correlated'}
+    assert set(out['cells']) == {'main', 'null', 'correlated', 'misspec'}
     _check_cells(out, (*ARM_LABELS, 'S-Learner'))
+    assert 'S-Learner vs CATE x LTV' in out['cells']['misspec']['comparisons']
+    assert 'drops login_freq' in out['misspec_note']
+    # the S-learner keeps all features, so it is identical in the main and misspec cells
+    assert (out['cells']['misspec']['welfare']['S-Learner']['mean']
+            == out['cells']['main']['welfare']['S-Learner']['mean'])
+    # the decomposition differs: its CATE model lost login_freq
+    assert (out['cells']['misspec']['welfare']['CATE x LTV']['mean']
+            != out['cells']['main']['welfare']['CATE x LTV']['mean'])
     # the CATE x LTV vs CATE Only difference is internally consistent
     c = out['cells']['null']
     w = c['welfare']
@@ -136,10 +147,12 @@ def test_aipw_plugin_selects_identity_by_construction():
         # plug-in minus identity is exactly zero, so its raw p-value is 1
         sfx = '' if arm == 'default' else ' (tuned)'
         c = cell['comparisons'][f'Calibrated (plug-in){sfx} vs Identity (g=1){sfx}']
-        assert c['mean_diff'] == 0.0 and c['p_value'] == 1.0
-    _check_cells({**out, 'cells': {'main': {**cell, 'comparisons': {
-        k: v for k, v in cell['comparisons'].items() if 'plug-in' not in k}}},
-        'holm_family_size': out['holm_family_size'] - 2})
+        assert c['mean_diff'] == 0.0 and c['p_value'] == 1.0 and c['degenerate']
+    plug = [c for c in cell['comparisons'].values() if 'plug-in' in c['a']]
+    assert len(plug) == 2 and all(c['degenerate'] for c in plug)
+    assert not any(c.get('degenerate') for c in cell['comparisons'].values() if 'aipw' in c['a'])
+    assert out['holm_family_size'] == 2          # only the two AIPW comparisons
+    _check_cells(out)
 
 
 def test_adversarial_dropped_feature_is_absent_from_value():
@@ -218,3 +231,59 @@ def test_legacy_scripts_deleted_and_nothing_imports_them():
 
 def test_no_em_dash_in_module():
     assert chr(0x2014) not in (ROOT / 'src' / 'study_robustness.py').read_text()
+
+
+# ---------------------------------------------------------------------------
+# Regression pins: the default arms reproduce the legacy definitions bit-for-bit
+# ---------------------------------------------------------------------------
+def test_asym_default_arm_equals_run_single_simulation():
+    from core.dgp import generate_asym
+    from simulation_v38 import SEED_BASE, run_single_simulation
+    res = run_single_simulation(SEED_BASE, dgp_func=generate_asym, n_players=N)[0]
+    w = sr._dgp_rep(SEED_BASE, dgp_func=generate_asym, n_players=N, tuned=TUNED,
+                    kappa=0.30, calibrate=True)['w']
+    for new, old in (('CATE Only', 'CATE Only'), ('CATE x LTV', 'CATE x LTV'),
+                     ('Full Framework (Est.)', 'Full Framework (Est.)'),
+                     ('Full Framework (Cal.)', 'Full Framework (Cal.)'),
+                     ('S-Learner', 'S-Learner'),
+                     ('Oracle hindsight', 'Oracle hindsight (g=1)'),
+                     ('Oracle feasible', 'Oracle feasible (g=1)')):
+        assert w[new] == res[old]['welfare'], new
+
+
+def _legacy_rep(dgp_func, seed):
+    from sklearn.model_selection import train_test_split
+    data = dgp_func(N, np.random.RandomState(seed))
+    tr, te = train_test_split(np.arange(len(data['treatment'])), test_size=0.30,
+                              random_state=seed)
+    return data, tr, te
+
+
+def test_component_update_equals_direct_estimator_calls():
+    from core.dgp import generate_main
+    from core.estimators import _wellspec_value_model, estimate_components
+    from core.policy import compute_welfare, target_topk
+    from simulation_v38 import SEED_BASE
+    data, tr, te = _legacy_rep(generate_main, SEED_BASE)
+    tau_hat, v_mis, _ = estimate_components(data, tr, te, seed=SEED_BASE)
+    v_well = _wellspec_value_model(data['features'][tr], data['features'][te], SEED_BASE)
+    k = int(len(te) * 0.30)
+    tau, V = data['true_tau'][te], data['true_ltv'][te]
+    w = sr._component_rep(SEED_BASE, n_players=N, tuned=TUNED, kappa=0.30)
+    assert w['CATE x LTV, misspecified V'] == compute_welfare(
+        target_topk(tau_hat * v_mis, k), tau, V)
+    assert w['CATE x LTV, well-specified V'] == compute_welfare(
+        target_topk(tau_hat * v_well, k), tau, V)
+
+
+def test_obs_diagnostic_misspec_arm_equals_estimate_components_misspec():
+    from core.dgp import generate_main
+    from core.estimators import estimate_components_misspec
+    from simulation_v38 import SEED_BASE
+    data, tr, te = _legacy_rep(generate_main, SEED_BASE)
+    tau_hat, v_hat, _ = estimate_components_misspec(data, tr, te, seed=SEED_BASE)
+    k = int(len(te) * 0.30)
+    expect = sr._misrank_terms(tau_hat, v_hat, data['true_tau'][te],
+                               data['true_ltv'][te], k)
+    got = sr._obs_rep(SEED_BASE, n_players=N, tuned=TUNED, kappa=0.30)
+    assert got[('misspec', 'default', 'Oracle hindsight')] == expect
