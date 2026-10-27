@@ -47,7 +47,8 @@ def test_oracle_bars_have_distinct_colours(tmp_path):
 
 def test_build_all_from_smoke_jsons(tmp_path, harm_json):
     names = ["Random", "CATE Only", "CATE x LTV", "Full Framework (Est.)", "Full Framework (Cal.)",
-             "S-Learner", "Oracle hindsight (theta0)", "Oracle feasible (g=1)", "Oracle hindsight (g=1)"]
+             "S-Learner", "Oracle feasible (g=1)", "Oracle hindsight (g=1)", "Oracle feasible (theta0)",
+             "Oracle hindsight (theta0)"]
     main = {"main_results": {k: {"welfare_mean": 1000.0 + i * 100, "welfare_sd": 50.0}
                              for i, k in enumerate(names)},
             "frontier": [{"config": "Calibrated", "risk_mean": 0.45, "welfare_mean": 1500.0},
@@ -67,9 +68,37 @@ def test_harm_frontier_raises_on_missing_rule(tmp_path, harm_json):
 
 def test_missing_sd_omits_error_bar(tmp_path):
     names = ["Random", "CATE Only", "CATE x LTV", "Full Framework (Est.)", "Full Framework (Cal.)",
-             "S-Learner", "Oracle hindsight (theta0)", "Oracle feasible (g=1)", "Oracle hindsight (g=1)"]
+             "S-Learner", "Oracle feasible (g=1)", "Oracle hindsight (g=1)", "Oracle feasible (theta0)",
+             "Oracle hindsight (theta0)"]
     data = {"main_results": {k: {"welfare_mean": 1000.0 + 10 * i, "welfare_sd": None}
                              for i, k in enumerate(names)}}
     assert mf.fig_welfare_bars(data, tmp_path).exists()
     import inspect
     assert "or 0.0 for k in order" not in inspect.getsource(mf.fig_welfare_bars)
+
+
+def test_welfare_bars_label_calibrated_and_pair_oracles():
+    import inspect
+    src = inspect.getsource(mf.fig_welfare_bars)
+    assert r"calibrated $g$ (AIPW)" in src
+    order = src.split("order = [")[1].split("]")[0]
+    for pair in ("g=1", "theta0"):          # feasible immediately before hindsight, per pair
+        assert order.index(f"Oracle feasible ({pair})") < order.index(f"Oracle hindsight ({pair})")
+        assert order.index(f"Oracle hindsight ({pair})") - order.index(f"Oracle feasible ({pair})") < 40
+
+
+def test_harm_frontier_welfare_axis_has_thousands_separators(tmp_path, harm_json, monkeypatch):
+    seen = {}
+    real = matplotlib.pyplot.close
+    monkeypatch.setattr(matplotlib.pyplot, "close", lambda f: seen.setdefault("fig", f) and real(f))
+    mf.fig_harm_frontier(harm_json, tmp_path)
+    fmt = seen["fig"].axes[0].yaxis.get_major_formatter()
+    assert fmt(12345.0, 0) == "12,345"
+
+
+def test_frontier_title_refers_to_observation_1(tmp_path, monkeypatch):
+    seen = {}
+    real = matplotlib.pyplot.close
+    monkeypatch.setattr(matplotlib.pyplot, "close", lambda f: seen.setdefault("fig", f) and real(f))
+    mf.fig_frontier({"frontier": [{"config": "Calibrated", "risk_mean": 0.45, "welfare_mean": 1500.0}]}, tmp_path)
+    assert "Observation 1" in seen["fig"].axes[0].get_title()

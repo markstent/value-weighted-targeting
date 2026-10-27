@@ -90,18 +90,40 @@ def test_simulate_shapes_holm_and_regret():
     assert not any(k.endswith('|tauV') or k.count('|') > 1 for k in raw['welfare'])
     out = sl.summarise(raw)
     # tauV: 4 combos x 2 vms - 2 baselines; tau only: 4 combos - 1 baseline; plus E2E;
-    # plus S (tuned) vs T (tuned) for the three value models, all in one Holm family
-    assert out['n_comparisons_per_kappa'] == 6 + 3 + 1 + 3
+    # plus S (tuned) vs T (tuned) for the three value models, plus effect-only vs tauV for
+    # every learner x tuning x value model (2 x 2 x 2), all in one Holm family per kappa
+    assert out['n_comparisons_per_kappa'] == 6 + 3 + 1 + 3 + 8
     for kp, rows in out['tests_S_vs_T_tuned'].items():
         assert [(r['combo'], r['baseline']) for r in rows] == [
             (f'S (tuned)|{vm}', f'T (tuned)|{vm}') for vm in ('misspec', 'wellspec', 'tau')]
         for r in rows:
             assert r['ci95'][0] <= r['diff'] <= r['ci95'][1]
             assert r['p_holm'] >= r['p_raw']
-        assert len(out['tests_vs_T_default'][kp]) + len(rows) == out['n_comparisons_per_kappa']
+        assert (len(out['tests_vs_T_default'][kp]) + len(rows) + len(out['tests_effect_only_vs_tauV'][kp])
+                == out['n_comparisons_per_kappa'])
     assert not any(r['combo'] == r['baseline'] for rows in out['tests_vs_T_default'].values()
                    for r in rows)
     for rows in out['tests_vs_T_default'].values():
         assert all(r['p_holm'] >= r['p_raw'] for r in rows)
     r = out['regret_split_kappa_0.30']['T (tuned)|misspec']
     assert abs(r['shapley_tau_share_of_mean'] + r['shapley_v_share_of_mean'] - 1) < 1e-9
+
+
+def test_effect_only_vs_tauv_tests_keys_and_invariants():
+    """G8: effect-only minus tau_hat*V_hat, per learner x tuning x value model and kappa."""
+    tuned = {l: TINY_GRID[0] for l in sl.COMPARED_LEARNERS}
+    raw = sl.simulate(3, 1500, tuned, learners=('T', 'S'), kappas=(0.1, 0.5))
+    out = sl.summarise(raw)
+    assert set(out['tests_effect_only_vs_tauV']) == {'0.1', '0.5'}
+    for kp, rows in out['tests_effect_only_vs_tauV'].items():
+        assert len(rows) == 8
+        assert {(r['combo'], r['baseline']) for r in rows} == {
+            (f'{l} ({p})|tau', f'{l} ({p})|{vm}')
+            for l in ('T', 'S') for p in ('tuned', 'default') for vm in ('misspec', 'wellspec')}
+        j = out['kappas'].index(float(kp))
+        for r in rows:
+            assert {'diff', 'ci95', 'cohens_d', 'p_raw', 'p_holm'} <= set(r)
+            # invariant: the stored difference is the difference of the stored unrounded means
+            assert abs(r['diff'] - (raw['welfare'][r['combo']][:, j]
+                                    - raw['welfare'][r['baseline']][:, j]).mean()) < 1e-6
+            assert r['ci95'][0] <= r['diff'] <= r['ci95'][1] and r['p_holm'] >= r['p_raw']

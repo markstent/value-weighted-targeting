@@ -118,3 +118,24 @@ def test_soft_gate_has_no_violation_rate_and_oracle_flag():
         if e['rule'].startswith('hard cap'):
             assert e['cap_violation_rate'] is not None and e['overshoot'] is not None
         assert 0.3 < e['pop_mean_harm'] < 0.6 and 0 < e['share_harm_gt_0_6'] < 1
+
+
+def test_paired_tests_keys_and_holm_family():
+    """G1/G2: per-rep paired tests in every cell, estimated and feasible-oracle components,
+    one Holm family (six tests) per cell, difference equal to the paired mean of the welfares."""
+    raw = simulate(reps=4, n_players=3000, c_harms=[1.0], sigma_hs=[0.0, 0.5], kappas=[0.30])
+    summary = summarise(raw, n_boot=50)
+    tests = summary['paired_tests']
+    assert len(tests) == 2 * 6
+    assert {t['comparison'] for t in tests} == {'hard cap vs soft gate', 'soft gate vs tauV',
+                                                 'hard cap vs tauV'}
+    assert {t['components'] for t in tests} == {'estimated', 'oracle'}
+    for t in tests:
+        assert {'mean_diff', 'ci95', 'cohens_d', 'p_raw', 'p_holm', 'family_size'} <= set(t)
+        assert t['family_size'] == 6 and t['p_holm'] >= t['p_raw']
+        wa = np.array(raw[(t['c_harm'], t['sigma_h'], t['kappa'], t['a'])]['welfare'])
+        wb = np.array(raw[(t['c_harm'], t['sigma_h'], t['kappa'], t['b'])]['welfare'])
+        assert abs(t['mean_diff'] - (wa - wb).mean()) < 1e-9          # unrounded
+        assert t['ci95'][0] <= t['mean_diff'] <= t['ci95'][1]
+    oracle = [t for t in tests if t['components'] == 'oracle']
+    assert all('(oracle tau,V)' in t['a'] and '(oracle tau,V)' in t['b'] for t in oracle)

@@ -18,6 +18,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.ticker import FuncFormatter  # noqa: E402
 import numpy as np  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
@@ -159,7 +160,7 @@ def fig_frontier(data: dict, figdir: Path = FIGDIR) -> Path:
 
     ax.set_xlabel("risk exposure $\\rho(\\pi)$ (mean churn among treated)")
     ax.set_ylabel(r"welfare $W(\pi;\mathbf{1})$")
-    ax.set_title("Value-conservatism frontier: each non-trivial $g$ costs welfare", pad=10)
+    ax.set_title("Observation 1: each non-trivial $g$ costs welfare", pad=10)
 
     fig.tight_layout()
     out = figdir / "fig_frontier.pdf"
@@ -176,20 +177,22 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
         "Full Framework (Est.)",
         "Full Framework (Cal.)",
         "S-Learner",
-        "Oracle hindsight (theta0)",
         "Oracle feasible (g=1)",
         "Oracle hindsight (g=1)",
+        "Oracle feasible (theta0)",
+        "Oracle hindsight (theta0)",
     ]
     display = {
         "Random": "Random",
         "CATE Only": "CATE only",
         "CATE x LTV": r"CATE $\times$ LTV",
         "Full Framework (Est.)": "Full (default $g$)",
-        "Full Framework (Cal.)": "Full (calibrated $g$)",
+        "Full Framework (Cal.)": r"calibrated $g$ (AIPW)",
         "S-Learner": "S-Learner",
-        "Oracle hindsight (theta0)": "Hindsight oracle ($\\theta_0$)",
-        "Oracle feasible (g=1)": r"Feasible $E[\tau|X]E[V|X]$ oracle ($g\equiv 1$)",
-        "Oracle hindsight (g=1)": r"Hindsight $\tau V$ oracle ($g\equiv 1$)",
+        "Oracle feasible (g=1)": r"Feasible oracle ($g\equiv 1$)",
+        "Oracle hindsight (g=1)": r"Hindsight oracle ($g\equiv 1$)",
+        "Oracle feasible (theta0)": r"Feasible oracle ($\theta_0$)",
+        "Oracle hindsight (theta0)": r"Hindsight oracle ($\theta_0$)",
     }
 
     welfares = [data["main_results"][k]["welfare_mean"] for k in order]
@@ -206,6 +209,8 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
             colors.append("#c58b1d")
         elif k == "Oracle hindsight (theta0)":
             colors.append("#2a7a2a")
+        elif k == "Oracle feasible (theta0)":
+            colors.append("#e0b050")
         elif k == "S-Learner":
             colors.append("#b34")
         elif k == "Random":
@@ -223,6 +228,7 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
     ax.invert_yaxis()
     ax.set_xlabel(r"welfare $W(\pi;\mathbf{1})$ (mean $\pm$ SD across replications)")
     ax.set_title(r"Welfare by strategy ($\kappa=0.30$)", pad=10)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
 
     # Place each value label past the end of its error bar (w + sd), not just
     # past the bar end, so the whisker/cap does not overprint the leading digits.
@@ -282,6 +288,7 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
         ax.set_title(rf"$\sigma_h={sigma:g}$" + (" (oracle harm)" if sigma == 0 else ""))
         ax.set_xlabel("harm exposure among treated")
     axes[0][0].set_ylabel(r"welfare $W(\pi;\mathbf{1})$")
+    axes[0][0].yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
     handles = [plt.Line2D([], [], marker=m, color=col, linestyle="", markersize=7, label=lab)
                for col, m, lab in styles.values()]
     handles += [plt.Line2D([], [], marker="o", color="#555", linestyle="", markersize=7,

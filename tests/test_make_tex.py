@@ -311,3 +311,98 @@ def test_no_hardcoded_table_numbers():
     text = TEX.read_text()
     bodies = [m.group(0) for m in re.finditer(r'\\begin\{(table\*?|tabular)\}.*?\\end\{\1\}', text, flags=re.S)]
     assert bodies and not [b for b in bodies if re.search(r'\d{1,2}\{,\}\d{3}', b)]
+
+
+# ---- Task 10a: macro gaps G1-G17
+
+def test_new_gap_macros_present():
+    names = set(_macros())
+    for need in (
+            # G1, G2, G3
+            'numHarmDiffHardCapMinusSoftGate', 'numHarmDiffHardCapMinusSoftGateOracleFeasibleTauVHolmP',
+            'numHarmDiffSoftGateMinusTauV', 'numHarmDiffSoftGateMinusTauVOracleFeasibleTauVCiLo',
+            'numHarmSafetyCostSoftGatePctCiHi', 'numHarmSafetyCostHardCapOracleFeasibleTauVPct',
+            'numHarmCapSavingVsSoftGateOracleFeasibleTauVPct',
+            # G4, G5, G6
+            'numHarmOvershootSoftGateSigmaHalfCiLo', 'numHarmOvershootHardCapOracleFeasibleTauVSigmaOne',
+            'numHarmViolationRateHardCapSigmaOne', 'numHarmCorrHarmValueCMinusOne',
+            'numHarmShareAboveSixTenthsCOne', 'numHarmPopulationMeanCZero',
+            # G7
+            'numBudgetDiffCateLtvVsCateOnlyTMisspecKten', 'numBudgetDiffCateLtvVsCateOnlyTMisspecKfiftyHolmP',
+            'numBudgetDiffCateLtvVsCateOnlyOracleFeasibleOracleFeasibleKtenCiHi',
+            # G8
+            'numLearnersDiffEffectOnlyMinusTauVTTunedMisspecKtwenty',
+            'numLearnersDiffEffectOnlyMinusTauVDRDefaultWellspecKfiftyHolmP',
+            'numLearnersWelfareSTunedTauOnlyKtwenty', 'numLearnersWelfareTDefaultMisspecKfifty',
+            # G9-G11, G14, G16, G17
+            'numRobustnessDiffSLearnerVsCateLtvMain', 'numRobustnessDiffTunedMainHolmP',
+            'numRobustnessDiffTunedAdversarialKten', 'numRobustnessDiffLikeForLikeLoginSLearnerCiLo',
+            'numRobustnessObsCateShareWellspecDefaultPlugin', 'numBudgetBootstrapDraws',
+            'numRobustnessDiffAipwCalibrationTunedP',
+            # G12
+            'numMainDefaultGPct', 'numRobustnessLikeForLikeLoginCateOnlyPct',
+            'numLearnersSTunedOverTTunedMisspecPctCiLo', 'numRobustnessAdversarialKtenPct',
+            'numRobustnessHeavyTailPct', 'numRobustnessAipwCalibrationPctCiHi',
+            # G15
+            'numTuningGridSize', 'numTuningPilotReps', 'numTuningRLossT', 'numTuningDepthS',
+            'numTuningRLossSpreadLearners'):
+        assert need in names, need
+
+
+def test_pct_macros_carry_a_ci_and_are_never_diff_named():
+    items = _macros()
+    pcts = [n for n in items if n.endswith('Pct')]
+    assert len(pcts) >= 16
+    for n in pcts:
+        assert 'Diff' not in n, n
+        assert n + 'CiLo' in items and n + 'CiHi' in items, n
+        if n.startswith(('numHarm', 'numMainDefaultG', 'numLearnersSTuned', 'numRobustnessLike',
+                         'numRobustnessAdv', 'numRobustnessHeavy', 'numRobustnessAipw')):
+            assert 'approximation' in items[n][1], n
+    # a percentage of a difference equals diff / baseline, so it carries the diff's own CI scale
+    rob = smoke_data()['robustness']
+    c = rob['heavy_tail']['cells']['heavy_tail']
+    t = c['comparisons']['CATE x LTV vs CATE Only']
+    base = c['welfare']['CATE Only']['mean']
+    assert items['numRobustnessHeavyTailPct'][0] == mt.fmt_signed(t['mean_diff'] / base, mt.fmt_pct)
+    assert items['numRobustnessHeavyTailPctCiLo'][0] == mt.fmt_signed(t['ci_95'][0] / base, mt.fmt_pct)
+
+
+def test_harm_safety_cost_orientation():
+    """cost = -(capped - blind)/blind: its CI is the flipped diff CI over the blind welfare."""
+    data = smoke_data()
+    harm, items = data['harm_sweep'], _macros()
+    t = mt.harm_test(harm, 1.0, 0.0, 0.3, 'soft gate vs tauV', 'estimated')
+    blind = mt.harm_cell(harm, 1.0, 0.0, 0.3, 'tauV')['welfare']['mean']
+    assert items['numHarmSafetyCostSoftGatePct'][0] == mt.fmt_signed(-t['mean_diff'] / blind, mt.fmt_pct)
+    assert items['numHarmSafetyCostSoftGatePctCiLo'][0] == mt.fmt_signed(-t['ci95'][1] / blind, mt.fmt_pct)
+
+
+def test_tab_frontier_and_tuned_robustness_column():
+    data = smoke_data()
+    files = mt.build(data)
+    rows = [r for r in files['tab_frontier.tex'].splitlines()[1:] if r != r'\midrule']
+    assert len(rows) == len(data['main']['frontier']) + 1 and rows[-1].startswith(r'Inverted $g$')
+    assert all(r.count('&') == 2 for r in rows)
+    rob = [r for r in files['tab_robustness.tex'].splitlines()[1:]]
+    assert all(r.count('&') == 8 for r in rob)                       # 7 base + tuned diff/CI + tuned Holm p
+    assert rob[0].count('--') == 0 and 'Main DGP' in rob[0]           # tuned arm exists for the main DGP
+    assert rob[-1].count('--') >= 2                                    # obs_diagnostic has no tuned arm
+
+
+def test_tuning_macros_match_frozen_file_and_learners_meta():
+    data = smoke_data()
+    tuned, learners, items = data['tuned_params'], data['learners'], _macros()
+    for lr, res in tuned['learners'].items():
+        assert res['params'] == learners['_meta']['tuned_params'][lr]
+        assert items[f'numTuningDepth{lr}'][0] == str(res['params']['max_depth'])
+    assert items['numTuningGridSize'][0] == str(len(tuned['_meta']['grid']))
+    levels = [r['mean_loss'] for r in tuned['learners'].values()]
+    assert items['numTuningRLossSpreadLearners'][0] == mt.fmt_fixed(max(levels) - min(levels), 5)
+
+
+def test_holm_family_documented_for_new_tests():
+    items = _macros()
+    assert 'Holm family' in items['numHarmDiffHardCapMinusSoftGateHolmP'][1] or \
+        'Holm family' in items['numHarmDiffHardCapMinusSoftGate'][1]
+    assert 'Holm over all learner comparisons' in items['numLearnersDiffEffectOnlyMinusTauVTTunedMisspecKten'][1]

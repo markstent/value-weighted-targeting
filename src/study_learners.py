@@ -44,7 +44,8 @@ Inference: for every kappa, paired_test_raw of each (learner, params, value mode
 rule) welfare against "T (default)" under the same value model and rule (tau-only
 against "T (default)" tau-only), of E2E against "T (default)" with the misspec
 value model and rule tauV, and of "S (tuned)" against "T (tuned)" per value model
-(tests_S_vs_T_tuned).  Holm
+(tests_S_vs_T_tuned), and of each tau-only rule against its own tau_hat * V_hat rule per value
+model (tests_effect_only_vs_tauV).  Holm
 (core.stats.holm_bonferroni) runs across ALL those comparisons within a kappa (the
 family is every comparison at that kappa, the S-vs-T-tuned ones included).  Everything is unrounded in the JSON.
 
@@ -385,6 +386,15 @@ def tuned_pairs(keys):
             if f'S (tuned)|{vm}' in keys and f'T (tuned)|{vm}' in keys]
 
 
+def effect_only_pairs(keys):
+    """(tau-only key, tau_hat * V_hat key) for every learner x tuning x value model: the paired
+    comparison of the effect-only rule against the value-weighted rule on the same CATE fit."""
+    return [(f'{lp}|tau', f'{lp}|{vm}')
+            for lp in dict.fromkeys(k.split('|')[0] for k in sorted(keys) if k != E2E_KEY)
+            for vm in VALUE_MODELS
+            if f'{lp}|tau' in keys and f'{lp}|{vm}' in keys]
+
+
 def _test_row(welfare, j, key, base):
     r = paired_test_raw(welfare[key][:, j], welfare[base][:, j])
     return {'combo': key, 'baseline': base, 'diff': r['mean_diff'],
@@ -394,23 +404,29 @@ def _test_row(welfare, j, key, base):
 
 def summarise_welfare(raw):
     """Per-combo mean/CI per kappa, and per kappa the paired test of every combo vs
-    "T (default)" (tests_vs_T_default) and of S (tuned) vs T (tuned) per value model
-    (tests_S_vs_T_tuned).  Holm runs over ONE family per kappa: all of those comparisons
+    "T (default)" (tests_vs_T_default), of S (tuned) vs T (tuned) per value model
+    (tests_S_vs_T_tuned) and of the effect-only rule minus the tau_hat * V_hat rule for every
+    learner x tuning x value model (tests_effect_only_vs_tauV; combo is the tau-only key,
+    baseline the tauV key).  Holm runs over ONE family per kappa: all of those comparisons
     together (n_comparisons_per_kappa)."""
     kappas = raw['kappas']
     welfare = raw['welfare']
     pairs = [p for p in comparison_pairs(list(welfare)) if p[1] in welfare]
     extra = tuned_pairs(set(welfare))
+    effect = effect_only_pairs(set(welfare))
     means = {key: [t_mean_ci(w[:, j]) for j in range(len(kappas))] for key, w in welfare.items()}
-    tests, tests_tuned = {}, {}
+    tests, tests_tuned, tests_effect = {}, {}, {}
     for j, kp in enumerate(kappas):
-        rows = [_test_row(welfare, j, key, base) for key, base in pairs + extra]
+        rows = [_test_row(welfare, j, key, base) for key, base in pairs + extra + effect]
         for row, p in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
             row['p_holm'] = float(p)
         tests[str(kp)] = rows[:len(pairs)]
-        tests_tuned[str(kp)] = rows[len(pairs):]
+        tests_tuned[str(kp)] = rows[len(pairs):len(pairs) + len(extra)]
+        tests_effect[str(kp)] = rows[len(pairs) + len(extra):]
     return {'welfare': means, 'tests_vs_T_default': tests, 'tests_S_vs_T_tuned': tests_tuned,
-            'kappas': kappas, 'n_comparisons_per_kappa': len(pairs) + len(extra)}
+            'tests_effect_only_vs_tauV': tests_effect,
+            'kappas': kappas,
+            'n_comparisons_per_kappa': len(pairs) + len(extra) + len(effect)}
 
 
 def summarise_regret(per_rep):

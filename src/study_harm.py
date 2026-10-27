@@ -68,6 +68,7 @@ from core.estimators import (
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import compute_welfare, h_protection, target_topk
+from core.stats import holm_bonferroni, paired_test_raw
 
 SIGMA_H_GRID = (0.0, 0.5, 1.0)
 KAPPA_GRID = (0.10, 0.30)
@@ -77,6 +78,12 @@ RULES = BASE_RULES + ('CATE only',) + tuple(r + ORACLE_SUFFIX for r in BASE_RULE
 SOFT_RULES = ('soft gate', 'soft gate' + ORACLE_SUFFIX)
 HARD_RULES = ('hard cap', 'hard cap' + ORACLE_SUFFIX)
 CAPPED_RULES = SOFT_RULES + HARD_RULES
+# Paired welfare tests per (c_harm, sigma_h, kappa) cell, for each component source:
+# (label, minuend rule, subtrahend rule).  One Holm family per cell: the six tests below.
+PAIRED_COMPARISONS = (('hard cap vs soft gate', 'hard cap', 'soft gate'),
+                      ('soft gate vs tauV', 'soft gate', 'tauV'),
+                      ('hard cap vs tauV', 'hard cap', 'tauV'))
+COMPONENT_SOURCES = (('estimated', ''), ('oracle', ORACLE_SUFFIX))
 ORACLE_MC = 200
 H_LO = 0.60
 N_BOOT = 2000
@@ -262,7 +269,36 @@ def summarise(raw, n_boot=N_BOOT):
             'share_harm_gt_0_6': float(np.mean(v['share_high'])),
             'corr_harm_V': float(np.mean(v['corr'])),
         })
-    return {'cells': cells}
+    return {'cells': cells, 'paired_tests': paired_tests(raw)}
+
+
+def paired_tests(raw):
+    """Per-replication paired welfare tests (core.stats.paired_test_raw, unrounded) in every
+    (c_harm, sigma_h, kappa) cell, for estimated and feasible-oracle components:
+    hard cap minus soft gate, soft gate minus the harm-blind tauV, hard cap minus tauV.
+    Holm (core.stats.holm_bonferroni) runs within each cell: the family is that cell's six
+    tests (family_size).  Empty when there is a single replication (no variance)."""
+    out = []
+    for c, sigma, kappa in sorted({k[:3] for k in raw}):
+        rows = []
+        for source, suffix in COMPONENT_SOURCES:
+            for label, a, b in PAIRED_COMPARISONS:
+                wa = raw[(c, sigma, kappa, a + suffix)]['welfare']
+                wb = raw[(c, sigma, kappa, b + suffix)]['welfare']
+                if len(wa) < 2:
+                    return []
+                r = paired_test_raw(wa, wb)
+                rows.append({'c_harm': c, 'sigma_h': sigma, 'kappa': kappa,
+                             'comparison': label, 'components': source,
+                             'a': a + suffix, 'b': b + suffix,
+                             'mean_diff': r['mean_diff'], 'ci95': r['ci_95'],
+                             'se_diff': r['se_diff'], 't_stat': r['t_stat'],
+                             'cohens_d': r['cohens_d'], 'p_raw': r['p_value']})
+        for row, p in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
+            row['p_holm'] = float(p)
+            row['family_size'] = len(rows)
+        out.extend(rows)
+    return out
 
 
 def _print_table(summary, kappa=0.30):
