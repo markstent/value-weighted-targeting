@@ -1,6 +1,6 @@
 """Revision-40 additions: results requested in peer review.
 
-Runs four analyses, all on the same 200 seeds as the published simulation so
+Runs three analyses, all on the same 200 seeds as the published simulation so
 the numbers are comparable with simulation_v29.json:
 
   A. Asymmetric-moderation DGP. Replaces the symmetric churn moderation
@@ -20,10 +20,7 @@ the numbers are comparable with simulation_v29.json:
      (clip-adjusted) effective tau = y1_prob - y0_prob to check the bias is
      small and non-differential across strategies.
 
-  D. Harm-gate simulation. Adds a harm covariate correlated with LTV, shows the
-     unguarded tau*V score concentrates bonuses on high-harm players, then
-     applies a harm-protection weight h(x) and reports the welfare cost and the
-     harm-exposure reduction (Corollary 1 made concrete).
+(The harm-gate simulation formerly here is now study_harm.py.)
 
 Usage:  python compute_revision_additions.py [N_RUNS]
 """
@@ -37,14 +34,12 @@ from simulation_v38 import (
     N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE, run_single_simulation,
 )
 from core.io import save_json
-from core.dgp import (
-    generate_main, generate_null, generate_asym, generate_harm,
-)
+from core.dgp import generate_main, generate_null, generate_asym
 from core.estimators import (
     estimate_components, _estimate_ltv_churn, _estimate_slearner,
 )
 from core.policy import (
-    h_protection, calibrate_theta,
+    calibrate_theta,
     DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare,
 )
 
@@ -167,61 +162,6 @@ def run_effective_welfare():
     return out
 
 
-# ---------------------------------------------------------------------------
-# D. Harm-gate simulation
-# ---------------------------------------------------------------------------
-def _harm_block(welfare_ung, harm_ung, welfare_grd, harm_grd):
-    uw, gw = float(np.mean(welfare_ung)), float(np.mean(welfare_grd))
-    uh, gh = float(np.mean(harm_ung)), float(np.mean(harm_grd))
-    return {
-        'unguarded': {'welfare': round(uw, 0), 'harm_exposure': round(uh, 3)},
-        'guarded': {'welfare': round(gw, 0), 'harm_exposure': round(gh, 3)},
-        'welfare_cost_abs': round(uw - gw, 0),
-        'welfare_cost_pct': round(100 * (uw - gw) / uw, 1) if uw else None,
-        'harm_reduction_abs': round(uh - gh, 3),
-        'harm_reduction_pct': round(100 * (uh - gh) / uh, 1) if uh else None,
-    }
-
-
-def run_harm_gate():
-    # Oracle rule (true components) -- clean demonstration of Corollary 1.
-    o_uw, o_uh, o_gw, o_gh = [], [], [], []
-    # Estimated rule -- the deployment regime (can differ in sign of the cost).
-    e_uw, e_uh, e_gw, e_gh = [], [], [], []
-    pop_harm = []
-    for seed in SEEDS:
-        rng = np.random.RandomState(seed)
-        data = generate_harm(N_PLAYERS, rng)
-        idx = np.arange(len(data['treatment']))
-        train_idx, test_idx = train_test_split(idx, test_size=0.30, random_state=seed)
-        k = int(len(test_idx) * DEFAULT_BUDGET)
-
-        true_tau = data['true_tau'][test_idx]
-        true_ltv = data['true_ltv'][test_idx]
-        true_harm = data['true_harm'][test_idx]
-        h = h_protection(true_harm)
-        pop_harm.append(float(np.mean(true_harm)))
-
-        # --- Oracle rule ---
-        t = target_topk(true_tau * true_ltv, k)
-        o_uw.append(compute_welfare(t, true_tau, true_ltv)); o_uh.append(float(np.mean(true_harm[t])))
-        t = target_topk(true_tau * true_ltv * h, k)
-        o_gw.append(compute_welfare(t, true_tau, true_ltv)); o_gh.append(float(np.mean(true_harm[t])))
-
-        # --- Estimated rule ---
-        tau_hat, ltv_hat, _ = estimate_components(data, train_idx, test_idx, seed=seed)
-        t = target_topk(tau_hat * ltv_hat, k)
-        e_uw.append(compute_welfare(t, true_tau, true_ltv)); e_uh.append(float(np.mean(true_harm[t])))
-        t = target_topk(tau_hat * ltv_hat * h, k)
-        e_gw.append(compute_welfare(t, true_tau, true_ltv)); e_gh.append(float(np.mean(true_harm[t])))
-
-    return {
-        'population_mean_harm': round(float(np.mean(pop_harm)), 3),
-        'oracle': _harm_block(o_uw, o_uh, o_gw, o_gh),
-        'estimated': _harm_block(e_uw, e_uh, e_gw, e_gh),
-    }
-
-
 def main():
     print(f"Revision-40 additions | N_RUNS={N_RUNS}, kappa={DEFAULT_BUDGET}")
     out = {}
@@ -243,16 +183,6 @@ def main():
     out['effective_welfare'] = run_effective_welfare()
     for s, v in out['effective_welfare'].items():
         print(f"   {s:28} nominal={v['nominal']:>8.0f} effective={v['effective']:>8.0f} overstate={v['pct_overstate']}%")
-
-    print("D. Harm-gate simulation ...")
-    out['harm_gate'] = run_harm_gate()
-    h = out['harm_gate']
-    print(f"   pop mean harm={h['population_mean_harm']}")
-    for reg in ['oracle', 'estimated']:
-        b = h[reg]
-        print(f"   [{reg}] unguarded harm={b['unguarded']['harm_exposure']} (W={b['unguarded']['welfare']:.0f}) "
-              f"-> guarded harm={b['guarded']['harm_exposure']} (W={b['guarded']['welfare']:.0f}); "
-              f"welfare cost={b['welfare_cost_pct']}%, harm reduction={b['harm_reduction_pct']}%")
 
     out['_meta'] = {'n_runs': N_RUNS, 'kappa': DEFAULT_BUDGET, 'seeds_base': SEED_BASE}
     path = save_json(out, 'simulation_v40_additions.json')

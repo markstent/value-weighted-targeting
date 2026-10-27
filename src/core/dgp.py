@@ -11,6 +11,8 @@ the treatment/outcome draws (as in the original code), so `structural_*` for
 those two omits `true_ltv` and the wrapper adds it last.
 """
 
+import math
+
 import numpy as np
 
 TREATMENT_PROB = 0.50
@@ -104,12 +106,44 @@ def draw_features_correlated(n, rng):
             'login_freq': login_freq, 'bonus_history': bonus_history}
 
 
+# --- Harm ---
+
+# harm_logit = -0.3 + A + N(0, 0.5) with A = 1.1*z_spend + 0.4*z_login.  The
+# features are independent with (approximately) unit standardised variance, so
+# sd(A) ~ sqrt(1.1^2 + 0.4^2) = sqrt(1.37).  HARM_SCALE is that constant, derived
+# rather than hard-coded; L_std = A / HARM_SCALE is the standardised value-linked
+# driver (spend and login are the LTV drivers).
+HARM_SCALE = math.sqrt(1.1 ** 2 + 0.4 ** 2)
+C_HARM_GRID = (-1.0, -0.5, 0.0, 0.5, 1.0)
+
+
+def draw_harm(f, rng, c_harm=1.0, noise_scale=1.0):
+    """True harm in [0,1] with tunable alignment c_harm in [-1, 1] to the value driver.
+
+    harm_logit = -0.3 + s * (c * L_std + sqrt(1 - c^2) * Z) + N(0, 0.5), Z ~ N(0,1)
+    independent, s = HARM_SCALE.  c = 1 reproduces the original harm DGP (harm
+    rises with spend, hence with V); c = 0 is harm independent of V; c < 0 is
+    harm falling with V.  The marginal logit variance is constant in c.
+    RNG order: Z, then the logit noise (both drawn after the whole population)."""
+    if not -1.0 <= c_harm <= 1.0:
+        raise ValueError(f'c_harm must be in [-1, 1], got {c_harm}')
+    n = len(f['weekly_spend'])
+    z_spend = _standardise(f['weekly_spend'], 'weekly_spend')
+    z_login = _standardise(f['login_freq'], 'login_freq')
+    l_std = (1.1 * z_spend + 0.4 * z_login) / HARM_SCALE
+    z = rng.normal(0, 1, n) * noise_scale
+    eps = rng.normal(0, 0.5 * noise_scale, n)
+    logit = (-0.3 + HARM_SCALE * (c_harm * l_std + math.sqrt(1.0 - c_harm ** 2) * z)
+             + eps)
+    return (1.0 / (1.0 + np.exp(-logit))).clip(0.0, 1.0)
+
+
 # --- Structural steps ---
 
-def _structural(f, rng, *, moderation, bonus_in_tau=False, with_harm=False,
+def _structural(f, rng, *, moderation, bonus_in_tau=False,
                 with_ltv=True, noise_scale=1.0):
     """Shared latent structure. RNG order: churn noise, [ltv noise], tau noise,
-    [harm noise], baseline noise.
+    baseline noise.
 
     noise_scale multiplies every noise sd (1.0 reproduces the original draws
     bit-for-bit; 0.0 gives the noise-free structure used by the feasible oracle
@@ -145,12 +179,6 @@ def _structural(f, rng, *, moderation, bonus_in_tau=False, with_harm=False,
         true_tau = (tau_base * moderation(true_churn)
                     + rng.normal(0, 0.03 * noise_scale, n)).clip(-0.20, 0.40)
 
-    if with_harm:
-        # Harm score in [0,1]: rises with spend (the LTV driver), so harm and value
-        # are positively correlated -- value-weighting will chase harmful players.
-        harm_logit = 1.1 * z_spend + 0.4 * z_login - 0.3 + rng.normal(0, 0.5 * noise_scale, n)
-        out['true_harm'] = (1.0 / (1.0 + np.exp(-harm_logit))).clip(0.0, 1.0)
-
     baseline = (0.6 + 0.15 * z_login + 0.05 * z_spend - 0.08 * z_age
                 + rng.normal(0, 0.05 * noise_scale, n)).clip(0.05, 0.95)
     out.update({
@@ -179,8 +207,12 @@ def structural_asym(f, rng, noise_scale=1.0):
     return _structural(f, rng, moderation=churn_moderation_asym, noise_scale=noise_scale)
 
 
-def structural_harm(f, rng, noise_scale=1.0):
-    return _structural(f, rng, moderation=churn_moderation_sym, with_harm=True, noise_scale=noise_scale)
+def structural_harm(f, rng, noise_scale=1.0, c_harm=1.0):
+    """Main structure plus true_harm, drawn LAST from the same rng (so the rest
+    of the population is identical to structural_main for the same stream)."""
+    out = structural_main(f, rng, noise_scale=noise_scale)
+    out['true_harm'] = draw_harm(f, rng, c_harm, noise_scale)
+    return out
 
 
 def structural_adv(f, rng, noise_scale=1.0):
@@ -247,9 +279,14 @@ def generate_asym(n, rng):
     return _generate(n, rng, draw_features, structural_asym)
 
 
-def generate_harm(n, rng):
-    """Main DGP plus a harm covariate correlated with LTV (via spend)."""
-    return _generate(n, rng, draw_features, structural_harm)
+def generate_harm(n, rng, harm_rng=None, c_harm=1.0):
+    """Main DGP plus true_harm.  The population, treatment and outcomes are
+    exactly generate_main's; harm is drawn LAST, from harm_rng (default: rng
+    itself, after everything else), so it never perturbs anything else."""
+    data = _generate(n, rng, draw_features, structural_main)
+    f = {name: data['features'][:, i] for i, name in enumerate(FEATURE_NAMES)}
+    data['true_harm'] = draw_harm(f, rng if harm_rng is None else harm_rng, c_harm)
+    return data
 
 
 def generate_adv(n, rng):

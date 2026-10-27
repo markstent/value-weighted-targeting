@@ -1,4 +1,4 @@
-"""Revision-42 additions: the two substantive demonstrations from the second review.
+"""Revision-42 additions: the component-update demonstration from the second review.
 
   A. Component-wise update benefit. The decomposition's claimed advantage is that
      a single component can be improved in place. We demonstrate it: holding the
@@ -8,14 +8,8 @@
      the component-update property (auditability itself is a governance benefit,
      not a welfare quantity, and we do not claim otherwise).
 
-  B. Hard harm constraint vs. soft harm weight. The soft multiplicative gate h can
-     be overridden by a large tau*V. We instead solve the budget-and-harm-
-     constrained problem
-         max sum_{i in S} tau_i V_i   s.t. |S| = k and mean harm over S <= Hbar,
-     whose KKT solution ranks by the penalised score tau*V - mu*harm with mu set
-     so the harm constraint binds. At a matched harm-exposure level, the hard
-     constraint achieves higher welfare than the soft gate, i.e. it sits on the
-     welfare-harm efficient frontier the soft weight does not.
+  (The hard harm constraint vs soft gate comparison formerly here is now
+  study_harm.py.)
 
 Usage:  python compute_v42_additions.py [N_RUNS]
 """
@@ -29,15 +23,12 @@ from simulation_v38 import (
     N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
 )
 from core.io import save_json
-from core.dgp import (
-    generate_main, generate_harm,
-)
+from core.dgp import generate_main
 from core.estimators import (
     VALUE_STREAM_V42, seed_from,
     estimate_components,
 )
 from core.policy import (
-    h_protection,
     DEFAULT_BUDGET, target_topk, compute_welfare,
 )
 
@@ -81,58 +72,6 @@ def component_update():
     }
 
 
-def _solve_mu(tauV, harm, k, target_harm):
-    """Smallest mu>=0 such that mean harm of top-k by (tauV - mu*harm) <= target."""
-    lo, hi = 0.0, float(tauV.max()) + 1.0
-    # mean harm is (weakly) decreasing in mu; bisect.
-    for _ in range(45):
-        mid = 0.5 * (lo + hi)
-        sel = target_topk(tauV - mid * harm, k)
-        if harm[sel].mean() > target_harm:
-            lo = mid
-        else:
-            hi = mid
-    return hi
-
-
-def harm_constraint():
-    """Compare soft-h gate vs hard harm constraint at matched harm exposure (oracle)."""
-    soft_w, soft_h, hard_w, hard_h, ung_w, ung_h = [], [], [], [], [], []
-    for seed in SEEDS:
-        rng = np.random.RandomState(seed)
-        data = generate_harm(N_PLAYERS, rng)
-        idx = np.arange(len(data['treatment']))
-        tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
-        k = int(len(te) * DEFAULT_BUDGET)
-        tau, V, harm = data['true_tau'][te], data['true_ltv'][te], data['true_harm'][te]
-        tauV = tau * V
-
-        # Unguarded
-        s = target_topk(tauV, k)
-        ung_w.append(compute_welfare(s, tau, V)); ung_h.append(float(harm[s].mean()))
-
-        # Soft multiplicative gate h
-        s = target_topk(tauV * h_protection(harm), k)
-        sw = compute_welfare(s, tau, V); sh = float(harm[s].mean())
-        soft_w.append(sw); soft_h.append(sh)
-
-        # Hard constraint matched to the soft gate's harm exposure
-        mu = _solve_mu(tauV, harm, k, sh)
-        s = target_topk(tauV - mu * harm, k)
-        hard_w.append(compute_welfare(s, tau, V)); hard_h.append(float(harm[s].mean()))
-
-    sw, sh = float(np.mean(soft_w)), float(np.mean(soft_h))
-    hw, hh = float(np.mean(hard_w)), float(np.mean(hard_h))
-    uw, uh = float(np.mean(ung_w)), float(np.mean(ung_h))
-    return {
-        'unguarded': {'welfare': round(uw, 0), 'harm': round(uh, 3)},
-        'soft_gate': {'welfare': round(sw, 0), 'harm': round(sh, 3)},
-        'hard_constraint': {'welfare': round(hw, 0), 'harm': round(hh, 3)},
-        'hard_minus_soft_welfare': round(hw - sw, 0),
-        'hard_minus_soft_pct': round(100 * (hw - sw) / sw, 1),
-    }
-
-
 def main():
     print(f"Revision-42 additions | N_RUNS={N_RUNS}, kappa={DEFAULT_BUDGET}")
     out = {}
@@ -143,14 +82,6 @@ def main():
     print(f"   misspecified-V welfare {c['welfare_misspecified_value']:.0f} -> "
           f"well-specified-V welfare {c['welfare_wellspecified_value']:.0f} "
           f"(+{c['recovery_abs']:.0f}, +{c['recovery_pct']}%), tau-hat unchanged")
-
-    print("B. Hard harm constraint vs soft gate (oracle, matched harm) ...")
-    out['harm_constraint'] = harm_constraint()
-    h = out['harm_constraint']
-    print(f"   unguarded: W={h['unguarded']['welfare']:.0f} harm={h['unguarded']['harm']}")
-    print(f"   soft gate: W={h['soft_gate']['welfare']:.0f} harm={h['soft_gate']['harm']}")
-    print(f"   hard cons: W={h['hard_constraint']['welfare']:.0f} harm={h['hard_constraint']['harm']}")
-    print(f"   hard - soft at matched harm: +{h['hard_minus_soft_welfare']:.0f} (+{h['hard_minus_soft_pct']}%)")
 
     out['_meta'] = {'n_runs': N_RUNS, 'kappa': DEFAULT_BUDGET, 'seeds_base': SEED_BASE}
     path = save_json(out, 'simulation_v42_additions.json')

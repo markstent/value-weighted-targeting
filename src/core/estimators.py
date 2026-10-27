@@ -10,6 +10,9 @@ VALUE_STREAM_V42 = 3  # well-specified value model (compute_v42)
 VALUE_STREAM_V43 = 4  # richer reference value model (compute_v43)
 ORACLE_STREAM = 5     # common-random-number noise for the feasible oracle MC
 CROSSFIT_STREAM = 6   # validation-fold cross-fit split for AIPW calibration
+HARM_STREAM = 7       # harm DGP noise (Z and logit noise), drawn after everything else
+HARM_ESTIMATE_STREAM = 8  # noise of the estimated harm score (estimate_harm)
+BOOT_STREAM = 9       # bootstrap resamples over reps for the harm sweep CIs
 
 
 def seed_from(seed, stream):
