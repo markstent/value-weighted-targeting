@@ -62,6 +62,7 @@ Usage:  python study_learners.py [--reps R] [--n-players N] [--smoke] [--retune]
 import argparse
 import itertools
 import json
+import os
 import time
 from collections import defaultdict
 
@@ -237,8 +238,11 @@ def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
         print(f"Tuning pilot at n={n_players}, writing {path}")
         frozen = tune_all(n_players, n_jobs)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'w') as fp:
+        # atomic: a concurrent study (run_all --jobs) must never read a half-written file
+        tmp = path.with_name(f'{path.name}.{os.getpid()}.tmp')
+        with open(tmp, 'w') as fp:
             json.dump(frozen, fp, indent=2)
+        os.replace(tmp, path)
     else:
         print(f"Reading frozen tuned params from {path}")
         frozen = json.loads(path.read_text())
