@@ -304,7 +304,6 @@ def test_tracked_numbers_come_from_a_full_run():
     assert re.search(r'\\newcommand\{\\numMetaReps\}\{200\}', _generated_numbers())
 
 
-@pytest.mark.xfail(strict=True, reason='enabled by Task 10 rewrite')
 def test_no_hardcoded_table_numbers():
     text = TEX.read_text()
     bodies = [m.group(0) for m in re.finditer(r'\\begin\{(table\*?|tabular)\}.*?\\end\{\1\}', text, flags=re.S)]
