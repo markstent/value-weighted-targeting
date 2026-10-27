@@ -11,9 +11,10 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 from simulation_v38 import (
-    N_PLAYERS, N_RUNS, SEED_BASE, ORACLE_MC, ORACLE_SEED_OFFSET,
+    N_PLAYERS, N_RUNS, SEED_BASE, ORACLE_MC,
 )
 from core.dgp import generate_main, conditional_means, FEATURE_NAMES
+from core.estimators import seed_from, ORACLE_STREAM
 from core.io import save_json
 from core.policy import (
     DEFAULT_BUDGET, compute_welfare, compute_risk_exposure,
@@ -43,7 +44,7 @@ def run(n_runs=N_RUNS, n_players=N_PLAYERS):
         feats = {nm: data['features'][test_idx, i]
                  for i, nm in enumerate(FEATURE_NAMES)}
         cm = conditional_means('main', feats, n_mc=ORACLE_MC,
-                               seed=seed + ORACLE_SEED_OFFSET)
+                               seed=seed_from(seed, ORACLE_STREAM))
         tv_bar = cm['tau_bar'] * cm['ltv_bar']
         scores = {
             NAMES[0]: true_tau * true_ltv,

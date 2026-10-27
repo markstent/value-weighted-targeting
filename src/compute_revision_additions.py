@@ -60,7 +60,7 @@ def _mean_sd(x):
 # ---------------------------------------------------------------------------
 def run_asymmetric():
     strategy_names = ['CATE Only', 'CATE x LTV', 'Full Framework (Est.)',
-                      'Full Framework (Cal.)', 'Full Framework (Oracle)', 'S-Learner']
+                      'Full Framework (Cal.)', 'Oracle hindsight (theta0)', 'S-Learner']
     welfare = {s: [] for s in strategy_names}
     cal_configs = []
     for seed in SEEDS:
@@ -119,7 +119,7 @@ def run_slearner_in_scenarios():
 # ---------------------------------------------------------------------------
 def run_effective_welfare():
     strategy_names = ['CATE Only', 'CATE x LTV', 'Full Framework (Cal.)',
-                      'Full Framework (Oracle)', 'S-Learner']
+                      'Oracle hindsight (theta0)', 'S-Learner']
     nominal = {s: [] for s in strategy_names}
     effective = {s: [] for s in strategy_names}
     for seed in SEEDS:
@@ -148,7 +148,7 @@ def run_effective_welfare():
             'CATE Only': tau_hat,
             'CATE x LTV': tau_hat * ltv_hat,
             'Full Framework (Cal.)': tau_hat * ltv_hat * g_cal,
-            'Full Framework (Oracle)': true_tau * true_ltv * g_oracle,
+            'Oracle hindsight (theta0)': true_tau * true_ltv * g_oracle,
             'S-Learner': sl_scores,
         }
         for s, sc in scores.items():
@@ -230,7 +230,7 @@ def main():
     out['asymmetric_dgp'] = run_asymmetric()
     a = out['asymmetric_dgp']
     for s in ['CATE Only', 'CATE x LTV', 'Full Framework (Cal.)',
-              'Full Framework (Oracle)', 'S-Learner']:
+              'Oracle hindsight (theta0)', 'S-Learner']:
         print(f"   {s:28} W={a[s][0]:>8.0f} +/- {a[s][1]:.0f}")
     print(f"   calibration picked identity in {a['_cal_identity_count'][0]}/{a['_cal_identity_count'][1]} runs")
 

@@ -166,7 +166,7 @@ def fig_welfare_bars(data: dict) -> Path:
         "Full Framework (Est.)",
         "Full Framework (Cal.)",
         "S-Learner",
-        "Full Framework (Oracle)",
+        "Oracle hindsight (theta0)",
         "Oracle feasible (g=1)",
         "Oracle hindsight (g=1)",
     ]
@@ -177,7 +177,7 @@ def fig_welfare_bars(data: dict) -> Path:
         "Full Framework (Est.)": "Full (default $g$)",
         "Full Framework (Cal.)": "Full (calibrated $g$)",
         "S-Learner": "S-Learner",
-        "Full Framework (Oracle)": "Full-framework oracle ($\\theta_0$)",
+        "Oracle hindsight (theta0)": "Hindsight oracle ($\\theta_0$)",
         "Oracle feasible (g=1)": r"Feasible $E[\tau|X]E[V|X]$ oracle ($g\equiv 1$)",
         "Oracle hindsight (g=1)": r"Hindsight $\tau V$ oracle ($g\equiv 1$)",
     }
@@ -192,7 +192,7 @@ def fig_welfare_bars(data: dict) -> Path:
     for k in order:
         if k in ("Oracle hindsight (g=1)", "Oracle feasible (g=1)"):
             colors.append("#1a5a1a")
-        elif k == "Full Framework (Oracle)":
+        elif k == "Oracle hindsight (theta0)":
             colors.append("#2a7a2a")
         elif k == "S-Learner":
             colors.append("#b34")

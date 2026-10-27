@@ -297,10 +297,38 @@ def generate_heavytail(n, rng):
 
 
 def make_corr_dgp(gamma):
-    """Bind gamma, returning a generator with the (n, rng) signature."""
+    """Bind gamma, returning a generator with the (n, rng) signature.
+
+    The closure carries dgp_name / gamma so the feasible oracle can recover them.
+    """
     def dgp(n, rng):
         return generate_corr_gamma(n, rng, gamma)
+    dgp.dgp_name = 'corr_gamma'
+    dgp.gamma = gamma
     return dgp
+
+
+def dgp_spec(dgp_func):
+    """Return (dgp_name, kwargs for conditional_means) for a generator.
+
+    Raises ValueError for generators it cannot identify (no silent fallback).
+    """
+    name = getattr(dgp_func, 'dgp_name', None)
+    if name is not None:
+        return name, {'gamma': dgp_func.gamma} if name == 'corr_gamma' else {}
+    for key, f in DGPS.items():
+        if f is dgp_func:
+            return key, {}
+    raise ValueError(f'unknown DGP generator {dgp_func!r}: cannot compute the '
+                     'feasible oracle; pass dgp_name explicitly')
+
+
+def tau_base_stats(features):
+    """(mean, sd) of tau_base over the given features (the DGP's corr_gamma
+    standardisation is over the generating sample, so pass the full sample)."""
+    tb = structural_corr_gamma(features, np.random.RandomState(0),
+                               noise_scale=0.0)['tau_base']
+    return tb.mean(), tb.std()
 
 
 DGPS = {
@@ -329,6 +357,21 @@ _BYTES_PER_UNIT = 8 * 24
 DEFAULT_CHUNK_BYTES = 200 * 2**20
 
 
+class _CommonNoiseRng:
+    """RandomState stand-in whose normal() returns the SAME n_mc noise vector for
+    every unit (common random numbers): call k draws n_mc standard normals from a
+    stream seeded identically per chunk, tiled across the unit-major repeat
+    layout.  Ranking is then free of unit-specific MC noise and chunk-invariant."""
+
+    def __init__(self, seed, n_mc):
+        self._rs = np.random.RandomState(seed)
+        self._n_mc = n_mc
+
+    def normal(self, loc, scale, size):
+        z = self._rs.normal(0.0, 1.0, self._n_mc)
+        return loc + scale * np.tile(z, size // self._n_mc)
+
+
 def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
                       noise_scale=1.0, tau_base_stats=None,
                       max_units_per_chunk=None):
@@ -338,24 +381,25 @@ def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
     with fresh noise (churn-logit, tau, LTV and harm noise).  Clipping happens
     inside each draw, so the average is the true conditional mean of the clipped
     variable.  Uses its own RandomState(seed), so it never touches the
-    simulation's main RNG stream.  Units are processed in chunks so peak memory
+    simulation's main RNG stream.  Common random numbers: every unit sees the same
+    n_mc noise vectors (identical in every chunk), so ranking differences across
+    units reflect X, not MC noise.  Units are processed in chunks so peak memory
     stays near DEFAULT_CHUNK_BYTES.
 
     features: dict of 1-D arrays keyed by FEATURE_NAMES.
-    gamma / tau_base_stats: corr_gamma only.  tau_base_stats=(mean, sd) fixes the
-    standardisation of tau_base (default: moments of the features passed in).
+    gamma / tau_base_stats: corr_gamma only.  tau_base_stats=(mean, sd) must be the
+    moments of tau_base over the generating sample (use tau_base_stats(full
+    features)); default falls back to the moments of the features passed in.
     Returns dict of arrays; '*_se' entries are Monte Carlo standard errors.
     """
     structural = _STRUCTURAL[dgp_name]
-    rng = np.random.RandomState(seed)
     n = len(features['account_age'])
     if max_units_per_chunk is None:
         max_units_per_chunk = DEFAULT_CHUNK_BYTES // _BYTES_PER_UNIT
     step = max(1, max_units_per_chunk // n_mc)
 
     if dgp_name == 'corr_gamma' and tau_base_stats is None:
-        tb = structural(features, np.random.RandomState(0), noise_scale=0.0)['tau_base']
-        tau_base_stats = (tb.mean(), tb.std())
+        tau_base_stats = globals()['tau_base_stats'](features)
 
     names = ['tau', 'ltv', 'churn'] + (['harm'] if dgp_name == 'harm' else [])
     mean = {k: np.empty(n) for k in names}
@@ -365,6 +409,7 @@ def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
         hi = min(n, lo + step)
         m = hi - lo
         rep = {k: np.repeat(np.asarray(v)[lo:hi], n_mc) for k, v in features.items()}
+        rng = _CommonNoiseRng(seed, n_mc)
         s = structural(rep, rng, noise_scale=noise_scale)
         draws = {'tau': s['true_tau'], 'churn': s['true_churn']}
         if 'true_harm' in s:

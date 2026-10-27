@@ -12,6 +12,7 @@ LTV_STREAM = 0        # LTV-proxy noise for the deployed estimator
 CALIB_STREAM = 1      # LTV-proxy noise for the calibration (validation) fit
 VALUE_STREAM_V42 = 3  # well-specified value model (compute_v42)
 VALUE_STREAM_V43 = 4  # richer reference value model (compute_v43)
+ORACLE_STREAM = 5     # common-random-number noise for the feasible oracle MC
 
 
 def seed_from(seed, stream):
