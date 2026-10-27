@@ -4,7 +4,8 @@ Usage:  python src/run_all.py [--smoke] [--jobs N] [--only study,...] [--figures
 
 Studies (study_main, study_harm, study_budget, study_learners, study_robustness) run as
 subprocesses with the same run-size flags; up to N run in parallel.  Each logs to
-outputs/logs/<study>.log.  make_figures.py runs afterwards if every study succeeded.
+outputs/logs/<study>.log.  make_figures.py runs afterwards if every study succeeded, then make_tex.py (when all five
+studies ran) writes docs/generated/ (docs/generated_smoke/ under --smoke).
 Exits non-zero, naming the failed step, if anything fails.  outputs/run_manifest.json
 records the git SHA and dirty flag, python and package versions, run-size args, per-step
 wall time and exit code, the JSON outputs with their sha256, the figures, and the sha256
@@ -27,6 +28,8 @@ SRC = REPO / 'src'
 OUTPUT_DIR = REPO / 'outputs'
 LOG_DIR = OUTPUT_DIR / 'logs'
 FIGURE_DIR = REPO / 'docs' / 'figures'
+GENERATED_DIR = REPO / 'docs' / 'generated'
+SMOKE_GENERATED_DIR = REPO / 'docs' / 'generated_smoke'   # smoke runs never touch the tracked tables
 SMOKE_FIGURE_DIR = OUTPUT_DIR / 'figures_smoke'   # smoke runs never touch the manuscript figures
 
 STUDIES = ('study_main', 'study_harm', 'study_budget', 'study_learners', 'study_robustness')
@@ -139,6 +142,15 @@ def expected_figures(smoke):
     return [figure_dir(smoke) / n for n in FIGURE_NAMES]
 
 
+def generated_dir(smoke):
+    return SMOKE_GENERATED_DIR if smoke else GENERATED_DIR
+
+
+def expected_generated(smoke):
+    from make_tex import generated_names
+    return [generated_dir(smoke) / n for n in generated_names()]
+
+
 def effective_n_players(args):
     """Population size the studies will use (decides which tuned-params file is read)."""
     from core.io import SMOKE_N_PLAYERS
@@ -194,6 +206,9 @@ def build_manifest(args, steps, studies, git, started):
     figures = {}
     if 'make_figures' in ok:
         figures = {str(p.relative_to(REPO)): sha256(p) for p in expected_figures(args.smoke)}
+    generated = {}
+    if 'make_tex' in ok:
+        generated = {str(p.relative_to(REPO)): sha256(p) for p in expected_generated(args.smoke)}
     tuned = tuned_params_file(args)
     return {
         'git': git,
@@ -206,6 +221,7 @@ def build_manifest(args, steps, studies, git, started):
         'steps': steps,
         'json_files': json_files,
         'figures': figures,
+        'generated_tex': generated,
         'tuned_params': {
             'path': str(tuned.relative_to(REPO)) if tuned.is_relative_to(REPO) else str(tuned),
             'sha256': sha256(tuned) if tuned.exists() else None},
@@ -260,6 +276,11 @@ def main(argv=None):
     else:
         print('make_figures skipped: it needs study_main and study_harm to have run in '
               'this invocation (use --figures-only to rebuild from existing outputs)')
+
+    if not failed and set(STUDIES) <= set(args.only) and not args.figures_only:
+        steps.append(run_step('make_tex', 'make_tex.py',
+                              ['--smoke'] if args.smoke else [], expected_generated(args.smoke)))
+        failed = [s['name'] for s in steps if s['exit_code'] != 0]
 
     manifest = build_manifest(args, steps, args.only, git, started)
     manifest['total_wall_seconds'] = round(time.perf_counter() - t0, 2)

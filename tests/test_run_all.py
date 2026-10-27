@@ -158,3 +158,22 @@ def test_figures_only_prints_mtimes_and_runs_only_figures(tmp_path, monkeypatch,
     out = capsys.readouterr().out
     assert called == ['make_figures']
     assert 'main_smoke.json: modified' in out and 'harm_sweep_smoke.json: MISSING' in out
+
+
+def test_make_tex_runs_last_only_when_all_studies_ran(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_all, 'OUTPUT_DIR', tmp_path)
+    seen = {}
+
+    def fake_step(name, script, flags, expected=()):
+        seen[name] = [p.name for p in expected]
+        return {'name': name, 'exit_code': 0, 'wall_seconds': 0, 'log': ''}
+
+    monkeypatch.setattr(run_all, 'run_step', fake_step)
+    assert run_all.main(['--smoke', '--only', 'main,harm']) == 0
+    assert 'make_tex' not in seen
+    assert run_all.main(['--smoke']) == 0
+    assert list(seen)[-1] == 'make_tex'
+    assert seen['make_tex'] == [p.name for p in run_all.expected_generated(True)]
+    assert 'numbers.tex' in seen['make_tex'] and 'tab_main.tex' in seen['make_tex']
+    assert run_all.expected_generated(True)[0].parent.name == 'generated_smoke'
+    assert run_all.expected_generated(False)[0].parent.name == 'generated'

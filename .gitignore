@@ -31,3 +31,4 @@ reviews/
 
 # arXiv submission bundle (build artifact; regenerate from docs/)
 arxiv-stent-2026.tar.gz
+docs/generated_smoke/

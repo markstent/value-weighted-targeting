@@ -22,7 +22,7 @@ def test_smoke_fresh_clone(tmp_path):
 
     manifest = json.loads((clone / 'outputs' / 'run_manifest.json').read_text())
     assert manifest['git']['sha'] and all(s['exit_code'] == 0 for s in manifest['steps'])
-    assert {s['name'] for s in manifest['steps']} == set(run_all.STUDIES) | {'make_figures'}
+    assert {s['name'] for s in manifest['steps']} == set(run_all.STUDIES) | {'make_figures', 'make_tex'}
     assert set(manifest['json_files']) == {
         run_all.output_name(s, True) for s in run_all.STUDIES}
     for name, digest in manifest['json_files'].items():
@@ -36,3 +36,10 @@ def test_smoke_fresh_clone(tmp_path):
     for rel, digest in manifest['figures'].items():
         assert (clone / rel).exists(), rel
         assert run_all.sha256(clone / rel) == digest
+    gen = clone / 'docs' / 'generated_smoke'
+    assert len(manifest['generated_tex']) == len(run_all.expected_generated(True))
+    for path in run_all.expected_generated(True):
+        assert (gen / path.name).exists(), path.name
+    for rel, digest in manifest['generated_tex'].items():
+        assert run_all.sha256(clone / rel) == digest
+    assert not (clone / 'docs' / 'generated').exists()    # smoke never writes the tracked dir
