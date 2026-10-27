@@ -99,10 +99,31 @@ def run_step(name, script, flags):
             'log': str(log.relative_to(REPO))}
 
 
+# study_robustness reads (and, at a new run size, creates) the tuned-parameter file that
+# study_learners writes, so when both run it starts after study_learners finishes: the
+# tuning pilot is run once instead of twice in parallel.
+AFTER = {'study_robustness': 'study_learners'}
+
+
 def run_studies(studies, flags, jobs):
+    """Run studies with up to `jobs` at once, honouring AFTER; results in input order."""
+    import threading
+    done = {s: threading.Event() for s in studies}
+
+    def work(s):
+        dep = AFTER.get(s)
+        if dep in done:
+            done[dep].wait()
+        try:
+            return run_step(s, f'{s}.py', flags)
+        finally:
+            done[s].set()
+
+    # Submit dependencies first so a waiting study never holds the last worker slot.
+    order = sorted(studies, key=lambda s: s in AFTER)
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
-        futures = [pool.submit(run_step, s, f'{s}.py', flags) for s in studies]
-        return [f.result() for f in futures]
+        futures = {s: pool.submit(work, s) for s in order}
+        return [futures[s].result() for s in studies]
 
 
 def build_manifest(args, steps, studies, git, started):

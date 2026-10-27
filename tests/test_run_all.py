@@ -63,3 +63,19 @@ def test_tuned_params_write_is_atomic(tmp_path, monkeypatch):
     study_learners.load_or_tune(n_players=study_learners.N_PLAYERS)
     assert (tmp_path / 't.json').exists()
     assert not list(tmp_path.glob('*.tmp'))
+
+
+def test_robustness_waits_for_learners(monkeypatch):
+    import time
+    events = []
+
+    def fake_step(name, script, flags):
+        events.append(('start', name))
+        time.sleep(0.2 if name == 'study_learners' else 0)
+        events.append(('end', name))
+        return {'name': name, 'exit_code': 0, 'wall_seconds': 0, 'log': ''}
+
+    monkeypatch.setattr(run_all, 'run_step', fake_step)
+    res = run_all.run_studies(['study_learners', 'study_robustness', 'study_main'], [], 3)
+    assert [r['name'] for r in res] == ['study_learners', 'study_robustness', 'study_main']
+    assert events.index(('end', 'study_learners')) < events.index(('start', 'study_robustness'))

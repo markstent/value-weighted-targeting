@@ -74,13 +74,23 @@ All quantities in the paper are produced by simulation; there is no empirical da
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# core study (main results, calibration, budget sweep, frontier, robustness)
-python src/study_main.py                    # main.json
+# everything: all five studies, then figures, then outputs/run_manifest.json
+python src/run_all.py                       # full size (N=10000, 200 reps); --jobs N runs N studies in parallel
+python src/run_all.py --smoke --jobs 4      # quick check (3 reps, n=2000); figures go to outputs/figures_smoke/
+python src/run_all.py --only main,harm      # a subset of studies
 
-# revision add-ons (each writes a JSON to outputs/)
-python src/study_robustness.py              # all robustness scenarios (robustness.json)
-python src/study_learners.py                # CATE learner comparison, tuning, regret split, diagnostic
+# or one study at a time (each accepts --smoke, --reps, --n-players)
+python src/study_main.py                    # main.json
+python src/study_harm.py                    # harm_sweep.json
+python src/study_budget.py                  # budget_2x2.json
+python src/study_learners.py                # learners.json
+python src/study_robustness.py              # robustness.json
+python src/make_figures.py                  # docs/figures/*.pdf
 ```
+
+The manifest records the git SHA and dirty flag, package versions, run-size arguments, per-step wall time and exit code, the sha256 of every output JSON and figure, and the sha256 of `config/tuned_params.json`.
+Tests: `pytest` runs everything including `tests/test_pipeline.py::test_smoke_fresh_clone` (marked `slow`; it clones the repo and runs the smoke pipeline).
+Use `pytest -m "not slow"` to skip it and `pytest -m slow` to run only it.
 
 ## Building the PDF
 
