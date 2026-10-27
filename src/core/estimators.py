@@ -2,10 +2,6 @@
 
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
-from sklearn.model_selection import train_test_split
-
-from core.policy import (DEFAULT_BUDGET, DEFAULT_THETA_IDX, THETA_GRID,
-                         f_churn_vec, target_topk)
 
 # Independent RNG streams per replication seed (see seed_from).
 LTV_STREAM = 0        # LTV-proxy noise for the deployed estimator
@@ -13,6 +9,7 @@ CALIB_STREAM = 1      # LTV-proxy noise for the calibration (validation) fit
 VALUE_STREAM_V42 = 3  # well-specified value model (compute_v42)
 VALUE_STREAM_V43 = 4  # richer reference value model (compute_v43)
 ORACLE_STREAM = 5     # common-random-number noise for the feasible oracle MC
+CROSSFIT_STREAM = 6   # validation-fold cross-fit split for AIPW calibration
 
 
 def seed_from(seed, stream):
@@ -145,31 +142,3 @@ def _estimate_slearner(X_train, X_test, W_train, Y_train, ltv_hat):
     pred_t0 = slearner.predict(np.column_stack([X_test, np.zeros(n_test)]))
     tau_sl = pred_t1 - pred_t0
     return tau_sl * ltv_hat
-
-
-
-def calibrate_theta(data, train_idx, seed, k, est_func=None, cate_method='tlearner'):
-    """Calibrate theta by held-out validation with grid search."""
-    if est_func is None:
-        est_func = estimate_components
-    est_rel, val_rel = train_test_split(
-        np.arange(len(train_idx)), test_size=0.40, random_state=seed + 99)
-    est_idx = train_idx[est_rel]
-    val_idx = train_idx[val_rel]
-
-    tau_val, ltv_val, churn_val = est_func(data, est_idx, val_idx,
-                                           cate_method=cate_method,
-                                           seed=seed, stream=CALIB_STREAM)
-    k_val = int(len(val_idx) * DEFAULT_BUDGET)
-
-    best_welfare = -np.inf
-    best_config = THETA_GRID[DEFAULT_THETA_IDX]
-    for cfg in THETA_GRID:
-        g_val = f_churn_vec(churn_val, **cfg)
-        scores = tau_val * ltv_val * g_val
-        targeted = target_topk(scores, k_val)
-        w = float(np.sum(tau_val[targeted] * ltv_val[targeted]))
-        if w > best_welfare:
-            best_welfare = w
-            best_config = cfg
-    return best_config

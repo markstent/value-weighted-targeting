@@ -41,10 +41,10 @@ from core.dgp import (
     generate_main, generate_null, generate_asym, generate_harm,
 )
 from core.estimators import (
-    estimate_components, _estimate_ltv_churn, _estimate_slearner, calibrate_theta,
+    estimate_components, _estimate_ltv_churn, _estimate_slearner,
 )
 from core.policy import (
-    h_protection,
+    h_protection, calibrate_theta,
     DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare,
 )
 
@@ -137,7 +137,7 @@ def run_effective_welfare():
 
         tau_hat, ltv_hat, churn_hat = estimate_components(data, train_idx, test_idx, seed=seed)
         g_oracle = f_churn_vec(true_churn)
-        cal_cfg = calibrate_theta(data, train_idx, seed, k)
+        cal_cfg = calibrate_theta(data, train_idx, seed, DEFAULT_BUDGET)
         g_cal = f_churn_vec(churn_hat, **cal_cfg)
 
         X_tr, X_te = data['features'][train_idx], data['features'][test_idx]

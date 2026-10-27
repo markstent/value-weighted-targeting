@@ -25,12 +25,12 @@ from core.dgp import (
 )
 from core.estimators import (
     _estimate_slearner, estimate_components, estimate_components_misspec,
-    calibrate_theta, seed_from, ORACLE_STREAM,
+    seed_from, ORACLE_STREAM,
 )
 from core.policy import (
     DEFAULT_BUDGET, THETA_GRID, f_churn_vec,
     compute_welfare, compute_risk_exposure, compute_mean_churn_moderation,
-    target_topk,
+    target_topk, calibrate_theta,
 )
 from core.stats import (
     holm_bonferroni, tost_paired, paired_test,
@@ -77,9 +77,15 @@ def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
     g_hat = f_churn_vec(churn_hat)
     g_oracle = f_churn_vec(true_churn)
 
-    cal_config = calibrate_theta(data, train_idx, seed, k,
+    # Calibrate at the evaluation budget (budget_frac), AIPW objective; the
+    # plug-in objective is kept only to exhibit the top-k tautology (g=1).
+    cal_config = calibrate_theta(data, train_idx, seed, budget_frac,
                                  est_func=est_func, cate_method=cate_method)
     g_cal = f_churn_vec(churn_hat, **cal_config)
+    cal_plugin = calibrate_theta(data, train_idx, seed, budget_frac,
+                                 objective='plugin', est_func=est_func,
+                                 cate_method=cate_method)
+    g_cal_plugin = f_churn_vec(churn_hat, **cal_plugin)
 
     strategies = {}
     strategies['Random'] = rng.uniform(0, 1, len(test_idx))
@@ -87,6 +93,7 @@ def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
     strategies['CATE x LTV'] = tau_hat * ltv_hat
     strategies['Full Framework (Est.)'] = tau_hat * ltv_hat * g_hat
     strategies['Full Framework (Cal.)'] = tau_hat * ltv_hat * g_cal
+    strategies['Full Framework (Cal., plug-in)'] = tau_hat * ltv_hat * g_cal_plugin
     strategies['Oracle hindsight (theta0)'] = (data['true_tau'][test_idx]
                                               * data['true_ltv'][test_idx]
                                               * g_oracle)
@@ -192,6 +199,7 @@ def _aggregate_results(all_results, strategy_names):
 
 MAIN_STRATEGIES = ['Random', 'CATE Only', 'CATE x LTV',
                    'Full Framework (Est.)', 'Full Framework (Cal.)',
+                   'Full Framework (Cal., plug-in)',
                    'Oracle hindsight (theta0)', 'S-Learner'] + ORACLE_STRATEGIES
 
 
@@ -218,9 +226,7 @@ def main():
     print(f"N={N_PLAYERS}, Runs={N_RUNS}, Default budget={DEFAULT_BUDGET*100:.0f}%")
     print(f"Calibration grid: {len(THETA_GRID)} configs (including g~1 identity)")
 
-    strategy_names = ['Random', 'CATE Only', 'CATE x LTV',
-                      'Full Framework (Est.)', 'Full Framework (Cal.)',
-                      'Oracle hindsight (theta0)', 'S-Learner'] + ORACLE_STRATEGIES
+    strategy_names = MAIN_STRATEGIES
 
     output = {}
 

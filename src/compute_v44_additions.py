@@ -37,7 +37,6 @@ import sys
 import numpy as np
 from collections import Counter
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import GradientBoostingClassifier
 
 from simulation_v38 import (
     N_PLAYERS, N_RUNS as N_RUNS_DEFAULT, SEED_BASE,
@@ -47,10 +46,10 @@ from core.dgp import (
     generate_main, generate_adv, generate_asym, TREATMENT_PROB,
 )
 from core.estimators import (
-    CALIB_STREAM, LTV_STREAM, estimate_components, _estimate_ltv_churn, _estimate_cate_tlearner, _estimate_slearner, calibrate_theta,
+    LTV_STREAM, estimate_components, _estimate_ltv_churn, _estimate_cate_tlearner, _estimate_slearner,
 )
 from core.policy import (
-    DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare, THETA_GRID, DEFAULT_THETA_IDX,
+    DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare, THETA_GRID, DEFAULT_THETA_IDX, calibrate_theta,
 )
 from core.stats import (
     holm_bonferroni, paired_test,
@@ -58,7 +57,6 @@ from core.stats import (
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
-PROPENSITY = TREATMENT_PROB  # 0.5, known randomised assignment
 
 
 # ---------------------------------------------------------------------------
@@ -206,56 +204,6 @@ def run_budget_inference(dgp_func, label):
 # B. AIPW (doubly robust) calibration
 # ---------------------------------------------------------------------------
 
-def _aipw_calibrate(data, train_idx, seed, e=PROPENSITY):
-    """Calibrate theta scoring candidates by AIPW welfare on the validation fold.
-
-    Mirrors simulation_v38.calibrate_theta but replaces the plug-in
-    tau_hat*ltv_hat welfare with a doubly-robust estimate: the CATE enters via
-    the AIPW pseudo-outcome gamma_i (T-Learner outcome models mu1, mu0 as the
-    outcome nuisance, known propensity e), and V enters as the estimated weight.
-    Returns the selected config and its index in THETA_GRID.
-    """
-    est_rel, val_rel = train_test_split(
-        np.arange(len(train_idx)), test_size=0.40, random_state=seed + 99)
-    est_idx = train_idx[est_rel]
-    val_idx = train_idx[val_rel]
-
-    # plug-in components on the (est -> val) split, exactly as the published rule
-    tau_val, ltv_val, churn_val = estimate_components(data, est_idx, val_idx, seed=seed,
-                                                       stream=CALIB_STREAM)
-
-    # AIPW pseudo-outcome on the validation fold
-    X = data['features']
-    W = data['treatment']
-    Y = data['y_obs']
-    Xe, Xv = X[est_idx], X[val_idx]
-    We, Ye = W[est_idx], Y[est_idx]
-    Wv, Yv = W[val_idx], Y[val_idx]
-    mu1 = GradientBoostingClassifier(n_estimators=100, max_depth=3,
-                                     learning_rate=0.1, random_state=0)
-    mu0 = GradientBoostingClassifier(n_estimators=100, max_depth=3,
-                                     learning_rate=0.1, random_state=0)
-    mu1.fit(Xe[We == 1], Ye[We == 1])
-    mu0.fit(Xe[We == 0], Ye[We == 0])
-    m1v = mu1.predict_proba(Xv)[:, 1]
-    m0v = mu0.predict_proba(Xv)[:, 1]
-    gamma = (m1v - m0v) + Wv / e * (Yv - m1v) - (1 - Wv) / (1 - e) * (Yv - m0v)
-
-    k_val = int(len(val_idx) * DEFAULT_BUDGET)
-    best_w = -np.inf
-    best_idx = DEFAULT_THETA_IDX
-    for j, cfg in enumerate(THETA_GRID):
-        g_val = f_churn_vec(churn_val, **cfg)
-        scores = tau_val * ltv_val * g_val
-        targeted = target_topk(scores, k_val)
-        # AIPW welfare of the selected policy
-        w = float(np.sum(gamma[targeted] * ltv_val[targeted]))
-        if w > best_w:
-            best_w = w
-            best_idx = j
-    return THETA_GRID[best_idx], best_idx
-
-
 def run_aipw_calibration():
     print("  [B] AIPW vs plug-in calibration selection")
     aipw_idx = []
@@ -273,7 +221,6 @@ def run_aipw_calibration():
         n = len(data['treatment'])
         train_idx, test_idx = train_test_split(np.arange(n), test_size=0.30,
                                                random_state=seed)
-        k = int(len(test_idx) * DEFAULT_BUDGET)
 
         # deployed components on the full train -> test
         tau_hat, ltv_hat, churn_hat = estimate_components(
@@ -283,7 +230,9 @@ def run_aipw_calibration():
         w_identity = _welfare_at_kappa(tau_hat * ltv_hat, DEFAULT_BUDGET,
                                        true_tau, true_ltv)
 
-        cfg_a, a_idx = _aipw_calibrate(data, train_idx, seed)
+        cfg_a = calibrate_theta(data, train_idx, seed, DEFAULT_BUDGET,
+                                objective='aipw')
+        a_idx = THETA_GRID.index(cfg_a)
         aipw_idx.append(a_idx)
         g_a = f_churn_vec(churn_hat, **cfg_a)
         w_a = _welfare_at_kappa(tau_hat * ltv_hat * g_a, DEFAULT_BUDGET,
@@ -291,7 +240,8 @@ def run_aipw_calibration():
         aipw_cost.append(w_a - w_identity)
 
         # plug-in selection on the same seed, for a matched comparison
-        cfg_p = calibrate_theta(data, train_idx, seed, k)
+        cfg_p = calibrate_theta(data, train_idx, seed, DEFAULT_BUDGET,
+                                objective='plugin')
         p_idx = THETA_GRID.index(cfg_p) if cfg_p in THETA_GRID else DEFAULT_THETA_IDX
         plugin_idx.append(p_idx)
         g_p = f_churn_vec(churn_hat, **cfg_p)
