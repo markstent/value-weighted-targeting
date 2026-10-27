@@ -819,7 +819,7 @@ def add_budget_extra_macros(M, b2):
             t = {'mean_diff': e['diff']['mean'], 'ci95': e['diff']['ci95'],
                  'cohens_d': e['cohens_d'], 'p_raw': e['p_raw'], 'p_holm': e['p_holm']}
             add_test(M, f'numBudgetDiffCateLtvVsCateOnly{tag}{kappa_tag(kp)}', t, fmt_welfare,
-                     f'CATE x LTV minus CATE only ({what}), kappa={kp:g}; Holm over the kappa grid',
+                     f'CATE x LTV minus CATE only ({what}), kappa={kp:g}; Holm within this (tau, V) cell across the kappa grid',
                      f'budget_2x2.json:cells/{key}/per_kappa[kappa={kp:g}]/diff',
                      ci_key='ci95', p_key='p_raw')
     M.add('numBudgetBootstrapDraws', fmt_count(b2['_meta']['n_boot']),
@@ -874,7 +874,8 @@ def add_learner_extra_macros(M, learners):
             vtag = {'misspec': 'Misspec', 'wellspec': 'Wellspec'}[vm]
             add_test(M, f'numLearnersDiffEffectOnlyMinusTauV{lr}{tn}{vtag}{kappa_tag(k)}', t, fmt_welfare,
                      f'{t["combo"]} minus {t["baseline"]} (effect-only minus tau_hat * V_hat), kappa={k:g}; '
-                     'Holm over all learner comparisons at this kappa',
+                     'Holm-adjusted within its own effect-only family (16 tests per kappa at full size, '
+                     'not pooled with the learner comparison family)',
                      f'learners.json:tests_effect_only_vs_tauV/{k:g}[{t["combo"]}]',
                      ci_key='ci95', p_key='p_raw')
     # G12: tuned S over tuned T, percent of tuned T welfare

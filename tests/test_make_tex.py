@@ -300,8 +300,6 @@ def test_all_macros_defined():
     assert used <= defined, f'undefined macros: {sorted(used - defined)}'
 
 
-@pytest.mark.xfail(strict=False, reason='docs/generated holds smoke placeholders until the full '
-                   '200-rep run is regenerated and committed; passes (XPASS) afterwards')
 def test_tracked_numbers_come_from_a_full_run():
     assert re.search(r'\\newcommand\{\\numMetaReps\}\{200\}', _generated_numbers())
 
@@ -450,4 +448,4 @@ def test_holm_family_documented_for_new_tests():
     items = _macros()
     assert 'Holm family' in items['numHarmDiffHardCapMinusSoftGateHolmP'][1] or \
         'Holm family' in items['numHarmDiffHardCapMinusSoftGate'][1]
-    assert 'Holm over all learner comparisons' in items['numLearnersDiffEffectOnlyMinusTauVTTunedMisspecKten'][1]
+    assert 'own effect-only family' in items['numLearnersDiffEffectOnlyMinusTauVTTunedMisspecKten'][1]
