@@ -151,8 +151,13 @@ def select_rules(tau_hat, ltv_hat, tau_bar, ltv_bar, harm_hat, k):
 
 
 def simulate(reps, n_players, c_harms=C_HARM_GRID, sigma_hs=SIGMA_H_GRID,
-             kappas=KAPPA_GRID):
-    """Run the sweep.  Returns {(c_harm, sigma_h, kappa, rule): per-rep lists}."""
+             kappas=KAPPA_GRID, _eval_harm_transform=None, _record=None):
+    """Run the sweep.  Returns {(c_harm, sigma_h, kappa, rule): per-rep lists}.
+
+    Test seams (not for production use): _eval_harm_transform(harm) is applied to
+    the true harm only AFTER harm_hat has been computed from it, so it changes
+    evaluation but cannot reach any rule; _record, if a dict, receives every
+    rule's selected index set under (rep, c_harm, sigma_h, kappa, rule)."""
     raw = {(c, s, kp, r): _new_cell() for c in c_harms for s in sigma_hs
            for kp in kappas for r in RULES}
     for rep in range(reps):
@@ -182,14 +187,17 @@ def simulate(reps, n_players, c_harms=C_HARM_GRID, sigma_hs=SIGMA_H_GRID,
             for sigma in sigma_hs:
                 harm_hat = estimate_harm(
                     harm, np.random.RandomState(seed_from(seed, HARM_ESTIMATE_STREAM)), sigma)
+                harm_eval = harm if _eval_harm_transform is None else _eval_harm_transform(harm)
                 for kappa in kappas:
                     k = int(len(test_idx) * kappa)
                     sel, caps, feasible = select_rules(
                         tau_hat, ltv_hat, tau_bar, ltv_bar, harm_hat, k)
                     for rule in RULES:
                         t = sel[rule]
+                        if _record is not None:
+                            _record[(rep, c, sigma, kappa, rule)] = np.sort(t)
                         cell = raw[(c, sigma, kappa, rule)]
-                        exposure = float(harm[t].mean())
+                        exposure = float(harm_eval[t].mean())
                         capped = rule in CAPPED_RULES
                         cell['welfare'].append(compute_welfare(t, tau, ltv))
                         cell['exposure'].append(exposure)

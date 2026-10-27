@@ -92,17 +92,20 @@ def test_selection_never_sees_true_harm():
     import inspect
     from study_harm import select_rules
     assert not any('true' in p for p in inspect.signature(select_rules).parameters)
-    rng = np.random.RandomState(4)
-    n, k = 1500, 450
-    tau_hat, tau_bar = rng.normal(0.05, 0.05, n), rng.normal(0.05, 0.05, n)
-    ltv_hat, ltv_bar = rng.uniform(100, 2000, n), rng.uniform(100, 2000, n)
-    true_harm = rng.uniform(0.05, 0.95, n)
-    harm_hat = estimate_harm(true_harm, rng, 0.5)
-    a = select_rules(tau_hat, ltv_hat, tau_bar, ltv_bar, harm_hat, k)
-    _ = true_harm[rng.permutation(n)]          # permuting true harm cannot matter
-    b = select_rules(tau_hat, ltv_hat, tau_bar, ltv_bar, harm_hat, k)
-    for rule in a[0]:
-        np.testing.assert_array_equal(a[0][rule], b[0][rule])
+
+    kw = dict(reps=2, n_players=2000, c_harms=[1.0], sigma_hs=[0.0, 0.5], kappas=[0.30])
+    perm = np.random.RandomState(11).permutation(600)    # test split has 600 rows
+    rec_a, rec_b = {}, {}
+    raw_a = simulate(**kw, _record=rec_a)
+    # true harm permuted AFTER harm_hat is computed and frozen
+    raw_b = simulate(**kw, _record=rec_b, _eval_harm_transform=lambda h: h[perm])
+    assert rec_a and set(rec_a) == set(rec_b)
+    for key in rec_a:
+        np.testing.assert_array_equal(rec_a[key], rec_b[key], err_msg=str(key))
+    # welfare uses true tau, V only: identical.  Harm metrics must differ.
+    for key in raw_a:
+        assert raw_a[key]['welfare'] == raw_b[key]['welfare']
+    assert any(raw_a[k]['exposure'] != raw_b[k]['exposure'] for k in raw_a)
 
 
 def test_soft_gate_has_no_violation_rate_and_oracle_flag():
