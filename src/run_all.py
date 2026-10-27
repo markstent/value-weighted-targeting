@@ -102,6 +102,8 @@ def run_step(name, script, flags):
 # study_robustness reads (and, at a new run size, creates) the tuned-parameter file that
 # study_learners writes, so when both run it starts after study_learners finishes: the
 # tuning pilot is run once instead of twice in parallel.
+# Studies with their own worker pool (tuning pilot, scenarios) get --jobs too.
+INNER_PARALLEL = ('study_learners', 'study_robustness')
 AFTER = {'study_robustness': 'study_learners'}
 
 
@@ -115,7 +117,8 @@ def run_studies(studies, flags, jobs):
         if dep in done:
             done[dep].wait()
         try:
-            return run_step(s, f'{s}.py', flags)
+            extra = ['--jobs', str(jobs)] if s in INNER_PARALLEL and jobs > 1 else []
+            return run_step(s, f'{s}.py', flags + extra)
         finally:
             done[s].set()
 
