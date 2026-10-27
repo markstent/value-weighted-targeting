@@ -1,22 +1,25 @@
-"""
-Simulation study for v29 manuscript.
+"""Main simulation study: risk-modulated value-weighted targeting.
 
-Changes over v28:
-- Fixed: within-sample standardisation replaced with population parameters [M1]
-- Fixed: LTV proxy now uses misspecified functional form [C2]
-- Added: X-Learner CATE estimator for robustness [M4]
-- Added: S-Learner baseline replacing Single Model [C3]
-- Added: Correlated-feature DGP scenario [M9]
-- Added: Expanded calibration grid (22 configs including g~1) [M15]
-- Added: Holm-Bonferroni correction, TOST equivalence tests, Cohen's d [M3]
+Scenarios (all at seeds 42+7r, N_PLAYERS x N_RUNS unless overridden):
+main DGP with the T-learner (strategies, frontier, inverted-g misspecification,
+calibration summary, Holm-corrected paired tests), X-learner, CATE misspecification
+(with a TOST equivalence test, kept because it supports the equivalence claim),
+null and correlated DGPs, and the budget sensitivity sweep.  The hindsight and
+feasible tau*V oracle tables (oracle_main, oracle_budget) come from the same runs.
+Descriptive SDs across replications use ddof=1.
+
+Writes outputs/main.json (main_smoke.json with --smoke).
+Usage:  python study_main.py [--reps R] [--n-players N] [--smoke] [--verify-moments]
 """
+
+import argparse
 
 import numpy as np
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from scipy import stats as scipy_stats
 
-from core.io import save_json
+from core.io import add_common_args, resolve_run_size, save_json
 from core.dgp import (
     TREATMENT_PROB, POP_MEAN, POP_SD, DGP_SPEC, generate_main as generate_population,
     generate_null as generate_population_null,
@@ -178,6 +181,48 @@ def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
     return results, frontier, misspec, cal_config
 
 
+def _sd(values, ndigits=None):
+    """Descriptive SD across replications (sample SD, ddof=1); None for fewer than 2."""
+    values = np.asarray(values, dtype=float)
+    if len(values) < 2:
+        return None
+    sd = float(np.std(values, ddof=1))
+    return sd if ndigits is None else round(sd, ndigits)
+
+
+def _oracle_table(runs_by_name, reps, n):
+    """Oracle benchmarks at the default budget (unrounded).
+
+    Hindsight ranks on realised tau, V (includes idiosyncratic noise, so no
+    X-measurable rule reaches it); feasible ranks on E[tau|X] E[V|X].  Both are
+    oracle inputs, not estimators.  Welfare is evaluated on realised tau, V.
+    """
+    out = {'n_runs': reps, 'n_players': n, 'kappa': DEFAULT_BUDGET,
+           'n_mc': ORACLE_MC, 'strategies': {}}
+    for nm, runs in runs_by_name.items():
+        out['strategies'][nm] = {
+            'welfare_mean': float(np.mean([r['welfare'] for r in runs])),
+            'welfare_sd': _sd([r['welfare'] for r in runs]),
+            'ate_mean_pp': float(np.mean([r['ate'] for r in runs])),
+            'ate_sd_pp': _sd([r['ate'] for r in runs]),
+            'risk_mean': float(np.mean([r['risk_exposure'] for r in runs])),
+            'churn_mod_mean': float(np.mean([r['mean_churn_mod'] for r in runs])),
+        }
+    return out
+
+
+def _oracle_budget_table(budget_results, reps, n):
+    """Oracle welfare (unrounded) at every budget in BUDGET_FRACTIONS."""
+    out = {'n_runs': reps, 'n_players': n, 'n_mc': ORACLE_MC, 'strategies': {}}
+    for nm in ORACLE_STRATEGIES:
+        out['strategies'][nm] = {}
+        for kappa_str, strat_runs in budget_results.items():
+            w = [r['welfare'] for r in strat_runs[nm]]
+            out['strategies'][nm][kappa_str] = {
+                'welfare_mean': float(np.mean(w)), 'welfare_sd': _sd(w)}
+    return out
+
+
 def _aggregate_results(all_results, strategy_names):
     """Aggregate per-run results into summary statistics."""
     agg = {}
@@ -185,11 +230,11 @@ def _aggregate_results(all_results, strategy_names):
         runs = all_results[name]
         agg[name] = {
             'ate_mean': round(np.mean([r['ate'] for r in runs]), 1),
-            'ate_sd': round(np.std([r['ate'] for r in runs]), 1),
+            'ate_sd': _sd([r['ate'] for r in runs], 1),
             'welfare_mean': round(np.mean([r['welfare'] for r in runs]), 0),
-            'welfare_sd': round(np.std([r['welfare'] for r in runs]), 0),
+            'welfare_sd': _sd([r['welfare'] for r in runs], 0),
             'risk_mean': round(np.mean([r['risk_exposure'] for r in runs]), 3),
-            'risk_sd': round(np.std([r['risk_exposure'] for r in runs]), 3),
+            'risk_sd': _sd([r['risk_exposure'] for r in runs], 3),
             'mean_churn_mod': round(np.mean([r['mean_churn_mod'] for r in runs]), 3),
             'mean_ltv_cr': round(np.mean([r['mean_ltv_cr'] for r in runs]), 0),
         }
@@ -218,11 +263,14 @@ def run_main(reps=None, n=None, kappa=DEFAULT_BUDGET):
     return _aggregate_results(all_results, MAIN_STRATEGIES)
 
 
-def main():
+def run_study(reps=None, n=None):
+    """Run every scenario and return the output dict (written by main as main.json)."""
+    reps = N_RUNS if reps is None else reps
+    n = N_PLAYERS if n is None else n
     print("=" * 70)
-    print("SIMULATION STUDY v29: Risk-Modulated Targeting")
+    print("SIMULATION STUDY: Risk-Modulated Targeting")
     print("=" * 70)
-    print(f"N={N_PLAYERS}, Runs={N_RUNS}, Default budget={DEFAULT_BUDGET*100:.0f}%")
+    print(f"N={n}, Runs={reps}, Default budget={DEFAULT_BUDGET*100:.0f}%")
     print(f"Calibration grid: {len(THETA_GRID)} configs (including g~1 identity)")
 
     strategy_names = MAIN_STRATEGIES
@@ -238,11 +286,11 @@ def main():
     all_misspec = []
     all_cal_configs = []
 
-    for run in range(N_RUNS):
+    for run in range(reps):
         if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{N_RUNS}...")
+            print(f"  Run {run + 1}/{reps}...")
         seed = SEED_BASE + run * 7
-        results, frontier, misspec_inv, cal_cfg = run_single_simulation(seed)
+        results, frontier, misspec_inv, cal_cfg = run_single_simulation(seed, n_players=n)
         for name, res in results.items():
             all_results[name].append(res)
         all_frontiers.append(frontier)
@@ -259,9 +307,9 @@ def main():
         output['frontier'].append({
             'config': cfg_name,
             'welfare_mean': round(np.mean([f[i]['welfare'] for f in all_frontiers]), 0),
-            'welfare_sd': round(np.std([f[i]['welfare'] for f in all_frontiers]), 0),
+            'welfare_sd': _sd([f[i]['welfare'] for f in all_frontiers], 0),
             'risk_mean': round(np.mean([f[i]['risk_exposure'] for f in all_frontiers]), 3),
-            'risk_sd': round(np.std([f[i]['risk_exposure'] for f in all_frontiers]), 3),
+            'risk_sd': _sd([f[i]['risk_exposure'] for f in all_frontiers], 3),
             'mean_churn_mod': round(np.mean([f[i]['mean_churn_mod'] for f in all_frontiers]), 3),
         })
 
@@ -307,11 +355,11 @@ def main():
     # =====================================================================
     print("\n--- Scenario 2: Main DGP, X-Learner ---")
     xl_results = {s: [] for s in strategy_names}
-    for run in range(N_RUNS):
+    for run in range(reps):
         if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{N_RUNS}...")
+            print(f"  Run {run + 1}/{reps}...")
         seed = SEED_BASE + run * 7
-        results, _, _, _ = run_single_simulation(seed, cate_method='xlearner')
+        results, _, _, _ = run_single_simulation(seed, n_players=n, cate_method='xlearner')
         for name, res in results.items():
             xl_results[name].append(res)
     output['xlearner_results'] = _aggregate_results(xl_results, strategy_names)
@@ -332,12 +380,12 @@ def main():
     misspec_strats = ['CATE Only', 'CATE x LTV',
                       'Full Framework (Est.)', 'Full Framework (Cal.)']
     misspec_results = {s: [] for s in misspec_strats}
-    for run in range(N_RUNS):
+    for run in range(reps):
         if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{N_RUNS}...")
+            print(f"  Run {run + 1}/{reps}...")
         seed = SEED_BASE + run * 7
         results, _, _, _ = run_single_simulation(
-            seed, est_func=estimate_components_misspec)
+            seed, n_players=n, est_func=estimate_components_misspec)
         for name in misspec_strats:
             misspec_results[name].append(results[name])
 
@@ -346,7 +394,7 @@ def main():
         runs = misspec_results[name]
         output['cate_misspec'][name] = {
             'welfare_mean': round(np.mean([r['welfare'] for r in runs]), 0),
-            'welfare_sd': round(np.std([r['welfare'] for r in runs]), 0),
+            'welfare_sd': _sd([r['welfare'] for r in runs], 0),
             'ate_mean': round(np.mean([r['ate'] for r in runs]), 1),
         }
 
@@ -376,12 +424,12 @@ def main():
     # =====================================================================
     print("\n--- Scenario 4: CATE Misspecification, X-Learner ---")
     xl_misspec_results = {s: [] for s in misspec_strats}
-    for run in range(N_RUNS):
+    for run in range(reps):
         if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{N_RUNS}...")
+            print(f"  Run {run + 1}/{reps}...")
         seed = SEED_BASE + run * 7
         results, _, _, _ = run_single_simulation(
-            seed, est_func=estimate_components_misspec, cate_method='xlearner')
+            seed, n_players=n, est_func=estimate_components_misspec, cate_method='xlearner')
         for name in misspec_strats:
             xl_misspec_results[name].append(results[name])
 
@@ -390,7 +438,7 @@ def main():
         runs = xl_misspec_results[name]
         output['xlearner_misspec'][name] = {
             'welfare_mean': round(np.mean([r['welfare'] for r in runs]), 0),
-            'welfare_sd': round(np.std([r['welfare'] for r in runs]), 0),
+            'welfare_sd': _sd([r['welfare'] for r in runs], 0),
             'ate_mean': round(np.mean([r['ate'] for r in runs]), 1),
         }
     w_cal_xlm = [r['welfare'] for r in xl_misspec_results['Full Framework (Cal.)']]
@@ -406,12 +454,12 @@ def main():
     null_strats = ['CATE Only', 'CATE x LTV',
                    'Full Framework (Est.)', 'Full Framework (Cal.)']
     null_results = {s: [] for s in null_strats}
-    for run in range(N_RUNS):
+    for run in range(reps):
         if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{N_RUNS}...")
+            print(f"  Run {run + 1}/{reps}...")
         seed = SEED_BASE + run * 7
         results, _, _, _ = run_single_simulation(
-            seed, dgp_func=generate_population_null)
+            seed, n_players=n, dgp_func=generate_population_null)
         for name in null_strats:
             null_results[name].append(results[name])
 
@@ -420,7 +468,7 @@ def main():
         runs = null_results[name]
         output['null_dgp'][name] = {
             'welfare_mean': round(np.mean([r['welfare'] for r in runs]), 0),
-            'welfare_sd': round(np.std([r['welfare'] for r in runs]), 0),
+            'welfare_sd': _sd([r['welfare'] for r in runs], 0),
         }
     w_cal_null = [r['welfare'] for r in null_results['Full Framework (Cal.)']]
     w_ltv_null = [r['welfare'] for r in null_results['CATE x LTV']]
@@ -438,12 +486,12 @@ def main():
     corr_strats = ['CATE Only', 'CATE x LTV',
                    'Full Framework (Est.)', 'Full Framework (Cal.)']
     corr_results = {s: [] for s in corr_strats}
-    for run in range(N_RUNS):
+    for run in range(reps):
         if (run + 1) % 50 == 0:
-            print(f"  Run {run + 1}/{N_RUNS}...")
+            print(f"  Run {run + 1}/{reps}...")
         seed = SEED_BASE + run * 7
         results, _, _, _ = run_single_simulation(
-            seed, dgp_func=generate_population_correlated)
+            seed, n_players=n, dgp_func=generate_population_correlated)
         for name in corr_strats:
             corr_results[name].append(results[name])
 
@@ -452,7 +500,7 @@ def main():
         runs = corr_results[name]
         output['correlated_dgp'][name] = {
             'welfare_mean': round(np.mean([r['welfare'] for r in runs]), 0),
-            'welfare_sd': round(np.std([r['welfare'] for r in runs]), 0),
+            'welfare_sd': _sd([r['welfare'] for r in runs], 0),
             'ate_mean': round(np.mean([r['ate'] for r in runs]), 1),
         }
     w_cal_corr = [r['welfare'] for r in corr_results['Full Framework (Cal.)']]
@@ -472,9 +520,9 @@ def main():
     for kappa in BUDGET_FRACTIONS:
         print(f"  kappa={kappa}...")
         budget_results[str(kappa)] = {s: [] for s in strategy_names}
-        for run in range(N_RUNS):
+        for run in range(reps):
             seed = SEED_BASE + run * 7
-            results, _, _, _ = run_single_simulation(seed, budget_frac=kappa)
+            results, _, _, _ = run_single_simulation(seed, n_players=n, budget_frac=kappa)
             for name, res in results.items():
                 budget_results[str(kappa)][name].append(res)
 
@@ -487,6 +535,10 @@ def main():
                     'welfare_mean': round(np.mean([r['welfare'] for r in strat_runs[name]]), 0),
                     'ate_mean': round(np.mean([r['ate'] for r in strat_runs[name]]), 1),
                 }
+
+    output['oracle_main'] = _oracle_table(
+        {nm: all_results[nm] for nm in ORACLE_STRATEGIES}, reps, n)
+    output['oracle_budget'] = _oracle_budget_table(budget_results, reps, n)
 
     # Budget paired tests with Holm-Bonferroni
     for kappa_str, strat_runs in budget_results.items():
@@ -509,9 +561,9 @@ def main():
     # =====================================================================
     output['dgp'] = DGP_SPEC
     output['design'] = {
-        'n_players': N_PLAYERS, 'n_runs': N_RUNS,
+        'n_players': n, 'n_runs': reps,
         'default_budget': DEFAULT_BUDGET, 'treatment_prob': TREATMENT_PROB,
-        'budget_sensitivity_runs': N_RUNS,
+        'budget_sensitivity_runs': reps,
         'calibration_grid_size': len(THETA_GRID),
         'cate_estimators': ['T-Learner', 'X-Learner'],
         'corrections': ['Holm-Bonferroni', 'TOST (equivalence)'],
@@ -579,8 +631,7 @@ def main():
         print(f"    Cal vs LTV: diff={cl.get('mean_diff', 0):+,.0f}, "
               f"p_holm={cl.get('p_holm', 1):.4f}")
 
-    output_path = save_json(output, 'simulation_v29.json')
-    print(f"\nResults saved to {output_path}")
+    return output
 
 
 def verify_population_moments():
@@ -598,6 +649,19 @@ def verify_population_moments():
               f"sd={vals.std():.4f} (coded {POP_SD[name]})")
 
 
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    add_common_args(parser)
+    parser.add_argument('--verify-moments', action='store_true',
+                        help='also check the hardcoded population moments (N=2M draw)')
+    args = parser.parse_args(argv)
+    reps, n = resolve_run_size(args, N_RUNS, N_PLAYERS)
+    if args.verify_moments:
+        verify_population_moments()
+    output = run_study(reps, n)
+    name = 'main_smoke.json' if args.smoke else 'main.json'
+    print(f"\nResults saved to {save_json(output, name)}")
+
+
 if __name__ == '__main__':
-    verify_population_moments()
     main()

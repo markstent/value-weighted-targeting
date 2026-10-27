@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from core.dgp import generate_null
-from simulation_v38 import SEED_BASE, run_main, run_single_simulation
+from study_main import SEED_BASE, run_main, run_single_simulation
 
 GOLDEN = json.loads((Path(__file__).parent / 'golden' / 'main_smoke.json').read_text())
 DGP_FUNCS = {'main': None, 'null': generate_null}

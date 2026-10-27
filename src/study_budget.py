@@ -43,7 +43,7 @@ import argparse
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import DGPS, FEATURE_NAMES, conditional_means
 from core.estimators import (
     BOOT_STREAM, ORACLE_STREAM, _estimate_cate_slearner, _estimate_cate_tlearner,
@@ -53,7 +53,7 @@ from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import compute_welfare, target_topk
 from core.stats import holm_bonferroni, paired_test_raw, t_mean_ci as _t_ci
 
-# Rounded so int(n * kappa) is identical to the grid the published v44 numbers used.
+# Rounded so int(n * kappa) is identical to the grid the published legacy numbers used.
 budget_grid = np.round(np.arange(0.05, 0.501, 0.025), 3)
 REPORTED_BUDGETS = (0.10, 0.20, 0.30, 0.50)
 TAU_SOURCES = ('oracle', 'T', 'X', 'S')
@@ -227,7 +227,7 @@ def summarise(raw, grid=budget_grid, n_boot=N_BOOT):
 
 
 def run_budget_inference(dgp_name, label, reps, n_players=N_PLAYERS):
-    """The legacy v44 budget table (T-learner tau_hat, misspecified V) for one DGP.
+    """The legacy budget table (T-learner tau_hat, misspecified V) for one DGP.
 
     Same cell as the paper's CATE only vs CATE x LTV comparison; Holm runs across
     all kappa of the grid, not the four reported budgets."""
@@ -275,7 +275,7 @@ def main(argv=None):
                         'n_boot': N_BOOT, 'tau_sources': list(TAU_SOURCES),
                         'v_sources': list(V_SOURCES), 'dgp': 'main'}
     _print_table(summary)
-    print(f"Saved {save_json(summary, 'budget_2x2.json')}")
+    print(f"Saved {save_json(summary, 'budget_2x2_smoke.json' if args.smoke else 'budget_2x2.json')}")
 
 
 if __name__ == '__main__':

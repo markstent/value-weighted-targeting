@@ -2,8 +2,8 @@
 
 One function per scenario, each returning a JSON-ready dict; main() runs them all and
 writes robustness.json (robustness_smoke.json with --smoke), one top-level key per
-scenario.  Absorbs and replaces compute_revision_additions.py, compute_v42..v45_additions.py
-(the budget section of v44 and the harm gate of v40/v42 already live in study_budget.py
+scenario.  Absorbs and replaces the legacy compute_* add-on scripts
+(the budget and harm-gate sections already live in study_budget.py
 and study_harm.py).
 
 Common conventions (all scenarios)
@@ -22,7 +22,7 @@ Common conventions (all scenarios)
   * Oracle rows come in two kinds: "Oracle hindsight" ranks on the realised tau * V
     (unreachable by any X-measurable rule) and "Oracle feasible" ranks on
     E[tau|X] E[V|X] from core.dgp.conditional_means (corr_gamma gets gamma and the
-    full-sample tau_base moments, as simulation_v38 does).  Both use g = 1.  This
+    full-sample tau_base moments, as study_main does).  Both use g = 1.  This
     changes the legacy "Oracle hindsight (theta0)" row, which applied the default
     risk modulation to the oracle churn; Proposition 3 makes g = 1 the right oracle.
   * Calibration (asym, effective_welfare, aipw_calibration) is core.policy.
@@ -35,7 +35,7 @@ Common conventions (all scenarios)
     holm_family_size, the definition holm_family).  Nothing stored is rounded.
 
 Scenarios
-  slearner_scenarios (v40 B, extended)  CATE x LTV vs CATE Only vs the S-learner on the
+  slearner_scenarios  CATE x LTV vs CATE Only vs the S-learner on the
       main DGP, the null DGP (no CATE-churn interaction), the correlated-feature DGP
       and the misspec cell (main DGP, login_freq dropped from the T-learner CATE model
       in both arms, S-learner keeping all features; the S-learner is a joint model over
@@ -43,24 +43,24 @@ Scenarios
       but its comparison with the login-dropped decomposition is what the paper
       contrasts).  Comparisons: CATE x LTV vs CATE Only, S-Learner vs CATE x LTV,
       tuned vs default CATE x LTV, Oracle feasible vs CATE x LTV.
-  asym (v40 A)  The same strategies on the asymmetric-moderation DGP (tau attenuates
+  asym  The same strategies on the asymmetric-moderation DGP (tau attenuates
       faster at high churn) plus Full Framework (Est.) (default theta) and Full
       Framework (Cal.) (AIPW-calibrated), with how often calibration chose the
       near-identity config.  Adds Cal. vs CATE x LTV comparisons.
-  effective_welfare (v40 C)  Main DGP: welfare scored on nominal tau (the headline) and
+  effective_welfare  Main DGP: welfare scored on nominal tau (the headline) and
       on the realised clip-adjusted tau_eff = y1_prob - y0_prob ("[effective]"), with
       the overstatement ("[overstatement]" = nominal minus effective, per replication).
       Comparisons: nominal vs effective per strategy; each strategy's overstatement
       vs CATE Only's (non-differential bias).  pct_overstate = 100 (nominal -
       effective) / effective of the means, as in the legacy table.
-  component_update (v42 A)  Holding tau_hat fixed, swap the misspecified value model for
+  component_update  Holding tau_hat fixed, swap the misspecified value model for
       a well-specified one; the welfare recovery is the value of in-place component
       updates.  Comparison per arm: well-specified vs misspecified V.
-  corr_sweep (v43 A)  V <- V + gamma * 180 * z(tau_base), gamma in {-1, 0, 1}: does the
+  corr_sweep  V <- V + gamma * 180 * z(tau_base), gamma in {-1, 0, 1}: does the
       value-weighting advantage survive competing value signal?  Reports the sample
       corr(tau, V) and the LTV-weighting advantage in percent.
-  heavy_tail (v43 B)  Multiplicative log-normal LTV (orders-of-magnitude spread).
-  obs_diagnostic (v43 C)  Plug-in regret diagnostic.  Over the misranked set M (top-k by
+  heavy_tail  Multiplicative log-normal LTV (orders-of-magnitude spread).
+  obs_diagnostic  Plug-in regret diagnostic.  Over the misranked set M (top-k by
       the deployed rule XOR top-k by a reference rule) the telescoping terms are
       |tau_ref - tau_hat| |V_hat| (CATE) and |tau_hat| |V_ref - V_hat| (value).  The
       observable reference is a cross-fitted X-learner tau with a richer value model;
@@ -69,24 +69,24 @@ Scenarios
       (full-feature T-learner) and misspec (login dropped from the CATE model).
       Comparison per arm and reference: per-replication CATE share (percent) misspec
       vs wellspec, over replications where both have a non-empty M.  The reported
-      share (cate_share_pct) is, as in v43, of the replication-mean terms.
-  aipw_calibration (v44 B)  Main DGP, kappa 0.30: identity-selection rate and chosen
+      share (cate_share_pct) is of the replication-mean terms.
+  aipw_calibration  Main DGP, kappa 0.30: identity-selection rate and chosen
       configs of the AIPW and the plug-in calibration objectives (the plug-in always
       picks identity: top-k tautology), and the true-welfare gain of each calibrated rule
       over the identity rule (CATE x LTV).  Comparisons: calibrated vs identity.  The two
       plug-in comparisons are exactly zero by construction; they stay in the output
       with "degenerate": true and p_holm None and are NOT in the Holm family.
-  adversarial (v44 C)  Adversarial CATE misspecification on the adv DGP (tau also depends
+  adversarial  Adversarial CATE misspecification on the adv DGP (tau also depends
       on bonus_history, which is absent from V): drop bonus_history from the CATE model
       so the value model cannot recover it, at kappa 0.30 and 0.10, with the
       well-specified (all-feature) reference and the all-feature S-learner.
-  like_for_like (v45)  The S-learner (all features) vs the S-learner missing the SAME
+  like_for_like  The S-learner (all features) vs the S-learner missing the SAME
       feature dropped from the decomposed CATE model (login on the main DGP,
       bonus_history on the adv DGP), and the same drop for both T-learner arms.  The
       value model keeps all features throughout.  Comparison: all features vs dropped.
 
 Definition changes against the legacy scripts: the two oracle rows above; the tuned arms;
-p-values and Holm everywhere; unrounded storage; the v44 per-seed plug-in/AIPW
+p-values and Holm everywhere; unrounded storage; the legacy per-seed plug-in/AIPW
 cost CI is now the paired t-interval.
 
 Usage:  python study_robustness.py [--reps R] [--n-players N] [--smoke] [--jobs J] [--retune]
@@ -104,7 +104,7 @@ from scipy import stats as scipy_stats
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 
-from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import (
     DGPS, FEATURE_NAMES, conditional_means, dgp_spec, generate_adv, make_corr_dgp,
     tau_base_stats,
@@ -123,7 +123,7 @@ from study_learners import load_or_tune, welfare_at_kappa
 
 KAPPA = DEFAULT_BUDGET
 ADV_KAPPAS = (0.30, 0.10)
-ORACLE_MC = 400            # noise draws per unit for the feasible oracle (as simulation_v38)
+ORACLE_MC = 400            # noise draws per unit for the feasible oracle (as study_main)
 ARMS = ('default', 'tuned')
 ORACLES = ('Oracle hindsight', 'Oracle feasible')
 ADV_DROP_COLS = [0, 1, 2]   # bonus_history (index 3) dropped from the CATE model

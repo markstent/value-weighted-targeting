@@ -172,7 +172,7 @@ def _estimate_slearner(X_train, X_test, W_train, Y_train, ltv_hat):
 def _wellspec_value_model(Xtr, Xte, seed):
     """A correctly-specified value model: trained on the true LTV functional form."""
     rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V42))
-    # True DGP LTV form: 10*spend + 40*login + 5*age (cf. simulation_v38 eq for V).
+    # True DGP LTV form: 10*spend + 40*login + 5*age (cf. study_main eq for V).
     target = (10 * Xtr[:, 1] + 40 * Xtr[:, 2] + 5 * Xtr[:, 0]
               + rng_v.normal(0, 80, len(Xtr))).clip(50, 8000)
     m = GradientBoostingRegressor(

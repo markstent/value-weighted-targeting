@@ -59,7 +59,7 @@ import numpy as np
 from scipy import stats as scipy_stats
 from sklearn.model_selection import train_test_split
 
-from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import (
     C_HARM_GRID, FEATURE_NAMES, conditional_means, draw_harm, generate_harm,
 )
@@ -297,7 +297,7 @@ def main(argv=None):
                         'n_boot': N_BOOT, 'c_harm': list(C_HARM_GRID),
                         'sigma_h': list(SIGMA_H_GRID), 'kappa': list(KAPPA_GRID)}
     _print_table(summary)
-    print(f"Saved {save_json(summary, 'harm_sweep.json')}")
+    print(f"Saved {save_json(summary, 'harm_sweep_smoke.json' if args.smoke else 'harm_sweep.json')}")
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ from core.dgp import (DGPS, FEATURE_NAMES, conditional_means, draw_features,
                       generate_main, make_corr_dgp, structural_main, structural_null,
                       tau_base_stats)
 from core.policy import compute_welfare, f_churn_vec, target_topk
-from simulation_v38 import SEED_BASE
+from study_main import SEED_BASE
 
 
 def _features(data):
@@ -78,7 +78,7 @@ def test_chunking_is_statistically_equivalent():
 
 
 def test_simulation_reports_both_oracles():
-    from simulation_v38 import run_single_simulation
+    from study_main import run_single_simulation
     res = run_single_simulation(SEED_BASE, n_players=1500)[0]
     for name in ('Oracle hindsight (g=1)', 'Oracle feasible (g=1)',
                  'Oracle feasible (theta0)'):
@@ -154,7 +154,7 @@ def test_corr_gamma_uses_generating_sample_moments_and_gamma():
 
 
 def test_simulation_threads_gamma_and_rejects_unknown_dgp():
-    from simulation_v38 import run_single_simulation
+    from study_main import run_single_simulation
     res = run_single_simulation(SEED_BASE, n_players=1200,
                                 dgp_func=make_corr_dgp(1.0))[0]
     assert 'Oracle feasible (g=1)' in res

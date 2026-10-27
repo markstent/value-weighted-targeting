@@ -1,9 +1,9 @@
-"""Generate the three figures referenced in manuscript_v39.tex.
+"""Generate the three figures referenced in the manuscript.
 
-Reads outputs/simulation_v29.json for empirical numbers. Produces vector PDFs
+Reads outputs/main.json for empirical numbers. Produces vector PDFs
 in docs/figures/. Re-run with:
 
-    python src/figures_v39.py
+    python src/make_figures.py
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 REPO = Path(__file__).resolve().parents[1]
-DATA = REPO / "outputs" / "simulation_v29.json"
+DATA = REPO / "outputs" / "main.json"
 FIGDIR = REPO / "docs" / "figures"
 FIGDIR.mkdir(parents=True, exist_ok=True)
 

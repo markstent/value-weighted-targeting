@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 import study_learners as sl
-from simulation_v38 import N_RUNS, SEED_BASE
+from study_main import N_RUNS, SEED_BASE
 
 TINY_GRID = [{'max_depth': 2, 'n_estimators': 20, 'learning_rate': 0.1},
              {'max_depth': 3, 'n_estimators': 40, 'learning_rate': 0.1}]

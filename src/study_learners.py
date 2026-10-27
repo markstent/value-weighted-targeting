@@ -1,7 +1,7 @@
 """CATE learner (T/X/S/DR/R) x value model comparison with frozen tuning, plus an
 order-free regret split.
 
-Replaces compute_v41_additions.py (the telescoping diagnostic and the end-to-end
+Replaces the legacy add-on scripts (the telescoping diagnostic and the end-to-end
 model both live here now) and compute_depth_ablation.py, whose depth-matched
 S/T comparison is superseded by the tuned comparison below.  (The like-for-like feature
 drop now lives in study_robustness.py.)
@@ -18,7 +18,7 @@ misspecified proxy) and wellspec.  Rules: tau_hat * V_hat ("tauV") and tau_hat
 alone ("tau"), which ignores V and so is scored once per learner with no value-model
 dimension.  Every learner and value model is fitted ONCE per replication and
 reused across rules, kappas, the regret split and the diagnostic.  "E2E" is the
-end-to-end model of v41 (one model trained on V_proxy * Y, scored by the
+end-to-end model of the legacy add-on (one model trained on V_proxy * Y, scored by the
 treated-minus-control difference); its definition is unchanged and it is not tuned.
 Welfare is always evaluated on the realised TRUE tau and V of the test split.
 "oracle" always means the feasible E[tau|X], E[V|X] of core.dgp.conditional_means.
@@ -51,7 +51,7 @@ Regret split (kappa = 0.30): core.policy.regret_split against the oracle
 (tau_bar, ltv_bar), per learner x params x value model: Shapley CATE/value shares
 that do not depend on the telescoping order, plus both single-path splits.
 
-Diagnostic (from v41): over the misranked set M = oracle top-k XOR estimated top-k,
+Diagnostic: over the misranked set M = oracle top-k XOR estimated top-k,
 the telescoping bound terms |tau - tau_hat| |V| (CATE) and |tau_hat| |V - V_hat|
 (value) and the CATE share, for the full-feature T-learner and for one with login
 dropped from its features (CATE misspecification); V_hat is the misspec proxy.
@@ -70,7 +70,7 @@ from joblib import Parallel, delayed
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold, train_test_split
 
-from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import DGPS, FEATURE_NAMES, conditional_means
 from core.estimators import (
     CROSSFIT_STREAM, DEFAULT_PARAMS, LTV_STREAM, ORACLE_STREAM,
@@ -247,7 +247,7 @@ def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
 
 
 # ---------------------------------------------------------------------------
-# End-to-end model and diagnostic (from v41)
+# End-to-end model and diagnostic
 # ---------------------------------------------------------------------------
 def end_to_end_score(Xtr, Xte, Wtr, Ytr, seed):
     """E2E: one model trained on V_proxy * Y with treatment as a feature, scored by the

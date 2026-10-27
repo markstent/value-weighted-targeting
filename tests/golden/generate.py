@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 
 from core.dgp import generate_null  # noqa: E402
-from simulation_v38 import SEED_BASE, run_single_simulation  # noqa: E402
+from study_main import SEED_BASE, run_single_simulation  # noqa: E402
 
 REPS, N, KAPPA = 3, 2000, 0.30
 CASES = {'main': None, 'null': generate_null}

@@ -220,8 +220,7 @@ def test_main_writes_one_key_per_scenario(tmp_path, monkeypatch):
 
 
 def test_legacy_scripts_deleted_and_nothing_imports_them():
-    gone = ['compute_revision_additions', 'compute_v42_additions',
-            'compute_v43_additions', 'compute_v44_additions', 'compute_v45_additions']
+    gone = ['compute_revision_additions'] + [f'compute_v{v}_additions' for v in range(42, 46)]
     for g in gone:
         assert not (ROOT / 'src' / f'{g}.py').exists()
     pat = re.compile(r'^\s*(from|import)\s+(' + '|'.join(gone) + r')\b', re.M)
@@ -238,7 +237,7 @@ def test_no_em_dash_in_module():
 # ---------------------------------------------------------------------------
 def test_asym_default_arm_equals_run_single_simulation():
     from core.dgp import generate_asym
-    from simulation_v38 import SEED_BASE, run_single_simulation
+    from study_main import SEED_BASE, run_single_simulation
     res = run_single_simulation(SEED_BASE, dgp_func=generate_asym, n_players=N)[0]
     w = sr._dgp_rep(SEED_BASE, dgp_func=generate_asym, n_players=N, tuned=TUNED,
                     kappa=0.30, calibrate=True)['w']
@@ -263,7 +262,7 @@ def test_component_update_equals_direct_estimator_calls():
     from core.dgp import generate_main
     from core.estimators import _wellspec_value_model, estimate_components
     from core.policy import compute_welfare, target_topk
-    from simulation_v38 import SEED_BASE
+    from study_main import SEED_BASE
     data, tr, te = _legacy_rep(generate_main, SEED_BASE)
     tau_hat, v_mis, _ = estimate_components(data, tr, te, seed=SEED_BASE)
     v_well = _wellspec_value_model(data['features'][tr], data['features'][te], SEED_BASE)
@@ -279,7 +278,7 @@ def test_component_update_equals_direct_estimator_calls():
 def test_obs_diagnostic_misspec_arm_equals_estimate_components_misspec():
     from core.dgp import generate_main
     from core.estimators import estimate_components_misspec
-    from simulation_v38 import SEED_BASE
+    from study_main import SEED_BASE
     data, tr, te = _legacy_rep(generate_main, SEED_BASE)
     tau_hat, v_hat, _ = estimate_components_misspec(data, tr, te, seed=SEED_BASE)
     k = int(len(te) * 0.30)
