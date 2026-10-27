@@ -51,10 +51,10 @@ docs/
   review_v39/                     Simulated peer-review package that drove the revisions
 src/
   simulation_v38.py               Core simulation (all scenarios, calibration, robustness)
-  compute_depth_ablation.py       Depth-matched S-Learner / T-Learner ablation
   compute_revision_additions.py   Asymmetric DGP, S-Learner in misspec/null, clip-adjusted
                                   welfare, harm gate
-  compute_v41_additions.py        Regret-decomposition diagnostic; end-to-end joint model
+  study_learners.py               CATE learner (T/X/S/DR/R) x value model comparison with frozen
+                                  tuning; order-free regret split; diagnostic; E2E model
   compute_v42_additions.py        Component-wise update; hard harm constraint vs soft gate
   compute_v43_additions.py        corr(tau,V) sweep; heavy-tailed LTV; observational diagnostic
   compute_v44_additions.py        Budget-sensitivity inference + crossover kappa*; AIPW
@@ -80,12 +80,11 @@ python src/simulation_v38.py
 
 # revision add-ons (each writes a JSON to outputs/)
 python src/compute_revision_additions.py    # asymmetric DGP, harm gate, clip-adjusted welfare
-python src/compute_v41_additions.py         # diagnostic + end-to-end joint model
+python src/study_learners.py                # CATE learner comparison, tuning, regret split, diagnostic
 python src/compute_v42_additions.py         # component update + hard harm constraint
 python src/compute_v43_additions.py         # corr(tau,V) sweep, heavy-tail LTV, plug-in diagnostic
 python src/compute_v44_additions.py         # budget inference + kappa*, AIPW calibration, adversarial misspec
 python src/compute_v45_additions.py         # like-for-like joint model (same feature dropped)
-python src/compute_depth_ablation.py        # depth-matched ablation
 ```
 
 ## Building the PDF

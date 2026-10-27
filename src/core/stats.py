@@ -93,3 +93,13 @@ def paired_test(w1, w2, label=None):
         'cohens_d': round(r['cohens_d'], 3),
         'ci_95': [round(r['ci_95'][0], 0), round(r['ci_95'][1], 0)],
     }
+
+
+def t_mean_ci(x):
+    """{'mean', 'ci95'} of a sample: unrounded mean with a t-interval (ci95 None for n < 2)."""
+    x = np.asarray(x, dtype=float)
+    m = float(x.mean())
+    if len(x) < 2:
+        return {'mean': m, 'ci95': None}
+    half = scipy_stats.t.ppf(0.975, df=len(x) - 1) * x.std(ddof=1) / np.sqrt(len(x))
+    return {'mean': m, 'ci95': [m - half, m + half]}

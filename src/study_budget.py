@@ -41,7 +41,6 @@ Usage:  python study_budget.py [--reps R] [--n-players N] [--smoke]
 import argparse
 
 import numpy as np
-from scipy import stats as scipy_stats
 from sklearn.model_selection import train_test_split
 
 from simulation_v38 import N_PLAYERS, N_RUNS, SEED_BASE
@@ -52,7 +51,7 @@ from core.estimators import (
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import compute_welfare, target_topk
-from core.stats import holm_bonferroni, paired_test_raw
+from core.stats import holm_bonferroni, paired_test_raw, t_mean_ci as _t_ci
 
 # Rounded so int(n * kappa) is identical to the grid the published v44 numbers used.
 budget_grid = np.round(np.arange(0.05, 0.501, 0.025), 3)
@@ -192,15 +191,6 @@ def bootstrap_crossover(diff, grid, n_boot=N_BOOT, seed=0):
         res['ci95_conditional_on_crossing'] = [float(np.percentile(c, 2.5)),
                                                float(np.percentile(c, 97.5))]
     return res
-
-
-def _t_ci(x):
-    x = np.asarray(x, dtype=float)
-    m = float(x.mean())
-    if len(x) < 2:
-        return {'mean': m, 'ci95': None}
-    half = scipy_stats.t.ppf(0.975, df=len(x) - 1) * x.std(ddof=1) / np.sqrt(len(x))
-    return {'mean': m, 'ci95': [m - half, m + half]}
 
 
 def paired_inference(w_tauv, w_tau, grid):

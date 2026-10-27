@@ -83,12 +83,14 @@ DEFAULT_THETA_IDX = 3  # pL=0.05, pML=0.40, pMH=0.60, phi=0.20
 PROPENSITY = 0.5  # known randomised assignment probability
 
 
-def aipw_scores(X, W, Y, seed, n_folds=2, e=PROPENSITY):
+def aipw_scores(X, W, Y, seed, n_folds=2, e=PROPENSITY, params=None):
     """Doubly-robust scores Gamma_i on a fold, with cross-fitted outcome models.
 
     Gamma = mu1 - mu0 + W (Y - mu1) / e - (1 - W) (Y - mu0) / (1 - e);
     the propensity e is known, so only mu0 and mu1 are estimated.  Each unit's
-    mu1, mu0 come from models fit on the other folds."""
+    mu1, mu0 come from models fit on the other folds.  params: optional
+    {max_depth, n_estimators, learning_rate} for the outcome models (default
+    depth 3, 100 trees, rate 0.1)."""
     from core.estimators import CROSSFIT_STREAM, seed_from
     n = len(Y)
     m1 = np.empty(n)
@@ -102,8 +104,9 @@ def aipw_scores(X, W, Y, seed, n_folds=2, e=PROPENSITY):
             if len(np.unique(y_arm)) < 2:   # degenerate arm: constant outcome model
                 out[pred] = float(y_arm.mean()) if len(y_arm) else 0.5
                 continue
-            model = GradientBoostingClassifier(
-                n_estimators=100, max_depth=3, learning_rate=0.1, random_state=0)
+            kw = ({'n_estimators': 100, 'max_depth': 3, 'learning_rate': 0.1}
+                  if params is None else params)
+            model = GradientBoostingClassifier(random_state=0, **kw)
             model.fit(X[sel], y_arm)
             out[pred] = model.predict_proba(X[pred])[:, 1]
     return (m1 - m0) + W / e * (Y - m1) - (1 - W) / (1 - e) * (Y - m0)
@@ -166,3 +169,48 @@ def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2,
     """Single-objective calibration; see calibrate_theta_all."""
     return calibrate_theta_all(data, train_idx, seed, kappa, (objective,), n_folds,
                                est_func, cate_method)[objective]
+
+
+def regret_split(tau_ref, ltv_ref, tau_hat, ltv_hat, tau_true, ltv_true, k):
+    """Order-free split of welfare regret into CATE error and value-model error.
+
+    W(a, b) is the realised TRUE welfare (tau_true, ltv_true) of the top-k set by
+    the score a*b.  R(a, b) = W(tau_ref, ltv_ref) - W(a, b).  The reference is the
+    feasible oracle (tau_bar, ltv_bar), so R(ref, ref) = 0 by construction and the
+    total regret is R(tau_hat, ltv_hat).
+
+    Two single-path telescoping splits, each assigning the interaction to
+    whichever component moves second:
+      order_a: CATE first at the estimated value model, then the value model at
+               the reference CATE.
+      order_b: value model first at the estimated CATE, then CATE at the
+               reference value model.
+    shapley averages them (phi_tau, phi_v), so it does not depend on the order
+    and phi_tau + phi_v = total.  Shares are normalised by the total and sum to 1;
+    they are NOT bounded to [0, 1] (the paths can have opposite signs).  If the
+    total is exactly 0 the shares are NaN and zero_denominator is True."""
+    def regret(a, b):
+        return W_ref - compute_welfare(target_topk(a * b, k), tau_true, ltv_true)
+
+    W_ref = compute_welfare(target_topk(tau_ref * ltv_ref, k), tau_true, ltv_true)
+    r_hh = regret(tau_hat, ltv_hat)
+    r_rh = regret(tau_ref, ltv_hat)
+    r_hr = regret(tau_hat, ltv_ref)
+    r_rr = regret(tau_ref, ltv_ref)
+    total = r_hh - r_rr
+    a_tau, a_v = r_hh - r_rh, r_rh - r_rr
+    b_v, b_tau = r_hh - r_hr, r_hr - r_rr
+    phi_tau, phi_v = 0.5 * (a_tau + b_tau), 0.5 * (a_v + b_v)
+    zero = bool(total == 0)
+
+    def shares(t, v):
+        if zero:
+            return {'tau_share': float('nan'), 'v_share': float('nan'),
+                    'tau': float(t), 'v': float(v)}
+        return {'tau_share': float(t / total), 'v_share': float(v / total),
+                'tau': float(t), 'v': float(v)}
+
+    return {'order_a': shares(a_tau, a_v), 'order_b': shares(b_tau, b_v),
+            'shapley': shares(phi_tau, phi_v),
+            'phi_tau': float(phi_tau), 'phi_v': float(phi_v), 'total': float(total),
+            'zero_denominator': zero}
