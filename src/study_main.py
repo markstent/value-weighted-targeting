@@ -42,7 +42,7 @@ from core.policy import (
     target_topk, calibrate_theta_all,
 )
 from core.stats import (
-    holm_bonferroni, tost_paired, paired_test, t_mean_ci,
+    holm_bonferroni, tost_paired, paired_test_raw as paired_test, t_mean_ci,
 )
 
 # --- Configuration ---
@@ -258,26 +258,43 @@ def _efficiency_table(all_results, reps, n):
     replication and then averaged (mean of ratios, t-interval), never a ratio of means.
 
     level_ratio = W_rule / W_oracle;  normalized = (W_rule - W_random) / (W_oracle - W_random)
-    (0 = random targeting, 1 = the feasible oracle).  Replications whose denominator is not
-    positive are excluded and counted.  'feasible_over_hindsight' = W_feasible / W_hindsight."""
+    (0 = random targeting, 1 = the feasible oracle).  Every replication must have a positive
+    denominator (about 6,100 against an SD of about 480 at full size); otherwise this raises.  'feasible_over_hindsight' = W_feasible / W_hindsight."""
     def w(name):
         return np.array([r['welfare'] for r in all_results[name]], dtype=float)
 
-    oracle, rand = w(EFFICIENCY_ORACLE), w('Random')
+    oracle, rand, hind = w(EFFICIENCY_ORACLE), w('Random'), w('Oracle hindsight (g=1)')
     out = {'n_runs': reps, 'n_players': n, 'kappa': DEFAULT_BUDGET, 'oracle': EFFICIENCY_ORACLE,
            'definition': 'mean over replications of the per-replication ratio',
            'rules': {}}
-    ok = (oracle - rand) > 0
+    if not (oracle > 0).all() or not (oracle - rand > 0).all() or not (hind > 0).all():
+        raise ValueError('efficiency: a replication has a non-positive feasible-oracle welfare, '
+                         'feasible minus random, or hindsight welfare; the ratios would be '
+                         'undefined and no replication may be dropped silently')
     for rule in EFFICIENCY_RULES:
         wr = w(rule)
         out['rules'][rule] = {
-            'level_ratio': t_mean_ci(wr[oracle > 0] / oracle[oracle > 0]),
-            'normalized': t_mean_ci((wr[ok] - rand[ok]) / (oracle[ok] - rand[ok])),
-            'n_normalized': int(ok.sum()),
+            'level_ratio': t_mean_ci(wr / oracle),
+            'normalized': t_mean_ci((wr - rand) / (oracle - rand)),
         }
-    hind = w('Oracle hindsight (g=1)')
-    out['feasible_over_hindsight'] = t_mean_ci(oracle[hind > 0] / hind[hind > 0])
+    out['feasible_over_hindsight'] = t_mean_ci(oracle / hind)
     return out
+
+
+def _budget_paired(strat_runs, kappa_str):
+    """Cal. vs CATE x LTV and vs CATE Only at one budget; unrounded, with Holm run on the
+    unrounded raw p-values (a p of 0.00096 must stay below 0.001)."""
+    w_cal = [r['welfare'] for r in strat_runs['Full Framework (Cal.)']]
+    w_ltv = [r['welfare'] for r in strat_runs['CATE x LTV']]
+    w_cate = [r['welfare'] for r in strat_runs['CATE Only']]
+    bp = {
+        'cal_vs_ltv': paired_test(w_cal, w_ltv, f'{kappa_str} cal vs ltv'),
+        'cal_vs_cate_only': paired_test(w_cal, w_cate, f'{kappa_str} cal vs cate'),
+    }
+    corrected = holm_bonferroni([bp['cal_vs_ltv']['p_value'], bp['cal_vs_cate_only']['p_value']])
+    bp['cal_vs_ltv']['p_holm'] = float(corrected[0])
+    bp['cal_vs_cate_only']['p_holm'] = float(corrected[1])
+    return bp
 
 
 def _run_batch(reps, n_jobs=1, **kwargs):
@@ -390,7 +407,7 @@ def run_study(reps=None, n=None, n_jobs=1):
     corrected = holm_bonferroni(raw_pvalues)
     for i, (s1, s2) in enumerate(comparisons):
         label = f'{s1} vs {s2}'
-        paired_tests[label]['p_holm'] = round(float(corrected[i]), 4)
+        paired_tests[label]['p_holm'] = float(corrected[i])
     output['paired_tests'] = paired_tests
 
     # =====================================================================
@@ -445,8 +462,8 @@ def run_study(reps=None, n=None, n_jobs=1):
     ms_raw_p = [ms_paired['cal_vs_cate']['p_value'],
                 ms_paired['cal_vs_ltv']['p_value']]
     ms_corrected = holm_bonferroni(ms_raw_p)
-    ms_paired['cal_vs_cate']['p_holm'] = round(float(ms_corrected[0]), 4)
-    ms_paired['cal_vs_ltv']['p_holm'] = round(float(ms_corrected[1]), 4)
+    ms_paired['cal_vs_cate']['p_holm'] = float(ms_corrected[0])
+    ms_paired['cal_vs_ltv']['p_holm'] = float(ms_corrected[1])
 
     # TOST for equivalence claim [M3]
     cate_only_mean = np.mean([r['welfare'] for r in misspec_results['CATE Only']])
@@ -564,18 +581,7 @@ def run_study(reps=None, n=None, n_jobs=1):
 
     # Budget paired tests with Holm-Bonferroni
     for kappa_str, strat_runs in budget_results.items():
-        w_cal = [r['welfare'] for r in strat_runs['Full Framework (Cal.)']]
-        w_ltv = [r['welfare'] for r in strat_runs['CATE x LTV']]
-        w_cate = [r['welfare'] for r in strat_runs['CATE Only']]
-        bp = {
-            'cal_vs_ltv': paired_test(w_cal, w_ltv, f'{kappa_str} cal vs ltv'),
-            'cal_vs_cate_only': paired_test(w_cal, w_cate, f'{kappa_str} cal vs cate'),
-        }
-        raw_p = [bp['cal_vs_ltv']['p_value'], bp['cal_vs_cate_only']['p_value']]
-        corrected = holm_bonferroni(raw_p)
-        bp['cal_vs_ltv']['p_holm'] = round(float(corrected[0]), 4)
-        bp['cal_vs_cate_only']['p_holm'] = round(float(corrected[1]), 4)
-        budget_paired[kappa_str] = bp
+        budget_paired[kappa_str] = _budget_paired(strat_runs, kappa_str)
     output['budget_paired_tests'] = budget_paired
 
     # =====================================================================

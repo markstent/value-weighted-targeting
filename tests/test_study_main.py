@@ -44,6 +44,37 @@ def test_efficiency_is_mean_of_per_rep_ratios():
     assert eff['oracle'] == 'Oracle feasible (g=1)'
 
 
+def _runs(ws):
+    return [{'welfare': float(w)} for w in ws]
+
+
+def test_budget_p_values_are_unrounded_and_reach_make_tex():
+    import make_tex
+    rng = np.random.RandomState(1)
+    base = rng.normal(1000, 50, 12)
+    noise = rng.normal(0, 1, 12)
+    strat = {'Full Framework (Cal.)': _runs(base + 30 + noise),
+             'CATE x LTV': _runs(base), 'CATE Only': _runs(base + 29 + rng.normal(0, 1, 12))}
+    bp = study_main._budget_paired(strat, '0.3')
+    t = bp['cal_vs_ltv']
+    assert 0 < t['p_value'] < 0.0005 and t['p_holm'] >= t['p_value']
+    assert t['p_value'] != round(t['p_value'], 4)               # not rounded to 4 dp
+    # a Holm p in [0.0005, 0.001) would have printed 0.0010 after rounding to 4 dp
+    low = dict(t, p_holm=0.00096)
+    assert make_tex.fmt_p(low['p_holm']) == '<0.001'
+    m = make_tex.Macros()
+    make_tex.add_test(m, 'numTestDiff', low, make_tex.fmt_welfare, 'x', 's')
+    assert m.items['numTestDiffHolmP'][0] == '<0.001'
+
+
+def test_efficiency_exclusion_is_a_hard_error():
+    res = {'Random': _runs([0, 100]), 'Oracle feasible (g=1)': _runs([1000, 50]),
+           'Oracle hindsight (g=1)': _runs([2000, 800])}
+    res.update({r: _runs([500, 300]) for r in study_main.EFFICIENCY_RULES})
+    with pytest.raises(ValueError, match='no replication may be dropped'):
+        study_main._efficiency_table(res, 2, 100)
+
+
 def test_oracle_tables_match_budget_runs():
     kappa = '0.3'
     res = {nm: [{'welfare': float(w), 'ate': 1.0, 'risk_exposure': 0.4,

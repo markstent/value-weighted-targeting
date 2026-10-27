@@ -589,8 +589,8 @@ def add_kappa_star_macros(M, b2):
         src = f'budget_2x2.json:cells/{key}/kappa_star'
         what = f'tau={tau_src}, V={v_src}' + (' (oracle = feasible E[.|X])' if 'oracle' in key else '')
         M.add(f'numBudgetKappaStarPoint{tag}', kappa_star_text(ks, grid, 'point'), f'kappa* point estimate ({what}); censored as <min or >max', src + '/point,point_outcome')
-        M.add(f'numBudgetKappaStarCiLo{tag}', kappa_star_text(ks, grid, 'lo'), f'kappa* 95% CI lower end ({what}), censored', src + '/ci95')
-        M.add(f'numBudgetKappaStarCiHi{tag}', kappa_star_text(ks, grid, 'hi'), f'kappa* 95% CI upper end ({what}), censored', src + '/ci95')
+        M.add(f'numBudgetKappaStarPoint{tag}CiLo', kappa_star_text(ks, grid, 'lo'), f'kappa* 95% CI lower end ({what}), censored', src + '/ci95')
+        M.add(f'numBudgetKappaStarPoint{tag}CiHi', kappa_star_text(ks, grid, 'hi'), f'kappa* 95% CI upper end ({what}), censored', src + '/ci95')
         M.add(f'numBudgetKappaStarFracCrossover{tag}', fmt_pct(ks['frac_with_crossover']), f'share of bootstrap draws with a tauV/tau-only crossover ({what})', src + '/frac_with_crossover')
         M.add(f'numBudgetKappaStarSignChanges{tag}', fmt_count(ks['n_sign_changes']), f'sign changes of the point difference curve ({what})', src + '/n_sign_changes')
 
