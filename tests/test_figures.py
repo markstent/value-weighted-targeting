@@ -57,3 +57,19 @@ def test_build_all_from_smoke_jsons(tmp_path, harm_json):
     paths = mf.build_all(tmp_path, tmp_path / "figs", smoke=True)
     assert sorted(p.name for p in paths) == sorted(mf.FIGURE_NAMES)
     assert all(p.exists() for p in paths)
+
+
+def test_harm_frontier_raises_on_missing_rule(tmp_path, harm_json):
+    harm_json["cells"] = [c for c in harm_json["cells"] if c["rule"] != "hard cap (oracle tau,V)"]
+    with pytest.raises(ValueError, match="hard cap \\(oracle tau,V\\)"):
+        mf.fig_harm_frontier(harm_json, tmp_path)
+
+
+def test_missing_sd_omits_error_bar(tmp_path):
+    names = ["Random", "CATE Only", "CATE x LTV", "Full Framework (Est.)", "Full Framework (Cal.)",
+             "S-Learner", "Oracle hindsight (theta0)", "Oracle feasible (g=1)", "Oracle hindsight (g=1)"]
+    data = {"main_results": {k: {"welfare_mean": 1000.0 + 10 * i, "welfare_sd": None}
+                             for i, k in enumerate(names)}}
+    assert mf.fig_welfare_bars(data, tmp_path).exists()
+    import inspect
+    assert "or 0.0 for k in order" not in inspect.getsource(mf.fig_welfare_bars)

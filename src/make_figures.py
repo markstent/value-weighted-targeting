@@ -193,7 +193,7 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
     }
 
     welfares = [data["main_results"][k]["welfare_mean"] for k in order]
-    sds = [data["main_results"][k]["welfare_sd"] or 0.0 for k in order]
+    sds = [data["main_results"][k]["welfare_sd"] for k in order]
     labels = [display[k] for k in order]
 
     fig, ax = plt.subplots(figsize=(6.4, 3.6))
@@ -213,7 +213,11 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
         else:
             colors.append("#1f3b5c")
 
-    ax.barh(y, welfares, xerr=sds, color=colors, ecolor="#444", capsize=3, alpha=0.9)
+    ax.barh(y, welfares, color=colors, alpha=0.9)
+    # a missing SD (fewer than 2 replications) gets no error bar rather than a zero-width one
+    have = [i for i, sd in enumerate(sds) if sd is not None]
+    ax.errorbar([welfares[i] for i in have], y[have], xerr=[sds[i] for i in have],
+                fmt="none", ecolor="#444", capsize=3)
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
     ax.invert_yaxis()
@@ -222,10 +226,11 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
 
     # Place each value label past the end of its error bar (w + sd), not just
     # past the bar end, so the whisker/cap does not overprint the leading digits.
-    for yi, w, sd in zip(y, welfares, sds):
+    sd_or_0 = [sd or 0.0 for sd in sds]
+    for yi, w, sd in zip(y, welfares, sd_or_0):
         ax.text(w + sd + 700, yi, f"{w:,.0f}", va="center", fontsize=9)
 
-    ax.set_xlim(0, max(w + sd for w, sd in zip(welfares, sds)) * 1.16)
+    ax.set_xlim(0, max(w + sd for w, sd in zip(welfares, sd_or_0)) * 1.16)
     fig.tight_layout()
     out = figdir / "fig_welfare_bars.pdf"
     fig.savefig(out, bbox_inches="tight")
@@ -263,7 +268,9 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
                 name = rule + (ORACLE_SUFFIX if oracle else "")
                 match = [c for c in cells if c["sigma_h"] == sigma and c["rule"] == name]
                 if not match:
-                    continue
+                    raise ValueError(
+                        f"harm_sweep: no cell for rule {name!r} at sigma_h={sigma:g}, "
+                        f"kappa={HARM_KAPPA}, c_harm={HARM_C}")
                 c = match[0]
                 xe, ye = _ci_err(c["harm_exposure"]), _ci_err(c["welfare"])
                 ax.errorbar(

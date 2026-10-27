@@ -29,7 +29,9 @@ def test_smoke_fresh_clone(tmp_path):
         path = clone / 'outputs' / name
         assert path.exists(), name
         assert run_all.sha256(path) == digest, name
-    assert manifest['tuned_params_sha256'] == run_all.sha256(clone / 'config' / 'tuned_params.json')
+    tuned = manifest['tuned_params']
+    assert tuned['path'] == 'outputs/tuned_params_n2000.json'    # smoke runs never read the config
+    assert tuned['sha256'] == run_all.sha256(clone / tuned['path'])
     assert len(manifest['figures']) == 4
     for rel, digest in manifest['figures'].items():
         assert (clone / rel).exists(), rel

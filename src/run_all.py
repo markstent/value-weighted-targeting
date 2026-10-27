@@ -1,6 +1,6 @@
 """One-command pipeline: every study, then the figures, then a run manifest.
 
-Usage:  python src/run_all.py [--smoke] [--jobs N] [--only study,...] [--reps R] [--n-players N]
+Usage:  python src/run_all.py [--smoke] [--jobs N] [--only study,...] [--figures-only] [--reps R] [--n-players N]
 
 Studies (study_main, study_harm, study_budget, study_learners, study_robustness) run as
 subprocesses with the same run-size flags; up to N run in parallel.  Each logs to
@@ -8,7 +8,7 @@ outputs/logs/<study>.log.  make_figures.py runs afterwards if every study succee
 Exits non-zero, naming the failed step, if anything fails.  outputs/run_manifest.json
 records the git SHA and dirty flag, python and package versions, run-size args, per-step
 wall time and exit code, the JSON outputs with their sha256, the figures, and the sha256
-of config/tuned_params.json.
+of the tuned-parameter file the run actually read (config/tuned_params.json at full size, outputs/tuned_params_n<N>.json otherwise).
 """
 
 import argparse
@@ -28,7 +28,6 @@ OUTPUT_DIR = REPO / 'outputs'
 LOG_DIR = OUTPUT_DIR / 'logs'
 FIGURE_DIR = REPO / 'docs' / 'figures'
 SMOKE_FIGURE_DIR = OUTPUT_DIR / 'figures_smoke'   # smoke runs never touch the manuscript figures
-TUNED_CONFIG = REPO / 'config' / 'tuned_params.json'
 
 STUDIES = ('study_main', 'study_harm', 'study_budget', 'study_learners', 'study_robustness')
 OUTPUT_BASENAMES = {
@@ -86,17 +85,73 @@ def package_versions():
     return out
 
 
-def run_step(name, script, flags):
-    """Run src/<script> with flags, logging to outputs/logs/<name>.log."""
+STALE_EXIT = 97   # exit code recorded when a step exits 0 but its outputs are missing or stale
+
+
+def check_outputs(expected, started):
+    """Return an error string naming expected files that are missing or older than started."""
+    problems = []
+    for path in expected:
+        if not path.exists():
+            problems.append(f'{path.name} missing')
+        elif path.stat().st_mtime < started:
+            problems.append(f'{path.name} stale')
+    return '; '.join(problems) or None
+
+
+def run_step(name, script, flags, expected=()):
+    """Run src/<script> with flags, logging to outputs/logs/<name>.log.
+
+    Every expected output is deleted first.  After a zero exit each must exist with
+    mtime >= the step start, otherwise the step is recorded as failed (exit 97) with an
+    'error' naming the file, so a study that writes nothing is never certified."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log = LOG_DIR / f'{name}.log'
+    for path in expected:
+        path.unlink(missing_ok=True)
+    started = time.time()
     t0 = time.perf_counter()
     with open(log, 'w') as fp:
         proc = subprocess.run([sys.executable, str(SRC / script), *flags], cwd=REPO,
                               stdout=fp, stderr=subprocess.STDOUT)
-    return {'name': name, 'exit_code': proc.returncode,
-            'wall_seconds': round(time.perf_counter() - t0, 2),
-            'log': str(log.relative_to(REPO))}
+    code, error = proc.returncode, None
+    if code == 0:
+        error = check_outputs(expected, started)
+        if error:
+            code = STALE_EXIT
+    rec = {'name': name, 'exit_code': code,
+           'wall_seconds': round(time.perf_counter() - t0, 2),
+           'log': str(log.relative_to(REPO))}
+    if error:
+        rec['error'] = f'expected output {error}'
+    return rec
+
+
+def expected_outputs(study, smoke):
+    return [OUTPUT_DIR / output_name(study, smoke)]
+
+
+def figure_dir(smoke):
+    return SMOKE_FIGURE_DIR if smoke else FIGURE_DIR
+
+
+def expected_figures(smoke):
+    from make_figures import FIGURE_NAMES
+    return [figure_dir(smoke) / n for n in FIGURE_NAMES]
+
+
+def effective_n_players(args):
+    """Population size the studies will use (decides which tuned-params file is read)."""
+    from core.io import SMOKE_N_PLAYERS
+    from study_main import N_PLAYERS
+    if args.n_players is not None:
+        return args.n_players
+    return SMOKE_N_PLAYERS if args.smoke else N_PLAYERS
+
+
+def tuned_params_file(args):
+    from study_learners import tuned_path
+    return tuned_path(effective_n_players(args))
 
 
 # study_robustness reads (and, at a new run size, creates) the tuned-parameter file that
@@ -107,7 +162,7 @@ INNER_PARALLEL = ('study_learners', 'study_robustness')
 AFTER = {'study_robustness': 'study_learners'}
 
 
-def run_studies(studies, flags, jobs):
+def run_studies(studies, flags, jobs, smoke=False):
     """Run studies with up to `jobs` at once, honouring AFTER; results in input order."""
     import threading
     done = {s: threading.Event() for s in studies}
@@ -118,7 +173,7 @@ def run_studies(studies, flags, jobs):
             done[dep].wait()
         try:
             extra = ['--jobs', str(jobs)] if s in INNER_PARALLEL and jobs > 1 else []
-            return run_step(s, f'{s}.py', flags + extra)
+            return run_step(s, f'{s}.py', flags + extra, expected_outputs(s, smoke))
         finally:
             done[s].set()
 
@@ -130,25 +185,31 @@ def run_studies(studies, flags, jobs):
 
 
 def build_manifest(args, steps, studies, git, started):
+    """Hash only the outputs of steps that passed their output check."""
+    ok = {st['name'] for st in steps if st['exit_code'] == 0}
     json_files = {}
-    for s in studies:
-        path = OUTPUT_DIR / output_name(s, args.smoke)
-        if path.exists():
+    for study in studies:
+        path = OUTPUT_DIR / output_name(study, args.smoke)
+        if (study in ok or getattr(args, 'figures_only', False)) and path.exists():
             json_files[path.name] = sha256(path)
-    fig_dir = SMOKE_FIGURE_DIR if args.smoke else FIGURE_DIR
-    figures = {str(p.relative_to(REPO)): sha256(p) for p in sorted(fig_dir.glob('*.pdf'))} \
-        if any(st['name'] == 'make_figures' and st['exit_code'] == 0 for st in steps) else {}
+    figures = {}
+    if 'make_figures' in ok:
+        figures = {str(p.relative_to(REPO)): sha256(p) for p in expected_figures(args.smoke)}
+    tuned = tuned_params_file(args)
     return {
         'git': git,
         'python': platform.python_version(),
         'packages': package_versions(),
         'args': {'smoke': args.smoke, 'jobs': args.jobs, 'only': list(studies),
-                 'reps': args.reps, 'n_players': args.n_players},
+                 'reps': args.reps, 'n_players': args.n_players,
+                 'figures_only': getattr(args, 'figures_only', False)},
         'started_utc': started,
         'steps': steps,
         'json_files': json_files,
         'figures': figures,
-        'tuned_params_sha256': sha256(TUNED_CONFIG) if TUNED_CONFIG.exists() else None,
+        'tuned_params': {
+            'path': str(tuned.relative_to(REPO)) if tuned.is_relative_to(REPO) else str(tuned),
+            'sha256': sha256(tuned) if tuned.exists() else None},
     }
 
 
@@ -169,17 +230,37 @@ def main(argv=None):
     parser.add_argument('--jobs', type=int, default=1, help='studies to run in parallel')
     parser.add_argument('--only', type=parse_only, default=list(STUDIES),
                         help='comma-separated subset of studies (e.g. main,harm)')
+    parser.add_argument('--figures-only', action='store_true',
+                        help='rebuild figures from existing outputs without running studies')
     args = parser.parse_args(argv)
 
     git = git_state()
     started = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     flags = size_flags(args)
     t0 = time.perf_counter()
-    steps = run_studies(args.only, flags, args.jobs)
+    suffix = '_smoke' if args.smoke else ''
+    fig_inputs = [OUTPUT_DIR / f'main{suffix}.json', OUTPUT_DIR / f'harm_sweep{suffix}.json']
+    steps = []
+    if args.figures_only:
+        for path in fig_inputs:
+            if path.exists():
+                print(f'figure input {path.name}: modified '
+                      f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(path.stat().st_mtime))}')
+            else:
+                print(f'figure input {path.name}: MISSING')
+        args.only = ['study_main', 'study_harm']
+    else:
+        steps = run_studies(args.only, flags, args.jobs, args.smoke)
     failed = [s['name'] for s in steps if s['exit_code'] != 0]
-    if not failed:
-        steps.append(run_step('make_figures', 'make_figures.py', ['--smoke'] if args.smoke else []))
+    if failed:
+        pass
+    elif args.figures_only or {'study_main', 'study_harm'} <= set(args.only):
+        steps.append(run_step('make_figures', 'make_figures.py',
+                              ['--smoke'] if args.smoke else [], expected_figures(args.smoke)))
         failed = [s['name'] for s in steps if s['exit_code'] != 0]
+    else:
+        print('make_figures skipped: it needs study_main and study_harm to have run in '
+              'this invocation (use --figures-only to rebuild from existing outputs)')
 
     manifest = build_manifest(args, steps, args.only, git, started)
     manifest['total_wall_seconds'] = round(time.perf_counter() - t0, 2)
@@ -188,10 +269,13 @@ def main(argv=None):
     path.write_text(json.dumps(manifest, indent=2) + '\n')
 
     for s in steps:
-        print(f"{s['name']:<18} exit={s['exit_code']} {s['wall_seconds']:>8.1f}s  {s['log']}")
+        print(f"{s['name']:<18} exit={s['exit_code']} {s['wall_seconds']:>8.1f}s  {s['log']}"
+              + (f"  ERROR: {s['error']}" if s.get('error') else ''))
     print(f'manifest: {path}')
     if failed:
-        print(f"FAILED: {', '.join(failed)} (see outputs/logs/)", file=sys.stderr)
+        detail = '; '.join(f"{s['name']}: {s['error']}" for s in steps if s.get('error'))
+        print(f"FAILED: {', '.join(failed)} (see outputs/logs/)" + (f' [{detail}]' if detail else ''),
+              file=sys.stderr)
         return 1
     return 0
 
