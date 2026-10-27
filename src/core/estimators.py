@@ -9,8 +9,8 @@ from core.policy import PROPENSITY, aipw_scores
 # Independent RNG streams per replication seed (see seed_from).
 LTV_STREAM = 0        # LTV-proxy noise for the deployed estimator
 CALIB_STREAM = 1      # LTV-proxy noise for the calibration (validation) fit
-VALUE_STREAM_V42 = 3  # well-specified value model (compute_v42)
-VALUE_STREAM_V43 = 4  # richer reference value model (compute_v43)
+VALUE_STREAM_V42 = 3  # well-specified value model (component_update in study_robustness)
+VALUE_STREAM_V43 = 4  # richer reference value model (obs_diagnostic in study_robustness)
 ORACLE_STREAM = 5     # common-random-number noise for the feasible oracle MC
 CROSSFIT_STREAM = 6   # validation-fold cross-fit split for AIPW calibration
 HARM_STREAM = 7       # harm DGP noise (Z and logit noise), drawn after everything else

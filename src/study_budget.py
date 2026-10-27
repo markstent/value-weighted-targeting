@@ -227,7 +227,7 @@ def summarise(raw, grid=budget_grid, n_boot=N_BOOT):
 
 
 def run_budget_inference(dgp_name, label, reps, n_players=N_PLAYERS):
-    """compute_v44's budget table (T-learner tau_hat, misspecified V) for one DGP.
+    """The legacy v44 budget table (T-learner tau_hat, misspecified V) for one DGP.
 
     Same cell as the paper's CATE only vs CATE x LTV comparison; Holm runs across
     all kappa of the grid, not the four reported budgets."""

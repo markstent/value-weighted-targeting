@@ -3,8 +3,8 @@ order-free regret split.
 
 Replaces compute_v41_additions.py (the telescoping diagnostic and the end-to-end
 model both live here now) and compute_depth_ablation.py, whose depth-matched
-S/T comparison is superseded by the tuned comparison below.  (compute_v45_additions.py,
-the like-for-like feature drop, is untouched here.)
+S/T comparison is superseded by the tuned comparison below.  (The like-for-like feature
+drop now lives in study_robustness.py.)
 
 Learners compared: T, X, S (legacy fits) and DR (cross-fitted, e = 0.5 known; see
 core.estimators), each with "default" params (the legacy fit for T/X/S, a depth-3
