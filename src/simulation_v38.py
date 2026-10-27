@@ -30,7 +30,7 @@ from core.estimators import (
 from core.policy import (
     DEFAULT_BUDGET, THETA_GRID, f_churn_vec,
     compute_welfare, compute_risk_exposure, compute_mean_churn_moderation,
-    target_topk, calibrate_theta,
+    target_topk, calibrate_theta_all,
 )
 from core.stats import (
     holm_bonferroni, tost_paired, paired_test,
@@ -79,12 +79,11 @@ def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
 
     # Calibrate at the evaluation budget (budget_frac), AIPW objective; the
     # plug-in objective is kept only to exhibit the top-k tautology (g=1).
-    cal_config = calibrate_theta(data, train_idx, seed, budget_frac,
-                                 est_func=est_func, cate_method=cate_method)
+    cals = calibrate_theta_all(data, train_idx, seed, budget_frac,
+                               est_func=est_func, cate_method=cate_method)
+    cal_config = cals['aipw']
     g_cal = f_churn_vec(churn_hat, **cal_config)
-    cal_plugin = calibrate_theta(data, train_idx, seed, budget_frac,
-                                 objective='plugin', est_func=est_func,
-                                 cate_method=cate_method)
+    cal_plugin = cals['plugin']
     g_cal_plugin = f_churn_vec(churn_hat, **cal_plugin)
 
     strategies = {}

@@ -83,7 +83,7 @@ DEFAULT_THETA_IDX = 3  # pL=0.05, pML=0.40, pMH=0.60, phi=0.20
 PROPENSITY = 0.5  # known randomised assignment probability
 
 
-def _crossfit_aipw_scores(X, W, Y, seed, n_folds, e=PROPENSITY):
+def aipw_scores(X, W, Y, seed, n_folds=2, e=PROPENSITY):
     """Doubly-robust scores Gamma_i on a fold, with cross-fitted outcome models.
 
     Gamma = mu1 - mu0 + W (Y - mu1) / e - (1 - W) (Y - mu0) / (1 - e);
@@ -109,20 +109,22 @@ def _crossfit_aipw_scores(X, W, Y, seed, n_folds, e=PROPENSITY):
     return (m1 - m0) + W / e * (Y - m1) - (1 - W) / (1 - e) * (Y - m0)
 
 
-def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2,
-                    est_func=None, cate_method='tlearner'):
-    """Calibrate theta on a validation fold inside the training split, at budget kappa.
+def calibrate_theta_all(data, train_idx, seed, kappa, objectives=("aipw", "plugin"),
+                        n_folds=2, est_func=None, cate_method='tlearner'):
+    """Calibrate theta for several objectives, fitting the est->val components once.
 
-    objective="aipw": policy value of theta is the sum over its selected top-k
-      units of Gamma_i * ltv_hat_i, with Gamma the cross-fitted doubly-robust
-      score (known propensity) and ltv_hat the estimated value (V is not
-      observable).
+    Returns {objective: config}.  objective="aipw": policy value of theta is
+      the sum over its selected top-k units of Gamma_i * ltv_hat_i, with Gamma
+      the cross-fitted doubly-robust score (known propensity) and ltv_hat the
+      estimated value (V is not observable).
     objective="plugin": sum of tau_hat * ltv_hat over the selected units.  This
       is maximised by g=1 for any estimates (top-k tautology) and is kept only
       to demonstrate that.
-    Returns the argmax config of THETA_GRID (ties go to the lowest index)."""
-    if objective not in ("aipw", "plugin"):
-        raise ValueError(f"unknown objective {objective!r}")
+    Selection is the argmax over THETA_GRID at k = int(n_val * kappa); ties go
+    to the lowest grid index."""
+    for objective in objectives:
+        if objective not in ("aipw", "plugin"):
+            raise ValueError(f"unknown objective {objective!r}")
     from core.estimators import CALIB_STREAM, estimate_components
     if est_func is None:
         est_func = estimate_components
@@ -135,22 +137,32 @@ def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2,
                                            cate_method=cate_method,
                                            seed=seed, stream=CALIB_STREAM)
     k_val = int(len(val_idx) * kappa)
+    base = tau_val * ltv_val
 
-    if objective == "aipw":
-        gamma = _crossfit_aipw_scores(data['features'][val_idx],
-                                      data['treatment'][val_idx],
-                                      data['y_obs'][val_idx], seed, n_folds)
-        unit_value = gamma * ltv_val
-    else:
-        unit_value = tau_val * ltv_val
+    out = {}
+    for objective in objectives:
+        if objective == "aipw":
+            gamma = aipw_scores(data['features'][val_idx],
+                                data['treatment'][val_idx],
+                                data['y_obs'][val_idx], seed, n_folds)
+            unit_value = gamma * ltv_val
+        else:
+            unit_value = base
+        best_value = -np.inf
+        best_config = THETA_GRID[0]
+        for cfg in THETA_GRID:
+            g_val = f_churn_vec(churn_val, **cfg)
+            targeted = np.sort(target_topk(base * g_val, k_val))
+            w = float(np.sum(unit_value[targeted]))
+            if w > best_value:      # strict: ties keep the lowest grid index
+                best_value = w
+                best_config = cfg
+        out[objective] = best_config
+    return out
 
-    best_value = -np.inf
-    best_config = THETA_GRID[0]
-    for cfg in THETA_GRID:
-        g_val = f_churn_vec(churn_val, **cfg)
-        targeted = np.sort(target_topk(tau_val * ltv_val * g_val, k_val))
-        w = float(np.sum(unit_value[targeted]))
-        if w > best_value:      # strict: ties keep the lowest grid index
-            best_value = w
-            best_config = cfg
-    return best_config
+
+def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2,
+                    est_func=None, cate_method='tlearner'):
+    """Single-objective calibration; see calibrate_theta_all."""
+    return calibrate_theta_all(data, train_idx, seed, kappa, (objective,), n_folds,
+                               est_func, cate_method)[objective]

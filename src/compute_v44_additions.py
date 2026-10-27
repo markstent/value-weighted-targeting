@@ -13,14 +13,15 @@ Runs three analyses, all on the same 200 seeds as the published simulation
      Only) with a bootstrap CI, for both the symmetric main DGP and the
      asymmetric-moderation DGP.
 
-  B. AIPW (doubly robust) calibration (review #6). The published calibration
-     scores validation-fold welfare with the plug-in tau_hat*ltv_hat estimated
-     on the estimation fold, which is biased toward rules aligned with the
-     model's own errors. We re-score calibration with a doubly-robust (AIPW)
-     welfare estimate on the validation fold (known propensity e=0.5, T-Learner
-     outcome models as the outcome nuisance) and report whether the
-     near-identity selection rate (published: 197/200) survives, and what the
-     non-identity replications selected.
+  B. AIPW (doubly robust) calibration (review #6). The plug-in calibration
+     objective, sum of tau_hat*ltv_hat over the selected set, is maximised by
+     g=1 for any estimates (top-k tautology), so it is not evidence about
+     theta. AIPW is the primary objective: on the validation fold the
+     doubly-robust score Gamma (known propensity e=0.5, outcome models mu0,
+     mu1 cross-fit within the validation fold) is weighted by ltv_hat and
+     summed over the selected set. We report the identity-selection rate and
+     selected configs of both objectives, and the true-welfare regret of the
+     calibrated rule relative to the identity rule.
 
   C. Adversarial CATE misspecification (review #8). The published
      misspecification drops login frequency from the CATE model; because login
@@ -208,9 +209,16 @@ def run_aipw_calibration():
     print("  [B] AIPW vs plug-in calibration selection")
     aipw_idx = []
     plugin_idx = []
-    # true (oracle) test welfare of the calibrated rule minus the identity rule;
-    # if AIPW's non-identity selections were genuinely welfare-improving this
-    # would be positive, if they are noise it should be <= 0 (Proposition 3).
+    # true test welfare of the calibrated rule minus the identity rule.
+    # The plug-in objective selects identity by construction (regret 0).
+    # AIPW selects non-identity configs in (almost) every replication; at
+    # N=10000, kappa=0.30, 10 reps (seeds 42+7r) its mean regret is negative
+    # on both the null DGP (-4400, SE 2563) and the main DGP (-1040, SE 684),
+    # with large per-rep spread (regret of both signs). That is consistent
+    # with AIPW selection being high-variance and, on average, not welfare
+    # improving; it is not significantly different from 0 at 10 reps, so we
+    # claim no welfare gain from calibration rather than a proven loss.
+    # (Proposition 3: calibration cannot beat the identity rule in expectation.)
     aipw_cost = []
     plugin_cost = []
     for i, seed in enumerate(SEEDS):
