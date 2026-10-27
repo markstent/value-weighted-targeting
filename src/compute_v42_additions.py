@@ -37,9 +37,9 @@ from core.estimators import (
     estimate_components,
 )
 from core.policy import (
+    h_protection,
     DEFAULT_BUDGET, target_topk, compute_welfare,
 )
-from compute_revision_additions import h_protection
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]

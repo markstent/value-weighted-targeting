@@ -44,19 +44,12 @@ from core.estimators import (
     estimate_components, _estimate_ltv_churn, _estimate_slearner, calibrate_theta,
 )
 from core.policy import (
+    h_protection,
     DEFAULT_BUDGET, f_churn_vec, target_topk, compute_welfare,
 )
 
 N_RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else N_RUNS_DEFAULT
 SEEDS = [SEED_BASE + r * 7 for r in range(N_RUNS)]
-
-def h_protection(harm, h_lo=0.60, h_hi=0.90):
-    """Harm-protection weight: 1 below h_lo, ramps to 0 above h_hi."""
-    h = np.where(harm <= h_lo, 1.0,
-                 np.where(harm >= h_hi, 0.0,
-                          1.0 - (harm - h_lo) / (h_hi - h_lo)))
-    return h
-
 
 def _mean_sd(x):
     return [round(float(np.mean(x)), 0), round(float(np.std(x)), 0)]

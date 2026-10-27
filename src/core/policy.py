@@ -39,6 +39,14 @@ def target_topk(scores, k):
     return np.argsort(scores)[-k:]
 
 
+def h_protection(harm, h_lo=0.60, h_hi=0.90):
+    """Harm-protection weight: 1 below h_lo, ramps to 0 above h_hi."""
+    h = np.where(harm <= h_lo, 1.0,
+                 np.where(harm >= h_hi, 0.0,
+                          1.0 - (harm - h_lo) / (h_hi - h_lo)))
+    return h
+
+
 # --- Expanded calibration grid [M15] ---
 THETA_GRID = [
     # g~1 identity (allows calibration to select no risk modulation)

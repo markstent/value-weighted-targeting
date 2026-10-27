@@ -261,7 +261,7 @@ def _generate_late_ltv(n, rng, structural, ltv_fn):
     return data
 
 
-def generate_corr_gamma(n, rng, gamma):
+def generate_corr_gamma(n, rng, gamma=0.0):
     """LTV carries gamma * standardised tau_base (tunes corr(tau, V))."""
     def ltv(f, s, rng, n):
         tau_base = s['tau_base']

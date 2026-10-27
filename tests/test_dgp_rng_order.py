@@ -25,8 +25,7 @@ def test_every_dgp_is_registered():
 @pytest.mark.parametrize('name', sorted(EXPECTED))
 def test_dgp_draws_are_unchanged(name):
     rng = np.random.RandomState(42)
-    gen = dgp.DGPS[name]
-    data = gen(500, rng, 0.5) if name == 'corr_gamma' else gen(500, rng)
+    data = dgp.DGPS[name](500, rng)
     tau_sum, ltv_sum, y_sum = EXPECTED[name]
     assert data['true_tau'].sum() == pytest.approx(tau_sum, rel=1e-12)
     assert data['true_ltv'].sum() == pytest.approx(ltv_sum, rel=1e-12)
