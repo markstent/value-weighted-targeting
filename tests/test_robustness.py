@@ -286,3 +286,18 @@ def test_obs_diagnostic_misspec_arm_equals_estimate_components_misspec():
                                data['true_ltv'][te], k)
     got = sr._obs_rep(SEED_BASE, n_players=N, tuned=TUNED, kappa=0.30)
     assert got[('misspec', 'default', 'Oracle hindsight')] == expect
+
+
+def test_flag_degenerate_needs_name_and_zero_value(caplog):
+    from study_robustness import flag_degenerate
+    comps = {
+        'zero': {'a': 'Calibrated (plug-in) x', 'mean_diff': 0.0},
+        'moved': {'a': 'Calibrated (plug-in) y', 'mean_diff': 12.5},
+        'aipw_zero': {'a': 'Calibrated (aipw) x', 'mean_diff': 0.0},
+    }
+    with caplog.at_level('WARNING'):
+        flag_degenerate(comps)
+    assert comps['zero']['degenerate'] is True
+    assert comps['moved']['degenerate'] is False
+    assert comps['aipw_zero']['degenerate'] is False
+    assert [r.message for r in caplog.records if 'moved' in r.message]

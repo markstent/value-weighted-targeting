@@ -93,6 +93,7 @@ Usage:  python study_robustness.py [--reps R] [--n-players N] [--smoke] [--jobs 
 """
 
 import argparse
+import logging
 import time
 from collections import Counter
 from functools import partial
@@ -123,6 +124,7 @@ from study_learners import load_or_tune, welfare_at_kappa
 
 KAPPA = DEFAULT_BUDGET
 ADV_KAPPAS = (0.30, 0.10)
+logger = logging.getLogger(__name__)
 ORACLE_MC = 400            # noise draws per unit for the feasible oracle (as study_main)
 ARMS = ('default', 'tuned')
 ORACLES = ('Oracle hindsight', 'Oracle feasible')
@@ -224,6 +226,22 @@ def _cell(welfare, pairs):
         'comparisons': {f'{a} vs {b}': {'a': a, 'b': b,
                                         **paired_test_raw(welfare[a], welfare[b])}
                         for a, b in pairs}}
+
+
+def flag_degenerate(comparisons, prefix='Calibrated (plug-in)'):
+    """Flag the by-construction zero comparisons (kept in the output, excluded from Holm).
+
+    The plug-in objective selects identity, so a plug-in arm normally equals the g=1 rule
+    exactly.  A comparison is flagged only when it has that name AND its mean_diff is
+    exactly 0 over the reps; a named comparison with a nonzero difference stays in the
+    Holm family and a warning is logged, since the by-construction claim failed."""
+    for label, c in comparisons.items():
+        named = c['a'].startswith(prefix)
+        zero = c['mean_diff'] == 0.0
+        c['degenerate'] = bool(named and zero)
+        if named and not zero:
+            logger.warning('%s: expected exactly zero mean_diff (plug-in selects identity) '
+                           'but got %r; kept in the Holm family', label, c['mean_diff'])
 
 
 def _apply_holm(cells):
@@ -530,10 +548,7 @@ def run_aipw_calibration(reps, n_players, tuned, n_jobs=1):
     pairs = [(_arm(f'Calibrated ({o})', p), _arm('Identity (g=1)', p))
              for p in ARMS for o in ('aipw', 'plug-in')]
     cell = _cell(_stack([r['w'] for r in rows]), pairs)
-    for c in cell['comparisons'].values():
-        # the plug-in objective always selects identity, so its difference is exactly 0
-        # (p = 1) by construction: kept in the output, excluded from the Holm family
-        c['degenerate'] = c['a'].startswith('Calibrated (plug-in)')
+    flag_degenerate(cell['comparisons'])
     cell['selection'] = {p: {o: _calibration_summary([r['idx'][(p, o)] for r in rows])
                              for o in ('aipw', 'plugin')} for p in ARMS}
     cell['kappa'] = KAPPA
