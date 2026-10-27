@@ -45,9 +45,13 @@ rule) welfare against "T (default)" under the same value model and rule (tau-onl
 against "T (default)" tau-only), of E2E against "T (default)" with the misspec
 value model and rule tauV, and of "S (tuned)" against "T (tuned)" per value model
 (tests_S_vs_T_tuned), and of each tau-only rule against its own tau_hat * V_hat rule per value
-model (tests_effect_only_vs_tauV).  Holm
-(core.stats.holm_bonferroni) runs across ALL those comparisons within a kappa (the
-family is every comparison at that kappa, the S-vs-T-tuned ones included).  Everything is unrounded in the JSON.
+model (tests_effect_only_vs_tauV; its own family of 16 per kappa, never pooled with the
+learner family).  Holm
+(core.stats.holm_bonferroni) runs within a kappa over two separate families: the learner
+family (every comparison except the effect-only ones, the S-vs-T-tuned ones included) and
+the effect-only family (the 16 tau-only vs tau_hat * V_hat tests).  Every test also stores
+ratio_to_baseline, mean(diff) / mean(baseline) with a delta-method CI from the per-replication
+pairs (core.stats.paired_ratio_ci).  Everything is unrounded in the JSON.
 
 Regret split (kappa = 0.30): core.policy.regret_split against the oracle
 (tau_bar, ltv_bar), per learner x params x value model: Shapley CATE/value shares
@@ -84,7 +88,7 @@ from pathlib import Path
 
 from core.io import OUTPUT_DIR, add_common_args, resolve_run_size, save_json
 from core.policy import DEFAULT_BUDGET, PROPENSITY, compute_welfare, regret_split, target_topk
-from core.stats import holm_bonferroni, paired_test_raw, t_mean_ci
+from core.stats import holm_bonferroni, paired_test_raw, ratio_entry, t_mean_ci
 
 KAPPAS = (0.10, 0.20, 0.30, 0.50)
 REGRET_KAPPA = DEFAULT_BUDGET
@@ -399,7 +403,10 @@ def _test_row(welfare, j, key, base):
     r = paired_test_raw(welfare[key][:, j], welfare[base][:, j])
     return {'combo': key, 'baseline': base, 'diff': r['mean_diff'],
             'ci95': r['ci_95'], 'se_diff': r['se_diff'], 't_stat': r['t_stat'],
-            'cohens_d': r['cohens_d'], 'p_raw': r['p_value']}
+            'cohens_d': r['cohens_d'], 'p_raw': r['p_value'],
+            # mean(combo - baseline) / mean(baseline), delta-method CI from per-rep pairs
+            'ratio_to_baseline': ratio_entry(welfare[key][:, j] - welfare[base][:, j],
+                                             welfare[base][:, j])}
 
 
 def summarise_welfare(raw):
@@ -407,8 +414,11 @@ def summarise_welfare(raw):
     "T (default)" (tests_vs_T_default), of S (tuned) vs T (tuned) per value model
     (tests_S_vs_T_tuned) and of the effect-only rule minus the tau_hat * V_hat rule for every
     learner x tuning x value model (tests_effect_only_vs_tauV; combo is the tau-only key,
-    baseline the tauV key).  Holm runs over ONE family per kappa: all of those comparisons
-    together (n_comparisons_per_kappa)."""
+    baseline the tauV key).  Holm runs over TWO families per kappa: (1) the learner
+    comparison family, tests_vs_T_default plus tests_S_vs_T_tuned together
+    (n_comparisons_per_kappa); (2) the effect-only family, tests_effect_only_vs_tauV alone
+    (n_effect_only_comparisons_per_kappa, also family_size on each row).  The families
+    answer different questions and are never pooled."""
     kappas = raw['kappas']
     welfare = raw['welfare']
     pairs = [p for p in comparison_pairs(list(welfare)) if p[1] in welfare]
@@ -417,16 +427,21 @@ def summarise_welfare(raw):
     means = {key: [t_mean_ci(w[:, j]) for j in range(len(kappas))] for key, w in welfare.items()}
     tests, tests_tuned, tests_effect = {}, {}, {}
     for j, kp in enumerate(kappas):
-        rows = [_test_row(welfare, j, key, base) for key, base in pairs + extra + effect]
+        rows = [_test_row(welfare, j, key, base) for key, base in pairs + extra]
         for row, p in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
             row['p_holm'] = float(p)
         tests[str(kp)] = rows[:len(pairs)]
-        tests_tuned[str(kp)] = rows[len(pairs):len(pairs) + len(extra)]
-        tests_effect[str(kp)] = rows[len(pairs) + len(extra):]
+        tests_tuned[str(kp)] = rows[len(pairs):]
+        erows = [_test_row(welfare, j, key, base) for key, base in effect]
+        for row, p in zip(erows, holm_bonferroni([r['p_raw'] for r in erows])):
+            row['p_holm'] = float(p)
+            row['family_size'] = len(erows)
+        tests_effect[str(kp)] = erows
     return {'welfare': means, 'tests_vs_T_default': tests, 'tests_S_vs_T_tuned': tests_tuned,
             'tests_effect_only_vs_tauV': tests_effect,
             'kappas': kappas,
-            'n_comparisons_per_kappa': len(pairs) + len(extra) + len(effect)}
+            'n_comparisons_per_kappa': len(pairs) + len(extra),
+            'n_effect_only_comparisons_per_kappa': len(effect)}
 
 
 def summarise_regret(per_rep):

@@ -187,7 +187,7 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
         "CATE Only": "CATE only",
         "CATE x LTV": r"CATE $\times$ LTV",
         "Full Framework (Est.)": "Full (default $g$)",
-        "Full Framework (Cal.)": r"calibrated $g$ (AIPW)",
+        "Full Framework (Cal.)": r"Full (calibrated $g$, AIPW)",
         "S-Learner": "S-Learner",
         "Oracle feasible (g=1)": r"Feasible oracle ($g\equiv 1$)",
         "Oracle hindsight (g=1)": r"Hindsight oracle ($g\equiv 1$)",

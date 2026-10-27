@@ -80,7 +80,7 @@ def test_missing_sd_omits_error_bar(tmp_path):
 def test_welfare_bars_label_calibrated_and_pair_oracles():
     import inspect
     src = inspect.getsource(mf.fig_welfare_bars)
-    assert r"calibrated $g$ (AIPW)" in src
+    assert r"Full (calibrated $g$, AIPW)" in src
     order = src.split("order = [")[1].split("]")[0]
     for pair in ("g=1", "theta0"):          # feasible immediately before hindsight, per pair
         assert order.index(f"Oracle feasible ({pair})") < order.index(f"Oracle hindsight ({pair})")

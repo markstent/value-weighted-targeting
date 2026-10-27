@@ -90,17 +90,17 @@ def test_simulate_shapes_holm_and_regret():
     assert not any(k.endswith('|tauV') or k.count('|') > 1 for k in raw['welfare'])
     out = sl.summarise(raw)
     # tauV: 4 combos x 2 vms - 2 baselines; tau only: 4 combos - 1 baseline; plus E2E;
-    # plus S (tuned) vs T (tuned) for the three value models, plus effect-only vs tauV for
-    # every learner x tuning x value model (2 x 2 x 2), all in one Holm family per kappa
-    assert out['n_comparisons_per_kappa'] == 6 + 3 + 1 + 3 + 8
+    # plus S (tuned) vs T (tuned) for the three value models (Holm family 1); effect-only vs tauV for every learner x tuning x value model
+    # (2 x 2 x 2) is its own Holm family 2, never pooled with family 1
+    assert out['n_comparisons_per_kappa'] == 6 + 3 + 1 + 3
+    assert out['n_effect_only_comparisons_per_kappa'] == 8
     for kp, rows in out['tests_S_vs_T_tuned'].items():
         assert [(r['combo'], r['baseline']) for r in rows] == [
             (f'S (tuned)|{vm}', f'T (tuned)|{vm}') for vm in ('misspec', 'wellspec', 'tau')]
         for r in rows:
             assert r['ci95'][0] <= r['diff'] <= r['ci95'][1]
             assert r['p_holm'] >= r['p_raw']
-        assert (len(out['tests_vs_T_default'][kp]) + len(rows) + len(out['tests_effect_only_vs_tauV'][kp])
-                == out['n_comparisons_per_kappa'])
+        assert len(out['tests_vs_T_default'][kp]) + len(rows) == out['n_comparisons_per_kappa']
     assert not any(r['combo'] == r['baseline'] for rows in out['tests_vs_T_default'].values()
                    for r in rows)
     for rows in out['tests_vs_T_default'].values():
@@ -110,7 +110,9 @@ def test_simulate_shapes_holm_and_regret():
 
 
 def test_effect_only_vs_tauv_tests_keys_and_invariants():
-    """G8: effect-only minus tau_hat*V_hat, per learner x tuning x value model and kappa."""
+    """G8: effect-only minus tau_hat*V_hat, per learner x tuning x value model and kappa; its
+    own Holm family per kappa, with the pairing pinned to paired_test_raw on the stored arrays."""
+    from core.stats import holm_bonferroni, paired_test_raw, paired_ratio_ci
     tuned = {l: TINY_GRID[0] for l in sl.COMPARED_LEARNERS}
     raw = sl.simulate(3, 1500, tuned, learners=('T', 'S'), kappas=(0.1, 0.5))
     out = sl.summarise(raw)
@@ -122,8 +124,13 @@ def test_effect_only_vs_tauv_tests_keys_and_invariants():
             for l in ('T', 'S') for p in ('tuned', 'default') for vm in ('misspec', 'wellspec')}
         j = out['kappas'].index(float(kp))
         for r in rows:
-            assert {'diff', 'ci95', 'cohens_d', 'p_raw', 'p_holm'} <= set(r)
-            # invariant: the stored difference is the difference of the stored unrounded means
-            assert abs(r['diff'] - (raw['welfare'][r['combo']][:, j]
-                                    - raw['welfare'][r['baseline']][:, j]).mean()) < 1e-6
-            assert r['ci95'][0] <= r['diff'] <= r['ci95'][1] and r['p_holm'] >= r['p_raw']
+            wa, wb = raw['welfare'][r['combo']][:, j], raw['welfare'][r['baseline']][:, j]
+            ref = paired_test_raw(wa, wb)
+            assert r['diff'] == ref['mean_diff'] and r['se_diff'] == ref['se_diff']
+            assert np.isclose(r['t_stat'], ref['t_stat'], equal_nan=True) and r['p_raw'] == ref['p_value']
+            assert r['ratio_to_baseline']['ratio'] == paired_ratio_ci(wa - wb, wb)[0]
+            assert r['family_size'] == 8
+        # Holm over exactly the effect-only family, not pooled with the learner family
+        assert [r['p_holm'] for r in rows] == list(holm_bonferroni([r['p_raw'] for r in rows]))
+        fam1 = out['tests_vs_T_default'][kp] + out['tests_S_vs_T_tuned'][kp]
+        assert [r['p_holm'] for r in fam1] == list(holm_bonferroni([r['p_raw'] for r in fam1]))

@@ -68,7 +68,7 @@ from core.estimators import (
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import compute_welfare, h_protection, target_topk
-from core.stats import holm_bonferroni, paired_test_raw
+from core.stats import holm_bonferroni, paired_test_raw, ratio_entry
 
 SIGMA_H_GRID = (0.0, 0.5, 1.0)
 KAPPA_GRID = (0.10, 0.30)
@@ -288,12 +288,17 @@ def paired_tests(raw):
                 if len(wa) < 2:
                     return []
                 r = paired_test_raw(wa, wb)
+                blind = np.array(raw[(c, sigma, kappa, 'tauV' + suffix)]['welfare'])
+                # mean(a - b) / mean(harm-blind tauV welfare), delta-method CI from the
+                # per-replication pairs (core.stats.paired_ratio_ci)
+                ratio = ratio_entry(np.array(wa) - np.array(wb), blind)
                 rows.append({'c_harm': c, 'sigma_h': sigma, 'kappa': kappa,
                              'comparison': label, 'components': source,
                              'a': a + suffix, 'b': b + suffix,
                              'mean_diff': r['mean_diff'], 'ci95': r['ci_95'],
                              'se_diff': r['se_diff'], 't_stat': r['t_stat'],
-                             'cohens_d': r['cohens_d'], 'p_raw': r['p_value']})
+                             'cohens_d': r['cohens_d'], 'p_raw': r['p_value'],
+                             'ratio_to_blind': ratio})
         for row, p in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
             row['p_holm'] = float(p)
             row['family_size'] = len(rows)

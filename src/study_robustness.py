@@ -122,7 +122,7 @@ from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import (
     DEFAULT_BUDGET, THETA_GRID, calibrate_theta_all, f_churn_vec, target_topk,
 )
-from core.stats import holm_bonferroni, paired_test_raw, t_mean_ci
+from core.stats import holm_bonferroni, paired_test_raw, ratio_entry, t_mean_ci
 from study_learners import load_or_tune, welfare_at_kappa
 
 KAPPA = DEFAULT_BUDGET
@@ -223,11 +223,15 @@ def _w_summary(v):
 
 
 def _cell(welfare, pairs):
-    """Per-cell JSON: welfare summaries and a paired test of a - b for each pair."""
+    """Per-cell JSON: welfare summaries and a paired test of a - b for each pair.  Each
+    comparison also stores ratio_to_b and ratio_to_a: mean(a - b) over mean(b) (resp. a)
+    with a delta-method CI from the per-replication pairs (core.stats.paired_ratio_ci)."""
     return {
         'welfare': {s: _w_summary(v) for s, v in welfare.items()},
         'comparisons': {f'{a} vs {b}': {'a': a, 'b': b,
-                                        **paired_test_raw(welfare[a], welfare[b])}
+                                        **paired_test_raw(welfare[a], welfare[b]),
+                                        'ratio_to_b': ratio_entry(welfare[a] - welfare[b], welfare[b]),
+                                        'ratio_to_a': ratio_entry(welfare[a] - welfare[b], welfare[a])}
                         for a, b in pairs}}
 
 

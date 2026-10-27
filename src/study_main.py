@@ -42,7 +42,7 @@ from core.policy import (
     target_topk, calibrate_theta_all,
 )
 from core.stats import (
-    holm_bonferroni, tost_paired, paired_test_raw as paired_test, t_mean_ci,
+    holm_bonferroni, tost_paired, paired_test_raw as paired_test, ratio_entry, t_mean_ci,
 )
 
 # --- Configuration ---
@@ -402,6 +402,8 @@ def run_study(reps=None, n=None, n_jobs=1):
         w2 = [r['welfare'] for r in all_results[s2]]
         label = f'{s1} vs {s2}'
         paired_tests[label] = paired_test(w1, w2, label)
+        # mean(a - b) / mean(b), delta-method CI from the per-replication pairs
+        paired_tests[label]['ratio_to_b'] = ratio_entry(np.array(w1) - np.array(w2), w2)
         raw_pvalues.append(paired_tests[label]['p_value'])
 
     corrected = holm_bonferroni(raw_pvalues)

@@ -322,7 +322,7 @@ def test_new_gap_macros_present():
             'numHarmDiffHardCapMinusSoftGate', 'numHarmDiffHardCapMinusSoftGateOracleFeasibleTauVHolmP',
             'numHarmDiffSoftGateMinusTauV', 'numHarmDiffSoftGateMinusTauVOracleFeasibleTauVCiLo',
             'numHarmSafetyCostSoftGatePctCiHi', 'numHarmSafetyCostHardCapOracleFeasibleTauVPct',
-            'numHarmCapSavingVsSoftGateOracleFeasibleTauVPct',
+            'numHarmHardCapMinusSoftGateOracleFeasibleTauVPct',
             # G4, G5, G6
             'numHarmOvershootSoftGateSigmaHalfCiLo', 'numHarmOvershootHardCapOracleFeasibleTauVSigmaOne',
             'numHarmViolationRateHardCapSigmaOne', 'numHarmCorrHarmValueCMinusOne',
@@ -358,24 +358,69 @@ def test_pct_macros_carry_a_ci_and_are_never_diff_named():
         assert n + 'CiLo' in items and n + 'CiHi' in items, n
         if n.startswith(('numHarm', 'numMainDefaultG', 'numLearnersSTuned', 'numRobustnessLike',
                          'numRobustnessAdv', 'numRobustnessHeavy', 'numRobustnessAipw')):
-            assert 'approximation' in items[n][1], n
-    # a percentage of a difference equals diff / baseline, so it carries the diff's own CI scale
+            assert 'delta-method' in items[n][1], n
+    # the stored ratio comes from the study's per-replication arrays, not from the macro layer
     rob = smoke_data()['robustness']
-    c = rob['heavy_tail']['cells']['heavy_tail']
-    t = c['comparisons']['CATE x LTV vs CATE Only']
-    base = c['welfare']['CATE Only']['mean']
-    assert items['numRobustnessHeavyTailPct'][0] == mt.fmt_signed(t['mean_diff'] / base, mt.fmt_pct)
-    assert items['numRobustnessHeavyTailPctCiLo'][0] == mt.fmt_signed(t['ci_95'][0] / base, mt.fmt_pct)
+    t = rob['heavy_tail']['cells']['heavy_tail']['comparisons']['CATE x LTV vs CATE Only']
+    assert items['numRobustnessHeavyTailPct'][0] == mt.fmt_signed(t['ratio_to_b']['ratio'], mt.fmt_pct)
+    assert items['numRobustnessHeavyTailPctCiLo'][0] == mt.fmt_signed(t['ratio_to_b']['ci95'][0], mt.fmt_pct)
+    ll = rob['like_for_like']['cells']['login_drop_main']['comparisons']['S-Learner: all features vs dropped']
+    assert items['numRobustnessLikeForLikeLoginSLearnerPct'][0] == mt.fmt_signed(ll['ratio_to_a']['ratio'], mt.fmt_pct)
 
 
-def test_harm_safety_cost_orientation():
-    """cost = -(capped - blind)/blind: its CI is the flipped diff CI over the blind welfare."""
+def test_harm_safety_cost_orientation_and_hard_cap_minus_soft_gate_sign():
+    """cost = -(capped - blind)/blind: the CI is the stored ratio CI, flipped and sorted."""
     data = smoke_data()
     harm, items = data['harm_sweep'], _macros()
     t = mt.harm_test(harm, 1.0, 0.0, 0.3, 'soft gate vs tauV', 'estimated')
-    blind = mt.harm_cell(harm, 1.0, 0.0, 0.3, 'tauV')['welfare']['mean']
-    assert items['numHarmSafetyCostSoftGatePct'][0] == mt.fmt_signed(-t['mean_diff'] / blind, mt.fmt_pct)
-    assert items['numHarmSafetyCostSoftGatePctCiLo'][0] == mt.fmt_signed(-t['ci95'][1] / blind, mt.fmt_pct)
+    r = t['ratio_to_blind']
+    assert items['numHarmSafetyCostSoftGatePct'][0] == mt.fmt_signed(-r['ratio'], mt.fmt_pct)
+    assert items['numHarmSafetyCostSoftGatePctCiLo'][0] == mt.fmt_signed(-r['ci95'][1], mt.fmt_pct)
+    assert 'negative = the rule beats harm-blind' in items['numHarmSafetyCostSoftGatePct'][1]
+    assert 'negative = the rule beats harm-blind' in items['numHarmSafetyCostHardCapOracleFeasibleTauVPct'][1]
+    # hard cap minus soft gate: positive exactly when the hard cap's welfare is higher
+    for comps, stag, suffix in (('estimated', '', ''), ('oracle', 'OracleFeasibleTauV', ' (oracle tau,V)')):
+        hard = mt.harm_cell(harm, 1.0, 0.0, 0.3, 'hard cap' + suffix)['welfare']['mean']
+        soft = mt.harm_cell(harm, 1.0, 0.0, 0.3, 'soft gate' + suffix)['welfare']['mean']
+        diff = items[f'numHarmDiffHardCapMinusSoftGate{stag}'][0]
+        pct = items[f'numHarmHardCapMinusSoftGate{stag}Pct'][0]
+        assert diff == mt.fmt_signed(hard - soft, mt.fmt_welfare)
+        assert pct.startswith('+') == (hard > soft) and diff.startswith('+') == (hard > soft)
+        assert 'positive = the hard cap has higher welfare' in items[f'numHarmHardCapMinusSoftGate{stag}Pct'][1]
+    assert not any('CapSaving' in n for n in items)
+
+
+def test_g7_g10_g14_macros_equal_json_values():
+    data = smoke_data()
+    items = _macros()
+    b2, rob = data['budget_2x2'], data['robustness']
+    # G7: T|misspec at 0.10 / 0.20 / 0.50 and oracle|oracle at 0.10
+    for key, tag, kp, kt in (('T|misspec', 'TMisspec', 0.1, 'Kten'), ('T|misspec', 'TMisspec', 0.2, 'Ktwenty'),
+                             ('T|misspec', 'TMisspec', 0.5, 'Kfifty'),
+                             ('oracle|oracle', 'OracleFeasibleOracleFeasible', 0.1, 'Kten')):
+        e = mt.per_kappa_entry(b2, key, kp)
+        n = f'numBudgetDiffCateLtvVsCateOnly{tag}{kt}'
+        assert items[n][0] == mt.fmt_signed(e['diff']['mean'], mt.fmt_welfare)
+        assert items[n + 'CiLo'][0] == mt.fmt_welfare(e['diff']['ci95'][0])
+        assert items[n + 'HolmP'][0] == mt.fmt_p(e['p_holm']) and items[n + 'D'][0] == mt.fmt_d(e['cohens_d'])
+    # G10: the tuned-T arm macros and the tuned table column
+    files = mt.build(data)
+    rows = files['tab_robustness.tex'].splitlines()[1:]
+    for i, (section, cell, label, comp_key) in enumerate(mt.ROBUSTNESS_ROWS):
+        tc = mt.tuned_comparison(rob, section, cell, comp_key)
+        if tc is None:
+            assert rows[i].endswith('-- & -- \\\\'), rows[i]
+            continue
+        n = f"numRobustnessDiffTuned{mt.SCENARIO_TAG[(section, cell)]}"
+        assert items[n][0] == mt.fmt_signed(tc['mean_diff'], mt.fmt_welfare)
+        assert items[n + 'HolmP'][0] == mt.fmt_p(tc['p_holm'])
+        cell_text = mt.fmt_signed(tc['mean_diff'], mt.fmt_welfare) + ' ' + mt.fmt_ci(*tc['ci_95'], mt.fmt_welfare)
+        assert mt.tex(cell_text) in rows[i]
+    # G14: CATE-share levels
+    d = rob['obs_diagnostic']['cells']['wellspec']['diagnostic']['tuned']['Oracle feasible']
+    assert items['numRobustnessObsCateShareWellspecTunedOracleFeasible'][0] == mt.fmt_pct(d['cate_share_pct'] / 100.0)
+    d = rob['obs_diagnostic']['cells']['misspec']['diagnostic']['default']['plug-in']
+    assert items['numRobustnessObsCateShareMisspecDefaultPlugin'][0] == mt.fmt_pct(d['cate_share_pct'] / 100.0)
 
 
 def test_tab_frontier_and_tuned_robustness_column():

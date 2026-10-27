@@ -122,7 +122,9 @@ def test_soft_gate_has_no_violation_rate_and_oracle_flag():
 
 def test_paired_tests_keys_and_holm_family():
     """G1/G2: per-rep paired tests in every cell, estimated and feasible-oracle components,
-    one Holm family (six tests) per cell, difference equal to the paired mean of the welfares."""
+    one Holm family (the cell's six tests); statistics pinned to paired_test_raw on the raw
+    per-rep welfare arrays, p_holm to holm_bonferroni over exactly that family."""
+    from core.stats import holm_bonferroni, paired_ratio_ci, paired_test_raw
     raw = simulate(reps=4, n_players=3000, c_harms=[1.0], sigma_hs=[0.0, 0.5], kappas=[0.30])
     summary = summarise(raw, n_boot=50)
     tests = summary['paired_tests']
@@ -131,11 +133,20 @@ def test_paired_tests_keys_and_holm_family():
                                                  'hard cap vs tauV'}
     assert {t['components'] for t in tests} == {'estimated', 'oracle'}
     for t in tests:
-        assert {'mean_diff', 'ci95', 'cohens_d', 'p_raw', 'p_holm', 'family_size'} <= set(t)
+        key = (t['c_harm'], t['sigma_h'], t['kappa'])
+        wa = np.array(raw[key + (t['a'],)]['welfare'])
+        wb = np.array(raw[key + (t['b'],)]['welfare'])
+        ref = paired_test_raw(wa, wb)
+        assert t['mean_diff'] == ref['mean_diff'] and t['se_diff'] == ref['se_diff']
+        assert np.isclose(t['t_stat'], ref['t_stat'], equal_nan=True) and t['p_raw'] == ref['p_value']
+        assert t['ci95'] == ref['ci_95'] and t['cohens_d'] == ref['cohens_d']
+        blind = np.array(raw[key + ('tauV' + ('' if t['components'] == 'estimated'
+                                              else ' (oracle tau,V)'),)]['welfare'])
+        assert t['ratio_to_blind']['ratio'] == paired_ratio_ci(wa - wb, blind)[0]
         assert t['family_size'] == 6 and t['p_holm'] >= t['p_raw']
-        wa = np.array(raw[(t['c_harm'], t['sigma_h'], t['kappa'], t['a'])]['welfare'])
-        wb = np.array(raw[(t['c_harm'], t['sigma_h'], t['kappa'], t['b'])]['welfare'])
-        assert abs(t['mean_diff'] - (wa - wb).mean()) < 1e-9          # unrounded
-        assert t['ci95'][0] <= t['mean_diff'] <= t['ci95'][1]
+    for sigma in (0.0, 0.5):                      # Holm over exactly the cell's six tests
+        fam = [t for t in tests if t['sigma_h'] == sigma]
+        assert len(fam) == 6
+        assert [t['p_holm'] for t in fam] == list(holm_bonferroni([t['p_raw'] for t in fam]))
     oracle = [t for t in tests if t['components'] == 'oracle']
     assert all('(oracle tau,V)' in t['a'] and '(oracle tau,V)' in t['b'] for t in oracle)
