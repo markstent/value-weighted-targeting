@@ -1,0 +1,6 @@
+line-length = 120
+src = ["src", "tests"]
+extend-exclude = ["previous", "reviews", "outputs"]
+
+[lint]
+select = ["E", "F", "W", "I"]

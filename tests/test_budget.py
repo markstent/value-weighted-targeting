@@ -94,13 +94,10 @@ def test_unconditional_ci_labels_censored_bounds():
 
 
 def test_paired_test_single_implementation():
-    from core.stats import paired_test, paired_test_raw
+    from core.stats import paired_test_raw
     rng = np.random.RandomState(3)
     a, b = rng.normal(100, 20, 40), rng.normal(95, 20, 40)
-    raw, rnd = paired_test_raw(a, b), paired_test(a, b)
-    assert rnd['mean_diff'] == round(raw['mean_diff'], 0)
-    assert rnd['p_value'] == round(raw['p_value'], 4)
-    assert rnd['cohens_d'] == round(raw['cohens_d'], 3)
+    raw = paired_test_raw(a, b)
     row = sb.paired_inference(a[:, None], b[:, None], [0.1])[0]
     assert row['p_raw'] == raw['p_value'] and row['cohens_d'] == raw['cohens_d']
     assert row['se_diff'] == raw['se_diff']

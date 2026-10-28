@@ -43,15 +43,22 @@ import argparse
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import DGPS, FEATURE_NAMES, ORACLE_MC, conditional_means
 from core.estimators import (
-    BOOT_STREAM, ORACLE_STREAM, _estimate_cate_slearner, _estimate_cate_tlearner,
-    _estimate_cate_xlearner, _estimate_ltv_proxy, _wellspec_value_model, seed_from,
+    BOOT_STREAM,
+    ORACLE_STREAM,
+    _estimate_cate_slearner,
+    _estimate_cate_tlearner,
+    _estimate_cate_xlearner,
+    _estimate_ltv_proxy,
+    _wellspec_value_model,
+    seed_from,
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import compute_welfare, target_topk
-from core.stats import holm_bonferroni, paired_test_raw, t_mean_ci as _t_ci
+from core.stats import holm_bonferroni, paired_test_raw
+from core.stats import t_mean_ci as _t_ci
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 
 # Rounded so int(n * kappa) is identical to the grid the published legacy numbers used.
 budget_grid = np.round(np.arange(0.05, 0.501, 0.025), 3)
@@ -251,11 +258,12 @@ def run_budget_inference(dgp_name, label, reps, n_players=N_PLAYERS):
 
 
 def _print_table(summary):
-    print(f"{'cell (tau|V)':<16} {'kappa*':>10} {'95% CI':>17} {'cross':>5} {'<grid':>5} {'>grid':>5} {'chg':>3}  min p_holm")
+    print(f"{'cell (tau|V)':<16} {'kappa*':>10} {'95% CI':>17} {'cross':>5} {'<grid':>5} {'>grid':>5} "
+          f"{'chg':>3}  min p_holm")
     for key, c in summary['cells'].items():
         ks = c['kappa_star']
         pt = ks['point_outcome'] if ks['point'] is None else f"{ks['point']:.3f}"
-        lab = [l or '' for l in ks['ci95_labels']]
+        lab = [lbl or '' for lbl in ks['ci95_labels']]
         ci = f"[{lab[0]}{ks['ci95'][0]:.3f},{lab[1]}{ks['ci95'][1]:.3f}]"
         p = min(r['p_holm'] for r in c['per_kappa'])
         print(f"{key:<16} {pt:>10} {ci:>17} {ks['n_crossing']:>5} {ks['n_below_grid']:>5} "

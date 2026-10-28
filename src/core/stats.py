@@ -19,7 +19,7 @@ def holm_bonferroni(p_values):
 
 
 def tost_paired(x, y, margin):
-    """Two one-sided test for equivalence with margin."""
+    """Two one-sided test for equivalence with margin (all values unrounded)."""
     diff = np.array(x) - np.array(y)
     n = len(diff)
     mean_diff = np.mean(diff)
@@ -30,30 +30,11 @@ def tost_paired(x, y, margin):
     p_lower = 1 - scipy_stats.t.cdf(t_lower, df=n - 1)
     p_tost = max(p_upper, p_lower)
     return {
-        'mean_diff': round(float(mean_diff), 0),
-        'margin': round(float(margin), 0),
-        'p_tost': round(float(p_tost), 4),
+        'mean_diff': float(mean_diff),
+        'margin': float(margin),
+        'p_tost': float(p_tost),
         'equivalent': bool(p_tost < 0.05),
     }
-
-
-def cohens_d_paired(x, y):
-    """Cohen's d for paired observations."""
-    diff = np.array(x) - np.array(y)
-    sd = np.std(diff, ddof=1)
-    if sd == 0:
-        return 0.0
-    return round(float(np.mean(diff) / sd), 3)
-
-
-def ci_95(x, y):
-    """95% CI for mean difference of paired observations."""
-    diff = np.array(x) - np.array(y)
-    n = len(diff)
-    mean_d = np.mean(diff)
-    se = np.std(diff, ddof=1) / np.sqrt(n)
-    margin = scipy_stats.t.ppf(0.975, df=n - 1) * se
-    return (round(float(mean_d - margin), 0), round(float(mean_d + margin), 0))
 
 
 def paired_test_raw(w1, w2, label=None):
@@ -78,20 +59,6 @@ def paired_test_raw(w1, w2, label=None):
         'p_value': float(p_val),
         'cohens_d': (0.0 if sd == 0 else mean / sd) if n > 1 else float('nan'),
         'ci_95': [mean - float(half), mean + float(half)],
-    }
-
-
-def paired_test(w1, w2, label=None):
-    """paired_test_raw rounded for presentation (diffs/se/CI to integers, t to 2,
-    p to 4, d to 3 places)."""
-    r = paired_test_raw(w1, w2, label)
-    return {
-        'mean_diff': round(r['mean_diff'], 0),
-        'se_diff': round(r['se_diff'], 0),
-        't_stat': round(r['t_stat'], 2),
-        'p_value': round(r['p_value'], 4),
-        'cohens_d': round(r['cohens_d'], 3),
-        'ci_95': [round(r['ci_95'][0], 0), round(r['ci_95'][1], 0)],
     }
 
 

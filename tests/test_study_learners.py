@@ -46,7 +46,7 @@ def _write_frozen(tmp_path, monkeypatch, n=sl.N_PLAYERS, **meta_over):
     import json
     monkeypatch.setattr(sl, 'CONFIG_DIR', tmp_path)
     monkeypatch.setattr(sl, 'OUTPUT_DIR', tmp_path)
-    frozen = {'learners': {l: {'params': sl.DEFAULT_PARAMS[l]} for l in sl.COMPARED_LEARNERS},
+    frozen = {'learners': {lrn: {'params': sl.DEFAULT_PARAMS[lrn]} for lrn in sl.COMPARED_LEARNERS},
               '_meta': {**sl.make_meta(n), **meta_over}}
     path = sl.tuned_path(n)
     path.write_text(json.dumps(frozen))
@@ -72,9 +72,8 @@ def test_small_runs_never_use_tracked_config(tmp_path, monkeypatch):
     monkeypatch.setattr(sl, 'OUTPUT_DIR', tmp_path / 'out')
     assert sl.tuned_path(sl.N_PLAYERS).parent == tmp_path / 'config'
     assert sl.tuned_path(2000).parent == tmp_path / 'out'
-    saved = []
     monkeypatch.setattr(sl, 'tune_all', lambda n, j: {
-        'learners': {l: {'params': sl.DEFAULT_PARAMS[l]} for l in sl.COMPARED_LEARNERS},
+        'learners': {lrn: {'params': sl.DEFAULT_PARAMS[lrn]} for lrn in sl.COMPARED_LEARNERS},
         '_meta': sl.make_meta(n)})
     sl.load_or_tune(n_players=2000, retune=True)
     assert (tmp_path / 'out' / 'tuned_params_n2000.json').exists()
@@ -82,7 +81,7 @@ def test_small_runs_never_use_tracked_config(tmp_path, monkeypatch):
 
 
 def test_simulate_shapes_holm_and_regret():
-    tuned = {l: TINY_GRID[0] for l in sl.COMPARED_LEARNERS}
+    tuned = {lrn: TINY_GRID[0] for lrn in sl.COMPARED_LEARNERS}
     raw = sl.simulate(3, 1500, tuned, learners=('T', 'S'), kappas=(0.1, 0.3))
     assert raw['welfare'][sl.E2E_KEY].shape == (3, 2)
     assert raw['welfare']['T (default)|misspec'].shape == (3, 2)
@@ -90,7 +89,8 @@ def test_simulate_shapes_holm_and_regret():
     assert not any(k.endswith('|tauV') or k.count('|') > 1 for k in raw['welfare'])
     out = sl.summarise(raw)
     # tauV: 4 combos x 2 vms - 2 baselines; tau only: 4 combos - 1 baseline; plus E2E;
-    # plus S (tuned) vs T (tuned) for the three value models (Holm family 1); effect-only vs tauV for every learner x tuning x value model
+    # plus S (tuned) vs T (tuned) for the three value models (Holm family 1); effect-only vs tauV
+    # for every learner x tuning x value model
     # (2 x 2 x 2) is its own Holm family 2, never pooled with family 1
     assert out['n_comparisons_per_kappa'] == 6 + 3 + 1 + 3
     assert out['n_effect_only_comparisons_per_kappa'] == 8
@@ -112,16 +112,16 @@ def test_simulate_shapes_holm_and_regret():
 def test_effect_only_vs_tauv_tests_keys_and_invariants():
     """G8: effect-only minus tau_hat*V_hat, per learner x tuning x value model and kappa; its
     own Holm family per kappa, with the pairing pinned to paired_test_raw on the stored arrays."""
-    from core.stats import holm_bonferroni, paired_test_raw, paired_ratio_ci
-    tuned = {l: TINY_GRID[0] for l in sl.COMPARED_LEARNERS}
+    from core.stats import holm_bonferroni, paired_ratio_ci, paired_test_raw
+    tuned = {lrn: TINY_GRID[0] for lrn in sl.COMPARED_LEARNERS}
     raw = sl.simulate(3, 1500, tuned, learners=('T', 'S'), kappas=(0.1, 0.5))
     out = sl.summarise(raw)
     assert set(out['tests_effect_only_vs_tauV']) == {'0.1', '0.5'}
     for kp, rows in out['tests_effect_only_vs_tauV'].items():
         assert len(rows) == 8
         assert {(r['combo'], r['baseline']) for r in rows} == {
-            (f'{l} ({p})|tau', f'{l} ({p})|{vm}')
-            for l in ('T', 'S') for p in ('tuned', 'default') for vm in ('misspec', 'wellspec')}
+            (f'{lrn} ({p})|tau', f'{lrn} ({p})|{vm}')
+            for lrn in ('T', 'S') for p in ('tuned', 'default') for vm in ('misspec', 'wellspec')}
         j = out['kappas'].index(float(kp))
         for r in rows:
             wa, wb = raw['welfare'][r['combo']][:, j], raw['welfare'][r['baseline']][:, j]
@@ -134,3 +134,11 @@ def test_effect_only_vs_tauv_tests_keys_and_invariants():
         assert [r['p_holm'] for r in rows] == list(holm_bonferroni([r['p_raw'] for r in rows]))
         fam1 = out['tests_vs_T_default'][kp] + out['tests_S_vs_T_tuned'][kp]
         assert [r['p_holm'] for r in fam1] == list(holm_bonferroni([r['p_raw'] for r in fam1]))
+
+
+def test_check_meta_compares_learners_and_criterion():
+    expected = sl.make_meta(sl.N_PLAYERS)
+    sl._check_meta(dict(expected), expected, 'p')                        # identical: fine
+    for key, bad in (('learners', ['T', 'X']), ('criterion', 'something else')):
+        with pytest.raises(ValueError, match=key):
+            sl._check_meta(dict(expected, **{key: bad}), expected, 'p')

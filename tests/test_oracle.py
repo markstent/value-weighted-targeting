@@ -2,10 +2,18 @@
 import numpy as np
 import pytest
 
-from core.dgp import (DGPS, FEATURE_NAMES, conditional_means, draw_features,
-                      generate_main, make_corr_dgp, structural_main, structural_null,
-                      tau_base_stats)
-from core.policy import compute_welfare, f_churn_vec, target_topk
+from core.dgp import (
+    DGPS,
+    FEATURE_NAMES,
+    conditional_means,
+    draw_features,
+    generate_main,
+    make_corr_dgp,
+    structural_main,
+    structural_null,
+    tau_base_stats,
+)
+from core.policy import compute_welfare, target_topk
 from study_main import SEED_BASE
 
 
@@ -52,7 +60,8 @@ def test_mc_se_small():
 @pytest.mark.parametrize('name', sorted(DGPS))
 def test_conditional_means_keys_and_ranges(name):
     f = draw_features(200, np.random.RandomState(2))
-    cm = conditional_means(name, f, n_mc=50, seed=4)
+    extra = {'tau_base_moments': tau_base_stats(f)} if name == 'corr_gamma' else {}
+    cm = conditional_means(name, f, n_mc=50, seed=4, **extra)
     for key in ('tau_bar', 'ltv_bar', 'churn_bar'):
         assert cm[key].shape == (200,) and np.all(np.isfinite(cm[key]))
     assert np.all((cm['churn_bar'] >= 0.01) & (cm['churn_bar'] <= 0.99))
@@ -142,14 +151,14 @@ def test_corr_gamma_uses_generating_sample_moments_and_gamma():
     stats_sub = tau_base_stats(test)
     assert stats_full != stats_sub
     cm = conditional_means('corr_gamma', test, n_mc=50, seed=1, gamma=gamma,
-                           tau_base_stats=stats_full, noise_scale=0.0)
+                           tau_base_moments=stats_full, noise_scale=0.0)
     resid = data['true_ltv'][:600] - cm['ltv_bar']
     # Noise-free ltv_bar must reproduce the DGP up to its N(0, 80) noise (no shift).
     assert abs(resid.mean()) < 4 * 80 / np.sqrt(600)
     assert 60 < resid.std() < 100
     # Wrong gamma is detectable: gamma=0 leaves a systematic gamma-sized residual.
     cm0 = conditional_means('corr_gamma', test, n_mc=50, seed=1, gamma=0.0,
-                            tau_base_stats=stats_full, noise_scale=0.0)
+                            tau_base_moments=stats_full, noise_scale=0.0)
     assert (data['true_ltv'][:600] - cm0['ltv_bar']).std() > resid.std() * 1.3
 
 
@@ -161,3 +170,24 @@ def test_simulation_threads_gamma_and_rejects_unknown_dgp():
     with pytest.raises(ValueError):
         run_single_simulation(SEED_BASE, n_players=1200,
                               dgp_func=lambda n, rng: generate_main(n, rng))
+
+
+def test_corr_gamma_requires_explicit_tau_base_moments():
+    f = draw_features(50, np.random.RandomState(2))
+    with pytest.raises(ValueError, match='tau_base_moments'):
+        conditional_means('corr_gamma', f, n_mc=10, seed=1)
+
+
+def test_common_noise_rng_rejects_size_not_multiple_of_n_mc():
+    from core.dgp import _CommonNoiseRng
+    rng = _CommonNoiseRng(1, 8)
+    assert rng.normal(0.0, 1.0, 24).shape == (24,)
+    with pytest.raises(AssertionError, match='multiple of n_mc'):
+        rng.normal(0.0, 1.0, 20)
+
+
+def test_conditional_means_default_n_mc_is_the_shared_oracle_constant():
+    import inspect
+
+    from core.dgp import ORACLE_MC
+    assert inspect.signature(conditional_means).parameters['n_mc'].default == ORACLE_MC == 400

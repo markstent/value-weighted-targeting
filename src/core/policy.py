@@ -128,11 +128,12 @@ def calibrate_theta_all(data, train_idx, seed, kappa, objectives=("aipw", "plugi
     for objective in objectives:
         if objective not in ("aipw", "plugin"):
             raise ValueError(f"unknown objective {objective!r}")
-    from core.estimators import CALIB_STREAM, estimate_components
+    from core.estimators import CALIB_SPLIT_STREAM, CALIB_STREAM, estimate_components, seed_from
     if est_func is None:
         est_func = estimate_components
     est_rel, val_rel = train_test_split(
-        np.arange(len(train_idx)), test_size=0.40, random_state=seed + 99)
+        np.arange(len(train_idx)), test_size=0.40,
+        random_state=seed_from(seed, CALIB_SPLIT_STREAM))
     est_idx = train_idx[est_rel]
     val_idx = train_idx[val_rel]
 

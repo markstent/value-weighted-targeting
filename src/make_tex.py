@@ -25,6 +25,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from study_learners import tuned_path  # noqa: E402
+
 OUTPUT_DIR = REPO / 'outputs'
 GENERATED_DIR = REPO / 'docs' / 'generated'
 SMOKE_GENERATED_DIR = REPO / 'docs' / 'generated_smoke'
@@ -579,7 +580,10 @@ def add_ci_stat(M, base, stat, fmt, what, src):
 def add_main_macros(M, main):
     design = main['design']
     M.add('numMetaReps', fmt_count(design['n_runs']), 'replications in the main study', 'main.json:design/n_runs')
-    M.add('numMetaPlayers', fmt_count(design['n_players']), 'players per replication in the main study', 'main.json:design/n_players')
+    M.add('numMetaPlayers',
+          fmt_count(design['n_players']),
+          'players per replication in the main study',
+          'main.json:design/n_players')
     for nm, tag in STRATEGY_TAG.items():
         w, sd, r = strat_stats(main, nm)
         src = strat_source(main, nm)
@@ -608,18 +612,26 @@ def add_main_macros(M, main):
     for rule, tag in ((r, STRATEGY_TAG[r]) for r in eff['rules']):
         e = eff['rules'][rule]
         add_ci_stat(M, f'numMainEfficiencyLevel{tag}OracleFeasible', e['level_ratio'], fmt_pct,
-                    f'{rule} welfare as a share of the feasible oracle (g=1), mean of per-replication ratios, kappa=0.30',
+                    f'{rule} welfare as a share of the feasible oracle (g=1), mean of per-replication '
+                    'ratios, kappa=0.30',
                     f'{base}/rules/{rule}/level_ratio')
         add_ci_stat(M, f'numMainEfficiencyNormalized{tag}OracleFeasible', e['normalized'], fmt_pct,
                     f'{rule}: (rule - random) / (feasible oracle - random), mean of per-replication ratios, kappa=0.30',
                     f'{base}/rules/{rule}/normalized')
     add_ci_stat(M, 'numMainOracleFeasibleOverOracleHindsight', eff['feasible_over_hindsight'], fmt_pct,
-                'feasible oracle (g=1) welfare as a share of hindsight oracle (g=1) welfare, mean of per-replication ratios',
+                'feasible oracle (g=1) welfare as a share of hindsight oracle (g=1) welfare, mean of '
+                'per-replication ratios',
                 f'{base}/feasible_over_hindsight')
     hind = strat_stats(main, 'Oracle hindsight (g=1)')[0]
     feas = strat_stats(main, 'Oracle feasible (g=1)')[0]
-    M.add('numMainOracleHindsightWelfare', fmt_welfare(hind), 'hindsight oracle (g=1) welfare, kappa=0.30', 'main.json:oracle_main/strategies/Oracle hindsight (g=1)/welfare_mean')
-    M.add('numMainOracleFeasibleWelfare', fmt_welfare(feas), 'feasible oracle (g=1) welfare, kappa=0.30', 'main.json:oracle_main/strategies/Oracle feasible (g=1)/welfare_mean')
+    M.add('numMainOracleHindsightWelfare',
+          fmt_welfare(hind),
+          'hindsight oracle (g=1) welfare, kappa=0.30',
+          'main.json:oracle_main/strategies/Oracle hindsight (g=1)/welfare_mean')
+    M.add('numMainOracleFeasibleWelfare',
+          fmt_welfare(feas),
+          'feasible oracle (g=1) welfare, kappa=0.30',
+          'main.json:oracle_main/strategies/Oracle feasible (g=1)/welfare_mean')
 
 
 def add_harm_macros(M, harm):
@@ -634,9 +646,18 @@ def add_harm_macros(M, harm):
                         lambda v: fmt_signed(v, fmt_harm),
                         f'{who}: harm exposure minus population mean harm, c=1, sigma=0, kappa=0.30',
                         src + '/exposure_minus_pop')
-            M.add(f'numHarmExposure{rtag}{tag}', fmt_harm(cell['harm_exposure']['mean']), f'{who}: mean harm exposure of targeted players', src + '/harm_exposure/mean')
-            M.add(f'numHarmWelfare{rtag}{tag}', fmt_welfare(cell['welfare']['mean']), f'{who}: welfare, c=1, sigma=0, kappa=0.30', src + '/welfare/mean')
-    M.add('numHarmPopulationMean', fmt_harm(harm_cell(harm, 1.0, 0.0, DEFAULT_KAPPA, 'tauV')['pop_mean_harm']), 'population mean harm, c=1, sigma=0', "harm_sweep.json:cells[c_harm=1,sigma_h=0,kappa=0.3,rule='tauV']/pop_mean_harm")
+            M.add(f'numHarmExposure{rtag}{tag}',
+                  fmt_harm(cell['harm_exposure']['mean']),
+                  f'{who}: mean harm exposure of targeted players',
+                  src + '/harm_exposure/mean')
+            M.add(f'numHarmWelfare{rtag}{tag}',
+                  fmt_welfare(cell['welfare']['mean']),
+                  f'{who}: welfare, c=1, sigma=0, kappa=0.30',
+                  src + '/welfare/mean')
+    M.add('numHarmPopulationMean',
+          fmt_harm(harm_cell(harm, 1.0, 0.0, DEFAULT_KAPPA, 'tauV')['pop_mean_harm']),
+          'population mean harm, c=1, sigma=0',
+          "harm_sweep.json:cells[c_harm=1,sigma_h=0,kappa=0.3,rule='tauV']/pop_mean_harm")
 
 
 def kappa_star_tag(src):
@@ -651,11 +672,26 @@ def add_kappa_star_macros(M, b2):
         ks = cell['kappa_star']
         src = f'budget_2x2.json:cells/{key}/kappa_star'
         what = f'tau={tau_src}, V={v_src}' + (' (oracle = feasible E[.|X])' if 'oracle' in key else '')
-        M.add(f'numBudgetKappaStarPoint{tag}', kappa_star_text(ks, grid, 'point'), f'kappa* point estimate ({what}); censored as <min or >max', src + '/point,point_outcome')
-        M.add(f'numBudgetKappaStarPoint{tag}CiLo', kappa_star_text(ks, grid, 'lo'), f'kappa* 95% CI lower end ({what}), censored', src + '/ci95')
-        M.add(f'numBudgetKappaStarPoint{tag}CiHi', kappa_star_text(ks, grid, 'hi'), f'kappa* 95% CI upper end ({what}), censored', src + '/ci95')
-        M.add(f'numBudgetKappaStarFracCrossover{tag}', fmt_pct(ks['frac_with_crossover']), f'share of bootstrap draws with a tauV/tau-only crossover ({what})', src + '/frac_with_crossover')
-        M.add(f'numBudgetKappaStarSignChanges{tag}', fmt_count(ks['n_sign_changes']), f'sign changes of the point difference curve ({what})', src + '/n_sign_changes')
+        M.add(f'numBudgetKappaStarPoint{tag}',
+              kappa_star_text(ks, grid, 'point'),
+              f'kappa* point estimate ({what}); censored as <min or >max',
+              src + '/point,point_outcome')
+        M.add(f'numBudgetKappaStarPoint{tag}CiLo',
+              kappa_star_text(ks, grid, 'lo'),
+              f'kappa* 95% CI lower end ({what}), censored',
+              src + '/ci95')
+        M.add(f'numBudgetKappaStarPoint{tag}CiHi',
+              kappa_star_text(ks, grid, 'hi'),
+              f'kappa* 95% CI upper end ({what}), censored',
+              src + '/ci95')
+        M.add(f'numBudgetKappaStarFracCrossover{tag}',
+              fmt_pct(ks['frac_with_crossover']),
+              f'share of bootstrap draws with a tauV/tau-only crossover ({what})',
+              src + '/frac_with_crossover')
+        M.add(f'numBudgetKappaStarSignChanges{tag}',
+              fmt_count(ks['n_sign_changes']),
+              f'sign changes of the point difference curve ({what})',
+              src + '/n_sign_changes')
 
 
 def add_learner_macros(M, learners):
@@ -668,7 +704,10 @@ def add_learner_macros(M, learners):
         vtag = {'misspec': 'Misspec', 'wellspec': 'Wellspec', 'tau': 'TauOnly'}[vm]
         for k in (0.1, 0.3):
             ki = kappas.index(k)
-            M.add(f'numLearnersWelfare{lr}{tn}{vtag}{kappa_tag(k)}', fmt_welfare(w[combo][ki]['mean']), f'mean welfare, {combo}, kappa={k}', f'learners.json:welfare/{combo}[{ki}]/mean')
+            M.add(f'numLearnersWelfare{lr}{tn}{vtag}{kappa_tag(k)}',
+                  fmt_welfare(w[combo][ki]['mean']),
+                  f'mean welfare, {combo}, kappa={k}',
+                  f'learners.json:welfare/{combo}[{ki}]/mean')
     k3 = key_str(DEFAULT_KAPPA)
     # paired tests; every one has CI, p and Holm p (one Holm family per kappa)
     for combo, tag in (('T (tuned)|misspec', 'TTunedVsTDefaultMisspec'),
@@ -691,8 +730,15 @@ def add_learner_macros(M, learners):
         add_ci_stat(M, f'numLearnersShapleyCateSharePerRep{tag}', sp['shapley_tau_share_per_rep'], fmt_pct,
                     f'Shapley CATE (tau) share of regret, {combo}, kappa=0.30: mean of per-replication shares',
                     src + '/shapley_tau_share_per_rep')
-        M.add(f'numLearnersShapleyCateShareRatioOfMeans{tag}', fmt_pct(sp['shapley_tau_share_of_mean']), f'Shapley CATE (tau) share of regret, {combo}, kappa=0.30: ratio of mean components (a different estimand from the per-replication mean; no CI)', src + '/shapley_tau_share_of_mean')
-        M.add(f'numLearnersShapleyValueShareRatioOfMeans{tag}', fmt_pct(sp['shapley_v_share_of_mean']), f'Shapley value-model (V) share of regret, {combo}, kappa=0.30: ratio of mean components (no CI)', src + '/shapley_v_share_of_mean')
+        M.add(f'numLearnersShapleyCateShareRatioOfMeans{tag}',
+              fmt_pct(sp['shapley_tau_share_of_mean']),
+              f'Shapley CATE (tau) share of regret, {combo}, kappa=0.30: ratio of mean components (a different '
+              f'estimand from the per-replication mean; no CI)',
+              src + '/shapley_tau_share_of_mean')
+        M.add(f'numLearnersShapleyValueShareRatioOfMeans{tag}',
+              fmt_pct(sp['shapley_v_share_of_mean']),
+              f'Shapley value-model (V) share of regret, {combo}, kappa=0.30: ratio of mean components (no CI)',
+              src + '/shapley_v_share_of_mean')
 
 
 def add_robustness_macros(M, rob):
@@ -701,9 +747,18 @@ def add_robustness_macros(M, rob):
         for skey, tag in (('aipw', 'Aipw'), ('plugin', 'Plugin')):
             s = sel[tuning][skey]
             src = f'robustness.json:aipw_calibration/cells/main/selection/{tuning}/{skey}'
-            M.add(f'numRobustnessIdentityRate{tag}{tn}', fmt_pct(s['identity_rate']), f'rate at which the {tag.upper()} calibration selects the identity g ({tuning} learner)', src + '/identity_rate')
-            M.add(f'numRobustnessIdentitySelected{tag}{tn}', fmt_count(s['identity_selected']), f'replications selecting identity, {tag.upper()} ({tuning})', src + '/identity_selected')
-    M.add('numRobustnessReplications', fmt_count(sel['default']['aipw']['n_runs']), 'replications behind the calibration selection rates', 'robustness.json:aipw_calibration/cells/main/selection/default/aipw/n_runs')
+            M.add(f'numRobustnessIdentityRate{tag}{tn}',
+                  fmt_pct(s['identity_rate']),
+                  f'rate at which the {tag.upper()} calibration selects the identity g ({tuning} learner)',
+                  src + '/identity_rate')
+            M.add(f'numRobustnessIdentitySelected{tag}{tn}',
+                  fmt_count(s['identity_selected']),
+                  f'replications selecting identity, {tag.upper()} ({tuning})',
+                  src + '/identity_selected')
+    M.add('numRobustnessReplications',
+          fmt_count(sel['default']['aipw']['n_runs']),
+          'replications behind the calibration selection rates',
+          'robustness.json:aipw_calibration/cells/main/selection/default/aipw/n_runs')
     for section, cell, label, comp_key in ROBUSTNESS_ROWS:
         key, c, fam = robustness_comparison(rob, section, cell, comp_key)
         tag = SCENARIO_TAG[(section, cell)]
@@ -713,14 +768,17 @@ def add_robustness_macros(M, rob):
         add_test(M, f'numRobustnessDiff{tag}', c, fmt,
                  f'headline comparison ({key}) in scenario {where}' + (' (percentage points)' if unit else ''),
                  src, unit=unit)
-    cal = rob['aipw_calibration']['cells']['main']
     for r in calibration_rows(rob):
         tag = r['method'].replace('-', '') + r['tuning'].capitalize()
         add_ci_stat(M, f'numRobustnessCalRegretOracleFeasible{tag}', r['regret'], fmt_welfare,
                     f"regret vs the feasible oracle, {r['method']} calibration ({r['tuning']}), mean over replications",
-                    f"robustness.json:aipw_calibration/cells/main/regret_vs_feasible")
+                    "robustness.json:aipw_calibration/cells/main/regret_vs_feasible")
         if r['degenerate']:
-            M.add(f'numRobustnessCalDegenerate{tag}', 'degenerate', f"the {r['method']} ({r['tuning']}) comparison with identity is exactly zero by construction (no Holm p)", 'robustness.json:aipw_calibration/cells/main/comparisons')
+            M.add(f'numRobustnessCalDegenerate{tag}',
+                  'degenerate',
+                  f"the {r['method']} ({r['tuning']}) comparison with identity is exactly zero by construction (no "
+                  f"Holm p)",
+                  'robustness.json:aipw_calibration/cells/main/comparisons')
 
 
 # ---------------------------------------------------------------- derived and added macros
@@ -878,7 +936,8 @@ def add_budget_extra_macros(M, b2):
             t = {'mean_diff': e['diff']['mean'], 'ci95': e['diff']['ci95'],
                  'cohens_d': e['cohens_d'], 'p_raw': e['p_raw'], 'p_holm': e['p_holm']}
             add_test(M, f'numBudgetDiffCateLtvVsCateOnly{tag}{kappa_tag(kp)}', t, fmt_welfare,
-                     f'CATE x LTV minus CATE only ({what}), kappa={kp:g}; Holm within this (tau, V) cell across the kappa grid',
+                     f'CATE x LTV minus CATE only ({what}), kappa={kp:g}; Holm within this (tau, V) cell '
+                     'across the kappa grid',
                      f'budget_2x2.json:cells/{key}/per_kappa[kappa={kp:g}]/diff',
                      ci_key='ci95', p_key='p_raw')
     M.add('numBudgetBootstrapDraws', fmt_count(b2['_meta']['n_boot']),
@@ -889,7 +948,10 @@ def add_tuning_macros(M, learners, tuned):
     meta = tuned['_meta']
     path = 'config/tuned_params.json (outputs/tuned_params_n<N>.json for non-full runs)'
     M.add('numTuningGridSize', fmt_count(len(meta['grid'])), 'configurations in the tuning grid', f'{path}:_meta/grid')
-    M.add('numTuningPilotReps', fmt_count(len(meta['pilot_seeds'])), 'pilot replications per learner', f'{path}:_meta/pilot_seeds')
+    M.add('numTuningPilotReps',
+          fmt_count(len(meta['pilot_seeds'])),
+          'pilot replications per learner',
+          f'{path}:_meta/pilot_seeds')
     levels = []
     for lr in COMPARED_LEARNERS_TUNING:
         res = tuned['learners'][lr]
@@ -897,12 +959,24 @@ def add_tuning_macros(M, learners, tuned):
         assert chosen == res['params'], f'{lr}: learners.json tuned params differ from the frozen file'
         levels.append(res['mean_loss'])
         src = f'{path}:learners/{lr}'
-        M.add(f'numTuningRLoss{lr}', fmt_fixed(res['mean_loss'], 5), f'cross-fitted R-loss of the chosen config, {lr}-learner (mean over pilot reps)', src + '/mean_loss')
-        M.add(f'numTuningRLossGridRange{lr}', fmt_fixed(max(res['losses']) - min(res['losses']), 5), f'worst minus best mean R-loss over the {len(res["losses"])}-config grid, {lr}-learner', src + '/losses')
+        M.add(f'numTuningRLoss{lr}',
+              fmt_fixed(res['mean_loss'], 5),
+              f'cross-fitted R-loss of the chosen config, {lr}-learner (mean over pilot reps)',
+              src + '/mean_loss')
+        M.add(f'numTuningRLossGridRange{lr}',
+              fmt_fixed(max(res['losses']) - min(res['losses']), 5),
+              f'worst minus best mean R-loss over the {len(res["losses"])}-config grid, {lr}-learner',
+              src + '/losses')
         msrc = f'learners.json:_meta/tuned_params/{lr}'
         M.add(f'numTuningDepth{lr}', str(chosen['max_depth']), f'chosen max_depth, {lr}-learner', msrc + '/max_depth')
-        M.add(f'numTuningTrees{lr}', str(chosen['n_estimators']), f'chosen n_estimators, {lr}-learner', msrc + '/n_estimators')
-        M.add(f'numTuningRate{lr}', fmt_fixed(chosen['learning_rate'], 3), f'chosen learning_rate, {lr}-learner', msrc + '/learning_rate')
+        M.add(f'numTuningTrees{lr}',
+              str(chosen['n_estimators']),
+              f'chosen n_estimators, {lr}-learner',
+              msrc + '/n_estimators')
+        M.add(f'numTuningRate{lr}',
+              fmt_fixed(chosen['learning_rate'], 3),
+              f'chosen learning_rate, {lr}-learner',
+              msrc + '/learning_rate')
     M.add('numTuningRLossSpreadLearners', fmt_fixed(max(levels) - min(levels), 5),
           'best R-loss of the worst-tuned learner minus that of the best-tuned learner', f'{path}:learners/*/mean_loss')
 
@@ -943,7 +1017,8 @@ def add_learner_extra_macros(M, learners):
     for vm, vtag in (('misspec', 'Misspec'), ('wellspec', 'Wellspec'), ('tau', 'TauOnly')):
         t = find_test(learners['tests_S_vs_T_tuned'][k3], f'S (tuned)|{vm}', f'T (tuned)|{vm}')
         add_pct(M, f'numLearnersSTunedOverTTuned{vtag}Pct', t['ratio_to_baseline'],
-                f'tuned S minus tuned T, {vm} value model, kappa=0.30', f'learners.json:tests_S_vs_T_tuned/0.3[S (tuned)|{vm}]',
+                f'tuned S minus tuned T, {vm} value model, kappa=0.30',
+                f'learners.json:tests_S_vs_T_tuned/0.3[S (tuned)|{vm}]',
                 f'= T (tuned)|{vm} mean welfare (learners.json:welfare/T (tuned)|{vm}[{ki}]/mean)')
 
 
@@ -1030,8 +1105,14 @@ def add_main_extra_macros(M, main):
             src + '/ratio_to_b', '= CATE x LTV mean welfare (main.json:main_results/CATE x LTV/welfare_mean)')
     # G13 companions to tab_frontier
     inv = main['misspecification']['inverted_g']
-    M.add('numMainInvertedGWelfare', fmt_welfare(inv['welfare_mean']), 'mean welfare with the inverted g, kappa=0.30', 'main.json:misspecification/inverted_g/welfare_mean')
-    M.add('numMainInvertedGRisk', fmt_harm(inv['risk_mean']), 'mean risk exposure with the inverted g, kappa=0.30', 'main.json:misspecification/inverted_g/risk_mean')
+    M.add('numMainInvertedGWelfare',
+          fmt_welfare(inv['welfare_mean']),
+          'mean welfare with the inverted g, kappa=0.30',
+          'main.json:misspecification/inverted_g/welfare_mean')
+    M.add('numMainInvertedGRisk',
+          fmt_harm(inv['risk_mean']),
+          'mean risk exposure with the inverted g, kappa=0.30',
+          'main.json:misspecification/inverted_g/risk_mean')
 
 
 # ---------------------------------------------------------------- driver
@@ -1083,7 +1164,7 @@ def load(outdir, smoke):
     for base in INPUT_BASENAMES:
         with open(Path(outdir) / f'{base}{suffix}.json') as fh:
             data[base] = json.load(fh)
-    with open(tuned_path(data['learners']['_meta']['n_players'])) as fh:
+    with open(tuned_path(data['learners']['_meta']['n_players'], outdir)) as fh:
         data['tuned_params'] = json.load(fh)
     return data
 

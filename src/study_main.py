@@ -18,31 +18,57 @@ Usage:  python study_main.py [--reps R] [--n-players N] [--smoke] [--verify-mome
 """
 
 import argparse
+from collections import Counter
 
 import numpy as np
 from joblib import Parallel, delayed
-from collections import Counter
-from sklearn.model_selection import train_test_split
 from scipy import stats as scipy_stats
+from sklearn.model_selection import train_test_split
 
-from core.io import add_common_args, resolve_run_size, save_json
 from core.dgp import (
-    TREATMENT_PROB, POP_MEAN, POP_SD, DGP_SPEC, generate_main as generate_population,
-    generate_null as generate_population_null,
+    DGP_SPEC,
+    FEATURE_NAMES,
+    ORACLE_MC,
+    POP_MEAN,
+    POP_SD,
+    TREATMENT_PROB,
+    conditional_means,
+    dgp_spec,
+    tau_base_stats,
+)
+from core.dgp import (
     generate_correlated as generate_population_correlated,
-    FEATURE_NAMES, ORACLE_MC, conditional_means, dgp_spec, tau_base_stats,
+)
+from core.dgp import (
+    generate_main as generate_population,
+)
+from core.dgp import (
+    generate_null as generate_population_null,
 )
 from core.estimators import (
-    _estimate_slearner, estimate_components, estimate_components_misspec,
-    seed_from, ORACLE_STREAM,
+    ORACLE_STREAM,
+    _estimate_slearner,
+    estimate_components,
+    estimate_components_misspec,
+    seed_from,
 )
+from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import (
-    DEFAULT_BUDGET, THETA_GRID, f_churn_vec,
-    compute_welfare, compute_risk_exposure, compute_mean_churn_moderation,
-    target_topk, calibrate_theta_all,
+    DEFAULT_BUDGET,
+    THETA_GRID,
+    calibrate_theta_all,
+    compute_mean_churn_moderation,
+    compute_risk_exposure,
+    compute_welfare,
+    f_churn_vec,
+    target_topk,
 )
 from core.stats import (
-    holm_bonferroni, tost_paired, paired_test_raw as paired_test, ratio_entry, t_mean_ci,
+    holm_bonferroni,
+    paired_test_raw,
+    ratio_entry,
+    t_mean_ci,
+    tost_paired,
 )
 
 # --- Configuration ---
@@ -56,8 +82,7 @@ ORACLE_STRATEGIES = ['Oracle hindsight (g=1)', 'Oracle feasible (g=1)',
 # --- Main simulation loop ---
 
 def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
-                          est_func=None, cate_method='tlearner', n_players=None,
-                          dgp_name=None):
+                          est_func=None, cate_method='tlearner', n_players=None):
     if n_players is None:
         n_players = N_PLAYERS
     if dgp_func is None:
@@ -109,13 +134,10 @@ def run_single_simulation(seed, budget_frac=DEFAULT_BUDGET, dgp_func=None,
     # unreachable by any X-measurable rule); feasible ranks on E[tau|X] E[V|X].
     # Welfare of all of them is evaluated on realised true_tau, true_ltv.
     strategies['Oracle hindsight (g=1)'] = true_tau * true_ltv
-    if dgp_name is None:
-        dgp_name, extra = dgp_spec(dgp_func)   # raises ValueError if unknown
-    else:
-        extra = {'gamma': dgp_func.gamma} if hasattr(dgp_func, 'gamma') else {}
+    dgp_name, extra = dgp_spec(dgp_func)   # raises ValueError if unknown
     if dgp_name == 'corr_gamma':
         # DGP standardises tau_base on the full generating sample; X is observable.
-        extra = dict(extra, tau_base_stats=tau_base_stats(
+        extra = dict(extra, tau_base_moments=tau_base_stats(
             dict(zip(FEATURE_NAMES, data['features'].T))))
     feats = {nm: data['features'][test_idx, i]
              for i, nm in enumerate(FEATURE_NAMES)}
@@ -258,7 +280,8 @@ def _efficiency_table(all_results, reps, n):
 
     level_ratio = W_rule / W_oracle;  normalized = (W_rule - W_random) / (W_oracle - W_random)
     (0 = random targeting, 1 = the feasible oracle).  Every replication must have a positive
-    denominator (about 6,100 against an SD of about 480 at full size); otherwise this raises.  'feasible_over_hindsight' = W_feasible / W_hindsight."""
+    denominator (about 6,100 against an SD of about 480 at full size); otherwise this raises.
+    'feasible_over_hindsight' = W_feasible / W_hindsight."""
     def w(name):
         return np.array([r['welfare'] for r in all_results[name]], dtype=float)
 
@@ -287,8 +310,8 @@ def _budget_paired(strat_runs, kappa_str):
     w_ltv = [r['welfare'] for r in strat_runs['CATE x LTV']]
     w_cate = [r['welfare'] for r in strat_runs['CATE Only']]
     bp = {
-        'cal_vs_ltv': paired_test(w_cal, w_ltv, f'{kappa_str} cal vs ltv'),
-        'cal_vs_cate_only': paired_test(w_cal, w_cate, f'{kappa_str} cal vs cate'),
+        'cal_vs_ltv': paired_test_raw(w_cal, w_ltv, f'{kappa_str} cal vs ltv'),
+        'cal_vs_cate_only': paired_test_raw(w_cal, w_cate, f'{kappa_str} cal vs cate'),
     }
     corrected = holm_bonferroni([bp['cal_vs_ltv']['p_value'], bp['cal_vs_cate_only']['p_value']])
     bp['cal_vs_ltv']['p_holm'] = float(corrected[0])
@@ -400,7 +423,7 @@ def run_study(reps=None, n=None, n_jobs=1):
         w1 = [r['welfare'] for r in all_results[s1]]
         w2 = [r['welfare'] for r in all_results[s2]]
         label = f'{s1} vs {s2}'
-        paired_tests[label] = paired_test(w1, w2, label)
+        paired_tests[label] = paired_test_raw(w1, w2, label)
         # mean(a - b) / mean(b), delta-method CI from the per-replication pairs
         paired_tests[label]['ratio_to_b'] = ratio_entry(np.array(w1) - np.array(w2), w2)
         raw_pvalues.append(paired_tests[label]['p_value'])
@@ -426,8 +449,8 @@ def run_study(reps=None, n=None, n_jobs=1):
     w_cate_xl = [r['welfare'] for r in xl_results['CATE Only']]
     w_ltv_xl = [r['welfare'] for r in xl_results['CATE x LTV']]
     output['xlearner_paired'] = {
-        'cal_vs_cate_only': paired_test(w_cal_xl, w_cate_xl, 'XL cal vs cate'),
-        'cal_vs_ltv': paired_test(w_cal_xl, w_ltv_xl, 'XL cal vs ltv'),
+        'cal_vs_cate_only': paired_test_raw(w_cal_xl, w_cate_xl, 'XL cal vs cate'),
+        'cal_vs_ltv': paired_test_raw(w_cal_xl, w_ltv_xl, 'XL cal vs ltv'),
     }
 
     # =====================================================================
@@ -457,8 +480,8 @@ def run_study(reps=None, n=None, n_jobs=1):
     w_ltv_ms = [r['welfare'] for r in misspec_results['CATE x LTV']]
 
     ms_paired = {
-        'cal_vs_cate': paired_test(w_cal_ms, w_cate_ms, 'ms cal vs cate'),
-        'cal_vs_ltv': paired_test(w_cal_ms, w_ltv_ms, 'ms cal vs ltv'),
+        'cal_vs_cate': paired_test_raw(w_cal_ms, w_cate_ms, 'ms cal vs cate'),
+        'cal_vs_ltv': paired_test_raw(w_cal_ms, w_ltv_ms, 'ms cal vs ltv'),
     }
     ms_raw_p = [ms_paired['cal_vs_cate']['p_value'],
                 ms_paired['cal_vs_ltv']['p_value']]
@@ -494,7 +517,7 @@ def run_study(reps=None, n=None, n_jobs=1):
     w_cal_xlm = [r['welfare'] for r in xl_misspec_results['Full Framework (Cal.)']]
     w_cate_xlm = [r['welfare'] for r in xl_misspec_results['CATE Only']]
     output['xlearner_misspec_paired'] = {
-        'cal_vs_cate': paired_test(w_cal_xlm, w_cate_xlm, 'xlm cal vs cate'),
+        'cal_vs_cate': paired_test_raw(w_cal_xlm, w_cate_xlm, 'xlm cal vs cate'),
     }
 
     # =====================================================================
@@ -549,8 +572,8 @@ def run_study(reps=None, n=None, n_jobs=1):
     w_cate_corr = [r['welfare'] for r in corr_results['CATE Only']]
     w_ltv_corr = [r['welfare'] for r in corr_results['CATE x LTV']]
     output['correlated_dgp_paired'] = {
-        'cal_vs_cate': paired_test(w_cal_corr, w_cate_corr, 'corr cal vs cate'),
-        'cal_vs_ltv': paired_test(w_cal_corr, w_ltv_corr, 'corr cal vs ltv'),
+        'cal_vs_cate': paired_test_raw(w_cal_corr, w_cate_corr, 'corr cal vs cate'),
+        'cal_vs_ltv': paired_test_raw(w_cal_corr, w_ltv_corr, 'corr cal vs ltv'),
     }
 
     # =====================================================================

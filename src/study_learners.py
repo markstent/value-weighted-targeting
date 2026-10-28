@@ -67,24 +67,29 @@ import json
 import os
 import time
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 from joblib import Parallel, delayed
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import KFold, train_test_split
 
-from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import DGPS, FEATURE_NAMES, ORACLE_MC, conditional_means
 from core.estimators import (
-    CROSSFIT_STREAM, DEFAULT_PARAMS, LTV_STREAM, ORACLE_STREAM,
-    _estimate_cate_tlearner, _estimate_ltv_proxy,
-    _wellspec_value_model, estimate_cate, seed_from,
+    CROSSFIT_STREAM,
+    DEFAULT_PARAMS,
+    LTV_STREAM,
+    ORACLE_STREAM,
+    _estimate_ltv_proxy,
+    _wellspec_value_model,
+    estimate_cate,
+    ltv_proxy_target,
+    seed_from,
 )
-from pathlib import Path
-
 from core.io import OUTPUT_DIR, add_common_args, resolve_run_size, save_json
 from core.policy import DEFAULT_BUDGET, PROPENSITY, compute_welfare, regret_split, target_topk
 from core.stats import holm_bonferroni, paired_test_raw, ratio_entry, t_mean_ci
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 
 KAPPAS = (0.10, 0.20, 0.30, 0.50)
 REGRET_KAPPA = DEFAULT_BUDGET
@@ -212,16 +217,17 @@ def tune_all(n_players=N_PLAYERS, n_jobs=1, grid=GRID, seeds=None, dgp_name='mai
     return out
 
 
-def tuned_path(n_players):
-    """Tracked config file for the full-size pilot; an untracked outputs/ file for any
-    other run size (smoke included), so a small run never overwrites the config."""
+def tuned_path(n_players, outdir=None):
+    """Tracked config file for the full-size pilot; an untracked file in outdir (default
+    outputs/) for any other run size (smoke included), so a small run never overwrites
+    the config.  outdir only matters for the non-full file."""
     if n_players == N_PLAYERS:
         return CONFIG_DIR / TUNED_FILE
-    return OUTPUT_DIR / f'tuned_params_n{n_players}.json'
+    return Path(OUTPUT_DIR if outdir is None else outdir) / f'tuned_params_n{n_players}.json'
 
 
 def _check_meta(frozen_meta, expected, path):
-    for key in ('grid', 'pilot_seeds', 'n_players', 'dgp'):
+    for key in ('grid', 'pilot_seeds', 'n_players', 'dgp', 'learners', 'criterion'):
         if frozen_meta.get(key) != expected[key]:
             raise ValueError(
                 f"{path}: frozen tuning _meta[{key!r}] = {frozen_meta.get(key)!r} differs from "
@@ -233,7 +239,7 @@ def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
 
     Runs the pilot (at n_players) only if the file is missing or retune is set;
     otherwise reads it and raises ValueError if its _meta (grid, pilot seeds, n,
-    dgp) differs from the current code."""
+    dgp, learners, criterion) differs from the current code."""
     path = tuned_path(n_players)
     if retune or not path.exists():
         print(f"Tuning pilot at n={n_players}, writing {path}")
@@ -248,7 +254,7 @@ def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
         print(f"Reading frozen tuned params from {path}")
         frozen = json.loads(path.read_text())
         _check_meta(frozen['_meta'], make_meta(n_players), path)
-    return {l: frozen['learners'][l]['params'] for l in COMPARED_LEARNERS}
+    return {lrn: frozen['learners'][lrn]['params'] for lrn in COMPARED_LEARNERS}
 
 
 # ---------------------------------------------------------------------------
@@ -257,10 +263,9 @@ def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
 def end_to_end_score(Xtr, Xte, Wtr, Ytr, seed):
     """E2E: one model trained on V_proxy * Y with treatment as a feature, scored by the
     treated-minus-control difference.  Uses the same misspecified value-proxy form as
-    the decomposed pipeline's training target (not tuned)."""
-    rng_v = np.random.RandomState(seed_from(seed, LTV_STREAM))
-    vproxy = (12 * Xtr[:, 1] ** 0.9 + 35 * Xtr[:, 2]
-              + rng_v.normal(0, 200, len(Xtr))).clip(50, 8000)
+    the decomposed pipeline's training target (core.estimators.ltv_proxy_target on the
+    shared LTV_STREAM, so it sees the same proxy noise as the deployed value model; not tuned)."""
+    vproxy = ltv_proxy_target(Xtr, seed, LTV_STREAM).clip(50, 8000)
     model = GradientBoostingRegressor(
         n_estimators=100, max_depth=4, learning_rate=0.1, random_state=0)
     model.fit(np.column_stack([Xtr, Wtr]), vproxy * Ytr)
@@ -318,9 +323,9 @@ def run_rep(rep, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, 
     lap('welfare')
 
     k = int(len(test_idx) * REGRET_KAPPA)
-    regret = {f'{label(l, p)}|{vm}': regret_split(tau_bar, ltv_bar, tau_hat, vs[vm],
+    regret = {f'{label(lrn, p)}|{vm}': regret_split(tau_bar, ltv_bar, tau_hat, vs[vm],
                                                   true_tau, true_ltv, k)
-              for (l, p), tau_hat in taus.items() for vm in VALUE_MODELS}
+              for (lrn, p), tau_hat in taus.items() for vm in VALUE_MODELS}
     lap('regret')
 
     return {'welfare': welfare, 'regret': regret, 'timing': dict(t)}

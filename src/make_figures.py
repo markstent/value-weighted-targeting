@@ -18,8 +18,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.ticker import FuncFormatter  # noqa: E402
 import numpy as np  # noqa: E402
+from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 OUTDIR = REPO / "outputs"
@@ -148,12 +148,11 @@ def fig_frontier(data: dict, figdir: Path = FIGDIR) -> Path:
             edgecolor="white",
             linewidth=0.8,
         )
-        dx = 0.0015
-        dy = 250
         ax.annotate(
             label,
             xy=(x, y),
-            xytext=(x + dx, y + dy),
+            xytext=(5, 6),
+            textcoords="offset points",
             fontsize=9,
             color="#222",
         )

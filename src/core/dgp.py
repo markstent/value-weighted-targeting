@@ -43,13 +43,16 @@ DGP_SPEC = {
         'bonus_history': 'N(3, 1.5), clipped [0, 10]',
     },
     'standardisation': 'Population parameters (fixed across replications)',
-    'churn': 'logit = -1.0 + 0.04*(30-age) - 0.25*login + 0.01*(40-spend) + 0.1*z_bonus + N(0,0.4); sigmoid, clip [0.01, 0.99]',
+    'churn': ('logit = -1.0 + 0.04*(30-age) - 0.25*login + 0.01*(40-spend) + 0.1*z_bonus + N(0,0.4); '
+              'sigmoid, clip [0.01, 0.99]'),
     'ltv': '10*spend + 40*login + 5*age + N(0,80), clip [50, 8000]',
     'ltv_proxy': '12*spend^0.9 + 35*login + N(0,200) -- misspecified form for estimation',
-    'cate': 'tau_base = 0.06 + 0.10*z_login - 0.02*z_login^2 - 0.04*z_spend; churn_mod = 4*p*(1-p); tau = tau_base * churn_mod + N(0,0.03), clip [-0.20, 0.40]',
+    'cate': ('tau_base = 0.06 + 0.10*z_login - 0.02*z_login^2 - 0.04*z_spend; churn_mod = 4*p*(1-p); '
+             'tau = tau_base * churn_mod + N(0,0.03), clip [-0.20, 0.40]'),
     'baseline': '0.6 + 0.15*z_login + 0.05*z_spend - 0.08*z_age + N(0,0.05), clip [0.05, 0.95]',
     'treatment': 'Bernoulli(0.5)',
-    'note': 'The CATE-churn moderation (4*p*(1-p)) creates an inverse-U relationship: treatment effects peak at moderate churn (p=0.5) and are attenuated at extremes.',
+    'note': ('The CATE-churn moderation (4*p*(1-p)) creates an inverse-U relationship: treatment effects '
+             'peak at moderate churn (p=0.5) and are attenuated at extremes.'),
 }
 
 # Loading of tau_base on z_spend.  The decoupled harm DGP sets it to 0 (see structural_decoupled).
@@ -318,11 +321,11 @@ def generate_adv(n, rng):
     return _generate(n, rng, draw_features, structural_adv)
 
 
-def _late_ltv_corr_gamma(f, s, rng, n, gamma=0.0, noise_scale=1.0, tau_base_stats=None):
+def _late_ltv_corr_gamma(f, s, rng, n, gamma=0.0, noise_scale=1.0, tau_base_moments=None):
     """LTV with gamma * standardised tau_base (tunes corr(tau, V))."""
     tau_base = s['tau_base']
-    mean, sd = ((tau_base.mean(), tau_base.std()) if tau_base_stats is None
-                else tau_base_stats)
+    mean, sd = ((tau_base.mean(), tau_base.std()) if tau_base_moments is None
+                else tau_base_moments)
     z_taubase = (tau_base - mean) / (sd + 1e-12)
     base_v = (10 * f['weekly_spend'] + 40 * f['login_freq']
               + 5 * f['account_age'])
@@ -432,12 +435,15 @@ class _CommonNoiseRng:
         self._n_mc = n_mc
 
     def normal(self, loc, scale, size):
+        assert size % self._n_mc == 0, (
+            f'_CommonNoiseRng.normal: size {size} is not a multiple of n_mc={self._n_mc}; '
+            'the unit-major repeat layout requires whole blocks of n_mc draws')
         z = self._rs.normal(0.0, 1.0, self._n_mc)
         return loc + scale * np.tile(z, size // self._n_mc)
 
 
-def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
-                      noise_scale=1.0, tau_base_stats=None,
+def conditional_means(dgp_name, features, n_mc=ORACLE_MC, *, seed, gamma=0.0,
+                      noise_scale=1.0, tau_base_moments=None,
                       max_units_per_chunk=None):
     """Monte Carlo E[tau|X], E[V|X], E[churn|X] (and E[harm|X] for 'harm' and
     'harm_decoupled'; 'main_decoupled' is the main DGP without the z_spend term in tau_base).
@@ -452,9 +458,10 @@ def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
     stays near DEFAULT_CHUNK_BYTES.
 
     features: dict of 1-D arrays keyed by FEATURE_NAMES.
-    gamma / tau_base_stats: corr_gamma only.  tau_base_stats=(mean, sd) must be the
+    gamma / tau_base_moments: corr_gamma only.  tau_base_moments=(mean, sd) must be the
     moments of tau_base over the generating sample (use tau_base_stats(full
-    features)); default falls back to the moments of the features passed in.
+    features)); it is REQUIRED for corr_gamma (ValueError when missing: the moments of
+    the features passed in would silently differ from the DGP's own standardisation).
     Returns dict of arrays; '*_se' entries are Monte Carlo standard errors.
     """
     structural = _STRUCTURAL[dgp_name]
@@ -463,8 +470,9 @@ def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
         max_units_per_chunk = DEFAULT_CHUNK_BYTES // _BYTES_PER_UNIT
     step = max(1, max_units_per_chunk // n_mc)
 
-    if dgp_name == 'corr_gamma' and tau_base_stats is None:
-        tau_base_stats = globals()['tau_base_stats'](features)
+    if dgp_name == 'corr_gamma' and tau_base_moments is None:
+        raise ValueError("conditional_means('corr_gamma') needs tau_base_moments=(mean, sd) "
+                         'of tau_base over the generating sample; pass tau_base_stats(features)')
 
     names = ['tau', 'ltv', 'churn'] + (['harm'] if dgp_name in ('harm', 'harm_decoupled') else [])
     mean = {k: np.empty(n) for k in names}
@@ -484,7 +492,7 @@ def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
         elif dgp_name == 'corr_gamma':
             draws['ltv'] = _late_ltv_corr_gamma(
                 rep, s, rng, m * n_mc, gamma=gamma, noise_scale=noise_scale,
-                tau_base_stats=tau_base_stats)
+                tau_base_moments=tau_base_moments)
         else:
             draws['ltv'] = _late_ltv_heavytail(rep, s, rng, m * n_mc,
                                                noise_scale=noise_scale)

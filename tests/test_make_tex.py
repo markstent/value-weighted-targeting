@@ -476,3 +476,16 @@ def test_decoupled_macros_table_and_siblings():
     rows = [r for r in mt.build(data)['tab_harm_decoupled.tex'].splitlines() if r and not r.startswith('%')]
     assert len(rows) == 2 * len(harm['_meta']['sigma_h'])
     assert rows[0].startswith('coupled') and rows[1].startswith('decoupled')
+
+
+def test_load_honours_outdir_for_non_full_tuned_params(tmp_path):
+    import shutil
+    smoke_data()                                        # make sure the smoke outputs exist
+    n = mt.load(ROOT / 'outputs', True)['learners']['_meta']['n_players']
+    assert n != 10000
+    for p in SMOKE:
+        shutil.copy(p, tmp_path / p.name)
+    with pytest.raises(FileNotFoundError):              # tuned file is looked up in outdir, not outputs/
+        mt.load(tmp_path, True)
+    shutil.copy(ROOT / 'outputs' / f'tuned_params_n{n}.json', tmp_path / f'tuned_params_n{n}.json')
+    assert mt.load(tmp_path, True)['tuned_params']['_meta']['n_players'] == n

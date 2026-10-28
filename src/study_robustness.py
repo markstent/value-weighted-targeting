@@ -90,7 +90,10 @@ Scenarios
   like_for_like  The S-learner (all features) vs the S-learner missing the SAME
       feature dropped from the decomposed CATE model (login on the main DGP,
       bonus_history on the adv DGP), and the same drop for both T-learner arms.  The
-      value model keeps all features throughout.  Comparison: all features vs dropped.
+      value model keeps all features throughout.  Comparison: all features vs dropped.  A
+      comparison whose mean difference is exactly 0 (e.g. a tuned learner that never splits
+      on the dropped feature) is flagged "degenerate": true with p_holm None and is NOT in
+      the Holm family, as for the plug-in calibration.
 
 Definition changes against the legacy scripts: the two oracle rows above; the tuned arms;
 p-values and Holm everywhere; unrounded storage; the legacy per-seed plug-in/AIPW
@@ -112,22 +115,40 @@ from scipy import stats as scipy_stats
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 
-from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import (
-    DGPS, FEATURE_NAMES, ORACLE_MC, conditional_means, dgp_spec, generate_adv, make_corr_dgp,
+    DGPS,
+    FEATURE_NAMES,
+    ORACLE_MC,
+    conditional_means,
+    dgp_spec,
+    generate_adv,
+    make_corr_dgp,
     tau_base_stats,
 )
 from core.estimators import (
-    LTV_STREAM, ORACLE_STREAM, VALUE_STREAM_V43, _estimate_cate_tlearner,
-    _estimate_cate_xlearner, _estimate_ltv_churn, _estimate_ltv_proxy,
-    _estimate_slearner, _wellspec_value_model, seed_from,
+    LTV_STREAM,
+    ORACLE_STREAM,
+    REFERENCE_VALUE_STREAM,
+    _estimate_cate_tlearner,
+    _estimate_cate_xlearner,
+    _estimate_ltv_churn,
+    _estimate_ltv_proxy,
+    _estimate_slearner,
+    _wellspec_value_model,
+    ltv_proxy_target,
+    seed_from,
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import (
-    DEFAULT_BUDGET, THETA_GRID, calibrate_theta_all, f_churn_vec, misrank_terms, target_topk,
+    DEFAULT_BUDGET,
+    THETA_GRID,
+    calibrate_theta_all,
+    f_churn_vec,
+    misrank_terms,
 )
 from core.stats import holm_bonferroni, paired_test_raw, ratio_entry, t_mean_ci
 from study_learners import load_or_tune, welfare_at_kappa
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 
 KAPPA = DEFAULT_BUDGET
 ADV_KAPPAS = (0.30, 0.10)
@@ -190,7 +211,7 @@ def _oracle_cm(rep, dgp_func):
     name, extra = dgp_spec(dgp_func)
     if name == 'corr_gamma':
         # the DGP standardises tau_base on the full generating sample; X is observable
-        extra = dict(extra, tau_base_stats=tau_base_stats(
+        extra = dict(extra, tau_base_moments=tau_base_stats(
             dict(zip(FEATURE_NAMES, rep.data['features'].T))))
     feats = {nm: rep.Xte[:, i] for i, nm in enumerate(FEATURE_NAMES)}
     return conditional_means(name, feats, n_mc=ORACLE_MC,
@@ -238,18 +259,21 @@ def _cell(welfare, pairs):
                         for a, b in pairs}}
 
 
-def flag_degenerate(comparisons, prefix='Calibrated (plug-in)'):
+def flag_degenerate(comparisons, prefix='Calibrated (plug-in)', warn_nonzero=True):
     """Flag the by-construction zero comparisons (kept in the output, excluded from Holm).
 
     The plug-in objective selects identity, so a plug-in arm normally equals the g=1 rule
-    exactly.  A comparison is flagged only when it has that name AND its mean_diff is
-    exactly 0 over the reps; a named comparison with a nonzero difference stays in the
-    Holm family and a warning is logged, since the by-construction claim failed."""
+    exactly.  A comparison is flagged only when its first arm has that name prefix AND its
+    mean_diff is exactly 0 over the reps; a named comparison with a nonzero difference stays
+    in the Holm family and (warn_nonzero) a warning is logged, since the by-construction claim
+    failed.  prefix='' matches every comparison, for cells where an exact zero is possible
+    but not expected (a tuned learner that never splits on the dropped feature): pass
+    warn_nonzero=False there."""
     for label, c in comparisons.items():
         named = c['a'].startswith(prefix)
         zero = c['mean_diff'] == 0.0
         c['degenerate'] = bool(named and zero)
-        if named and not zero:
+        if warn_nonzero and named and not zero:
             logger.warning('%s: expected exactly zero mean_diff (plug-in selects identity) '
                            'but got %r; kept in the Holm family', label, c['mean_diff'])
 
@@ -296,7 +320,9 @@ def _dgp_rep(seed, *, dgp_func, n_players, tuned, kappa, calibrate, cols=ALL_COL
     rep = _setup(dgp_func, seed, n_players)
     taus = _tau_arms(rep, tuned, cols)
     ltv_hat, churn_hat = _estimate_ltv_churn(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, seed)
-    wel = lambda s: welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+    def wel(s):
+        return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+
     w, cal_idx = {}, {}
     for pset, tau_hat in taus.items():
         w[_arm('CATE Only', pset)] = wel(tau_hat)
@@ -432,7 +458,9 @@ def _component_rep(seed, *, n_players, tuned, kappa):
     taus = _tau_arms(rep, tuned)
     v_mis = _estimate_ltv_proxy(rep.Xtr, rep.Xte, seed)
     v_well = _wellspec_value_model(rep.Xtr, rep.Xte, seed)
-    wel = lambda s: welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+    def wel(s):
+        return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+
     w = {}
     for pset, tau_hat in taus.items():
         w[_arm('CATE x LTV, misspecified V', pset)] = wel(tau_hat * v_mis)
@@ -468,9 +496,7 @@ def _obs_rep(seed, *, n_players, tuned, kappa):
     # observable reference (held-out split): X-learner tau (all features), richer value model on the same
     # observable proxy target
     tau_ref = _estimate_cate_xlearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr)
-    rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V43))
-    vproxy = (12 * rep.Xtr[:, 1] ** 0.9 + 35 * rep.Xtr[:, 2]
-              + rng_v.normal(0, 200, len(rep.Xtr)))
+    vproxy = ltv_proxy_target(rep.Xtr, seed, REFERENCE_VALUE_STREAM)
     vref = GradientBoostingRegressor(n_estimators=300, max_depth=5, learning_rate=0.05,
                                      random_state=1).fit(rep.Xtr, vproxy)
     v_ref = vref.predict(rep.Xte).clip(50, 8000)
@@ -532,7 +558,9 @@ def _aipw_rep(seed, *, n_players, tuned, kappa):
     dgp_func = DGPS['main']
     rep = _setup(dgp_func, seed, n_players)
     ltv_hat, churn_hat = _estimate_ltv_churn(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, seed)
-    wel = lambda s: welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+    def wel(s):
+        return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+
     w, idx = {}, {}
     for pset, tau_hat in _tau_arms(rep, tuned).items():
         base = tau_hat * ltv_hat
@@ -560,12 +588,14 @@ def run_aipw_calibration(reps, n_players, tuned, n_jobs=1):
     cell['selection'] = {p: {o: _calibration_summary([r['idx'][(p, o)] for r in rows])
                              for o in ('aipw', 'plugin')} for p in ARMS}
     cell['kappa'] = KAPPA
-    out = _finish({'main': cell}, 'AIPW-calibrated vs identity, both arms (the degenerate plug-in comparisons are excluded)',
+    out = _finish({'main': cell},
+                  'AIPW-calibrated vs identity, both arms (the degenerate plug-in comparisons are excluded)',
                   kappa=KAPPA)
     out['note'] = ('config index 0 is the near-identity g~1; index 3 is default theta0.  '
                    'A comparison mean_diff is the true test welfare of the calibrated rule '
                    'minus the g=1 (CATE x LTV) rule.  The plug-in objective selects '
-                   'identity by construction (difference exactly 0, p = 1; flagged degenerate and excluded from the Holm family).  Proposition 3 '
+                   'identity by construction (difference exactly 0, p = 1; flagged degenerate and '
+                   'excluded from the Holm family).  Proposition 3 '
                    'implies no g improves on identity at the population optimum (true tau '
                    'and V); with estimated components that need not hold, so a negative '
                    'or zero mean is an empirical observation, not a consequence of the '
@@ -586,7 +616,9 @@ def _adv_rep(seed, *, n_players, tuned, kappas):
     cm = _oracle_cm(rep, dgp_func)
     out = {}
     for kp in kappas:
-        wel = lambda s: welfare_at_kappa(s, kp, rep.tau, rep.ltv)
+        def wel(s):
+            return welfare_at_kappa(s, kp, rep.tau, rep.ltv)
+
         w = {}
         for pset in ARMS:
             w[_arm('CATE Only', pset)] = wel(drop[pset])
@@ -629,15 +661,18 @@ def _like_rep(seed, *, dgp_func, drop_idx, n_players, tuned, kappa):
     rep = _setup(dgp_func, seed, n_players)
     keep = MISSPEC_DROP_COLS[drop_idx]
     ltv_hat = _estimate_ltv_proxy(rep.Xtr, rep.Xte, seed)
-    wel = lambda s: welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+    def wel(s):
+        return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
+
     w = {'S-Learner (all features)': wel(_estimate_slearner(
              rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, ltv_hat)),
          'S-Learner (feature dropped)': wel(_estimate_slearner(
              rep.Xtr[:, keep], rep.Xte[:, keep], rep.Wtr, rep.Ytr, ltv_hat))}
     full, dropped = _tau_arms(rep, tuned, ALL_COLS), _tau_arms(rep, tuned, keep)
     for pset in ARMS:
-        name = (lambda t: f'CATE Only ({t})' if pset == 'default'
-                else f'CATE Only (tuned, {t})')
+        def name(t):
+            return f'CATE Only ({t})' if pset == 'default' else f'CATE Only (tuned, {t})'
+
         w[name('all features')] = wel(full[pset])
         w[name('feature dropped')] = wel(dropped[pset])
     w.update(_oracle_welfare(rep, _oracle_cm(rep, dgp_func), kappa))
@@ -659,6 +694,9 @@ def run_like_for_like(reps, n_players, tuned, n_jobs=1):
         cell['comparisons'] = {
             ('S-Learner: all features vs dropped' if c['a'].startswith('S-Learner') else k): c
             for k, c in cell['comparisons'].items()}
+        # a tuned learner that never splits on the dropped feature gives an exactly zero
+        # difference (t undefined, p = 1): flagged like the plug-in case, out of the Holm family
+        flag_degenerate(cell['comparisons'], prefix='', warn_nonzero=False)
         cell['dropped_feature_index'] = drop_idx
         cell['dropped_feature'] = FEATURE_NAMES[drop_idx]
         cell['kappa'] = KAPPA

@@ -1,6 +1,5 @@
 """Harm module: correlation sweep, estimated harm, solver feasibility."""
 import numpy as np
-import pytest
 
 from core import dgp
 from core.estimators import HARM_STREAM, seed_from
@@ -90,6 +89,7 @@ def test_hard_cap_binds_at_sigma0():
 
 def test_selection_never_sees_true_harm():
     import inspect
+
     from study_harm import select_rules
     assert not any('true' in p for p in inspect.signature(select_rules).parameters)
 
@@ -122,7 +122,8 @@ def test_soft_gate_has_no_violation_rate_and_oracle_flag():
 
 def test_paired_tests_keys_and_holm_family():
     """G1/G2: per-rep paired tests in every cell, estimated and feasible-oracle components,
-    one Holm family (the cell's seven tests: six + soft gate vs CATE only); statistics pinned to paired_test_raw on the raw
+    one Holm family (the cell's seven tests: six + soft gate vs CATE only); statistics pinned to
+    paired_test_raw on the raw
     per-rep welfare arrays, p_holm to holm_bonferroni over exactly that family."""
     from core.stats import holm_bonferroni, paired_ratio_ci, paired_test_raw
     raw = simulate(reps=4, n_players=3000, c_harms=[1.0], sigma_hs=[0.0, 0.5], kappas=[0.30])

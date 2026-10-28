@@ -7,9 +7,8 @@ import numpy as np
 import pytest
 
 import study_robustness as sr
+from core.dgp import FEATURE_NAMES, conditional_means, draw_features, structural_adv
 from core.io import NumpyEncoder
-from core.dgp import (FEATURE_NAMES, conditional_means, draw_features,
-                      structural_adv, structural_main)
 
 N = 1500
 REPS = 3
@@ -330,3 +329,24 @@ def test_obs_diagnostic_level_is_per_rep_mean_and_ratio_of_means_is_separate():
                 differs += r['cate_share_per_rep']['mean'] != pytest.approx(
                     r['cate_share_ratio_of_means_pct'])
     assert differs     # the two estimands are not the same number
+
+
+def test_like_for_like_exact_zero_difference_is_degenerate_and_outside_holm(monkeypatch):
+    def fake_like_rep(seed, **kw):
+        rs = np.random.RandomState(seed)
+        base = rs.uniform(1000, 2000)
+        w = {'S-Learner (all features)': base + 50, 'S-Learner (feature dropped)': base + rs.normal(),
+             'CATE Only (all features)': base + 10, 'CATE Only (feature dropped)': base + rs.normal(),
+             'CATE Only (tuned, all features)': base,
+             'CATE Only (tuned, feature dropped)': base,        # tuned arm ignores the feature
+             'Oracle hindsight': base + 900, 'Oracle feasible': base + 800}
+        return w
+    monkeypatch.setattr(sr, '_like_rep', fake_like_rep)
+    out = sr.run_like_for_like(5, N, TUNED)
+    for cell in out['cells'].values():
+        flagged = {k: c for k, c in cell['comparisons'].items() if c['degenerate']}
+        assert list(flagged) == ['CATE Only (tuned, all features) vs CATE Only (tuned, feature dropped)']
+        c = next(iter(flagged.values()))
+        assert c['mean_diff'] == 0.0 and c['p_value'] == 1.0 and c['p_holm'] is None
+        assert all(c['p_holm'] is not None for c in cell['comparisons'].values() if not c['degenerate'])
+    assert out['holm_family_size'] == 2 * 2          # two non-degenerate comparisons per cell

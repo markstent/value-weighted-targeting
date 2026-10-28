@@ -2,9 +2,15 @@
 import numpy as np
 import pytest
 
-from core.estimators import (DEFAULT_PARAMS, LEARNERS, estimate_cate,
-                             estimate_cate_dr, estimate_cate_r,
-                             _estimate_cate_slearner, _estimate_cate_tlearner)
+from core.estimators import (
+    DEFAULT_PARAMS,
+    LEARNERS,
+    _estimate_cate_slearner,
+    _estimate_cate_tlearner,
+    estimate_cate,
+    estimate_cate_dr,
+    estimate_cate_r,
+)
 
 P_FAST = {'max_depth': 2, 'n_estimators': 60, 'learning_rate': 0.1}
 

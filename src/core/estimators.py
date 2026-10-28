@@ -9,13 +9,14 @@ from core.policy import PROPENSITY, aipw_scores
 # Independent RNG streams per replication seed (see seed_from).
 LTV_STREAM = 0        # LTV-proxy noise for the deployed estimator
 CALIB_STREAM = 1      # LTV-proxy noise for the calibration (validation) fit
-VALUE_STREAM_V42 = 3  # well-specified value model (component_update in study_robustness)
-VALUE_STREAM_V43 = 4  # richer reference value model (obs_diagnostic in study_robustness)
+WELLSPEC_VALUE_STREAM = 3   # training-target noise of the well-specified value model (_wellspec_value_model)
+REFERENCE_VALUE_STREAM = 4  # proxy-target noise of the richer reference value model (obs_diagnostic)
 ORACLE_STREAM = 5     # common-random-number noise for the feasible oracle MC
 CROSSFIT_STREAM = 6   # validation-fold cross-fit split for AIPW calibration
 HARM_STREAM = 7       # harm DGP noise (Z and logit noise), drawn after everything else
 HARM_ESTIMATE_STREAM = 8  # noise of the estimated harm score (estimate_harm)
 BOOT_STREAM = 9       # bootstrap resamples over reps for the harm sweep CIs
+CALIB_SPLIT_STREAM = 10   # estimation/validation split of the training rows in calibrate_theta_all
 
 
 def seed_from(seed, stream):
@@ -23,14 +24,24 @@ def seed_from(seed, stream):
     return (seed * 1_000_003 + stream) % 2**31
 
 
-def _estimate_ltv_proxy(X_train, X_test, seed, stream=LTV_STREAM):
-    """Misspecified LTV proxy (drops age, nonlinear spend, different coefficients).
+def ltv_proxy_target(X_train, seed, stream=LTV_STREAM):
+    """The observable, misspecified LTV-proxy training target (drops age, nonlinear spend,
+    different coefficients): 12 spend^0.9 + 35 login + N(0, 200), unclipped.
 
-    The proxy noise is seeded by seed_from(seed, stream), where seed is the
-    replication seed."""
+    The single definition of the proxy formula.  The noise is drawn from
+    RandomState(seed_from(seed, stream)) with seed the replication seed.  The deployed
+    value model (_estimate_ltv_proxy) and the end-to-end model of study_learners both use
+    the default LTV_STREAM, so on the same training rows they see the SAME proxy target
+    (the end-to-end model deliberately shares LTV_STREAM with the deployed estimator).
+    The richer reference model of study_robustness.obs_diagnostic uses
+    REFERENCE_VALUE_STREAM."""
     rng_ltv = np.random.RandomState(seed_from(seed, stream))
-    ltv_proxy = (12 * X_train[:, 1]**0.9 + 35 * X_train[:, 2]
-                 + rng_ltv.normal(0, 200, len(X_train)))
+    return 12 * X_train[:, 1]**0.9 + 35 * X_train[:, 2] + rng_ltv.normal(0, 200, len(X_train))
+
+
+def _estimate_ltv_proxy(X_train, X_test, seed, stream=LTV_STREAM):
+    """Misspecified LTV proxy model fitted on ltv_proxy_target(X_train, seed, stream)."""
+    ltv_proxy = ltv_proxy_target(X_train, seed, stream)
     ltv_model = GradientBoostingRegressor(
         n_estimators=80, max_depth=3, learning_rate=0.1, random_state=0)
     ltv_model.fit(X_train, ltv_proxy)
@@ -171,7 +182,7 @@ def _estimate_slearner(X_train, X_test, W_train, Y_train, ltv_hat):
 
 def _wellspec_value_model(Xtr, Xte, seed):
     """A correctly-specified value model: trained on the true LTV functional form."""
-    rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V42))
+    rng_v = np.random.RandomState(seed_from(seed, WELLSPEC_VALUE_STREAM))
     # True DGP LTV form: 10*spend + 40*login + 5*age (cf. study_main eq for V).
     target = (10 * Xtr[:, 1] + 40 * Xtr[:, 2] + 5 * Xtr[:, 0]
               + rng_v.normal(0, 80, len(Xtr))).clip(50, 8000)

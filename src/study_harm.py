@@ -78,16 +78,26 @@ import numpy as np
 from scipy import stats as scipy_stats
 from sklearn.model_selection import train_test_split
 
-from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import (
-    C_HARM_GRID, FEATURE_NAMES, ORACLE_MC, conditional_means, draw_harm, generate_harm,
+    C_HARM_GRID,
+    FEATURE_NAMES,
+    ORACLE_MC,
+    conditional_means,
+    draw_harm,
+    generate_harm,
 )
 from core.estimators import (
-    BOOT_STREAM, HARM_ESTIMATE_STREAM, ORACLE_STREAM, HARM_STREAM, estimate_components, seed_from,
+    BOOT_STREAM,
+    HARM_ESTIMATE_STREAM,
+    HARM_STREAM,
+    ORACLE_STREAM,
+    estimate_components,
+    seed_from,
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import compute_welfare, h_protection, target_topk
 from core.stats import holm_bonferroni, paired_test_raw, ratio_entry
+from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 
 SIGMA_H_GRID = (0.0, 0.5, 1.0)
 KAPPA_GRID = (0.10, 0.30)
