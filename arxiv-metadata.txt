@@ -20,7 +20,7 @@ cs.LG    (Machine Learning)
 
 COMMENTS
 --------
-39 pages, 4 figures
+42 pages, 4 figures
 
 MSC CLASS (optional)
 --------------------
