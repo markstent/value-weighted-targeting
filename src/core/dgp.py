@@ -163,9 +163,11 @@ def draw_harm_decoupled(f, rng, c_harm=1.0, noise_scale=1.0):
     the value-linked driver differs: z_Vbar replaces L_std = (1.1 z_spend + 0.4 z_login)/s.
     By construction harm is a function of (V_bar, independent noise), so it is independent
     of tau given V_bar (tau is unchanged from the main DGP, including its -0.04 z_spend
-    term).  Harm therefore carries no information about tau beyond V_bar; any gain from
-    using harm_hat can only come through value information (harm_hat informative about V
-    beyond the misspecified proxy V_hat), not through a tau channel."""
+    term).  In the decoupled DGP harm depends on X only through V_bar, so harm carries no
+    information about tau beyond V_bar.  A soft-gate gain that persists there therefore
+    operates through V_bar: harm_hat proxies the structural value that the misspecified V_hat
+    misses, and, because tau is itself correlated with V_bar (about -0.11), part of that proxy
+    information also bears on tau.  It is not a direct harm-tau link beyond V_bar."""
     if not -1.0 <= c_harm <= 1.0:
         raise ValueError(f'c_harm must be in [-1, 1], got {c_harm}')
     n = len(f['weekly_spend'])

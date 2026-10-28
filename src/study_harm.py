@@ -53,7 +53,7 @@ h_lo), so exposure differences can be read against them.
 Decoupled DGP variant (W1).  In the main DGP the harm logit loads on z_spend and z_login
 (L_std), which also drive tau_base (and, through churn, the moderation 4p(1-p)), so harm
 and harm_hat carry information about tau beyond V_bar = 10 spend + 40 login + 5 age (the
-noise-free structural value).  Partial corr(tau, harm logit | V_bar) is about 0.23 there.
+noise-free structural value).  Partial corr(tau, harm logit | V_bar) is about 0.245 there.
 The "decoupled" variant keeps the population, tau, V, treatment and outcomes EXACTLY as in
 the main harm DGP and changes only the harm draw (core.dgp.draw_harm_decoupled): harm
 depends on X only through V_bar,
@@ -62,10 +62,12 @@ with the same s, Z and RNG discipline.  Harm is then a function of (V_bar, indep
 noise), hence independent of tau given V_bar by construction.  What the design establishes
 (and the tests check, on a 200k draw; values in _meta['coupling']): partial
 corr(tau, harm logit | V_bar) is about 0 for decoupled (|r| < 0.01) and clearly nonzero for
-main.  Decoupled harm therefore carries no tau information beyond V_bar, so a soft-gate gain
-that REMAINS in the decoupled cells cannot come from a tau channel: it must come through
-value information (harm_hat informative about V beyond the misspecified proxy V_hat).  A
-gain that VANISHES in the decoupled cells is attributable to harm's information about tau.
+main.  In the decoupled DGP harm depends on X only through V_bar, so harm carries no information
+about tau beyond V_bar.  A soft-gate gain that persists there therefore operates through
+V_bar: harm_hat proxies the structural value that the misspecified V_hat misses, and,
+because tau is itself correlated with V_bar (about -0.11), part of that proxy information
+also bears on tau.  It is not a direct harm-tau link beyond V_bar.  A gain that VANISHES
+in the decoupled cells is attributable to harm's information about tau.
 _meta['coupling'] also reports corr(harm, V) and the partial correlation given the
 realised V per DGP at c = 1.  The decoupled variant is run at c_harm = 1 for every sigma_h
 and kappa, same rules, estimated and feasible-oracle components, same metrics; cells carry
