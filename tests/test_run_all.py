@@ -170,6 +170,8 @@ def test_make_tex_runs_last_only_when_all_studies_ran(tmp_path, monkeypatch):
         return {'name': name, 'exit_code': 0, 'wall_seconds': 0, 'log': ''}
 
     monkeypatch.setattr(run_all, 'run_step', fake_step)
+    # the fake steps write nothing, so do not hash whatever a previous real run left on disk
+    monkeypatch.setattr(run_all, 'sha256', lambda path: 'not-hashed')
     assert run_all.main(['--smoke', '--only', 'main,harm']) == 0
     assert 'make_tex' not in seen
     assert run_all.main(['--smoke']) == 0

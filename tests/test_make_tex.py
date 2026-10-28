@@ -499,3 +499,70 @@ def test_load_honours_outdir_for_non_full_tuned_params(tmp_path):
         mt.load(tmp_path, True)
     shutil.copy(ROOT / 'outputs' / f'tuned_params_n{n}.json', tmp_path / f'tuned_params_n{n}.json')
     assert mt.load(tmp_path, True)['tuned_params']['_meta']['n_players'] == n
+
+
+# ---- scope of the harm and value-weighting claims (kappa=0.10, CATE-only, decoupled oracle)
+
+def test_harm_kten_and_budget_tables():
+    data = smoke_data()
+    harm, files = data['harm_sweep'], mt.build(data)
+    rows = [r for r in files['tab_harm_kten.tex'].splitlines() if r and not r.startswith('%')]
+    assert len(rows) == 15 and rows[0].count('&') == 7
+    em = mt.harm_cell(harm, 1.0, 0.0, 0.1, 'tauV')['exposure_minus_pop']
+    assert mt.tex(mt.gap_text(em)) in files['tab_harm_kten.tex']
+    assert files['tab_harm_kten.tex'] != files['tab_harm.tex']
+    body = [r for r in files['tab_harm_budget.tex'].splitlines() if r and not r.startswith('%')]
+    dgps = harm['_meta']['dgps']
+    data_rows = [r for r in body if r != r'\midrule']
+    assert len(data_rows) == len(mt.HARM_BUDGET_RULES) * len(dgps)
+    assert body.count(r'\midrule') == len(dgps) - 1
+    assert all(r.count('&') == 5 for r in data_rows)
+    # columns: estimated 0.10, 0.30, then feasible-oracle 0.10, 0.30
+    first = data_rows[0].rstrip(' \\').split(' & ')
+    assert first[0] == mt.DGP_LABEL[dgps[0]] and 'Harm-blind' in first[1]
+    expect = [mt.tex(mt.gap_text(mt.harm_cell(harm, 1.0, 0.0, k, 'tauV' + sfx, dgps[0])['exposure_minus_pop']))
+              for sfx in ('', mt.HARM_SUFFIX) for k in (0.1, 0.3)]
+    assert first[2:] == expect
+    last = data_rows[-1].rstrip(' \\').split(' & ')
+    assert last[0] == mt.DGP_LABEL[dgps[-1]] and last[1] == 'CATE only'
+
+
+def test_harm_scope_macros_equal_json_values():
+    data = smoke_data()
+    harm, items = data['harm_sweep'], _macros()
+    for base, dgp, kappa, rule, field in mt.HARM_SCOPE_CELLS:
+        cell = mt.harm_cell(harm, 1.0, 0.0, kappa, rule, dgp)
+        if field == 'gap':
+            em = cell['exposure_minus_pop']
+            assert items[base][0] == mt.fmt_signed(em['mean'], mt.fmt_harm), base
+            assert base + 'CiLo' in items and base + 'CiHi' in items, base
+        elif field == 'exposure':
+            assert items[base][0] == mt.fmt_harm(cell['harm_exposure']['mean']), base
+        else:
+            assert items[base][0] == mt.fmt_welfare(cell['welfare']['mean']), base
+    for c, kappa, tag in ((-1.0, 0.3, 'CMinusOne'), (0.0, 0.3, 'CZero'), (0.0, 0.1, 'CZeroKten')):
+        t = mt.harm_test(harm, c, 0.0, kappa, 'soft gate vs tauV', 'estimated')
+        base = f'numHarmDiffSoftGateMinusTauV{tag}'
+        assert items[base][0] == mt.fmt_signed(t['mean_diff'], mt.fmt_welfare)
+        assert items[base + 'HolmP'][0] == mt.fmt_p(t['p_holm'])
+        assert 'Holm family' in items[base][1]
+
+
+def test_learner_count_and_effective_welfare_macros():
+    data = smoke_data()
+    learners, rob, items = data['learners'], data['robustness'], _macros()
+    tests = learners['tests_effect_only_vs_tauV'][mt.key_str(0.5)]
+    wins = sum(t['diff'] > 0 for t in tests)
+    holm = sum(t['diff'] > 0 and t['p_holm'] < 0.05 for t in tests)
+    assert items['numLearnersEffectOnlyCellsKfifty'][0] == str(len(tests))
+    assert items['numLearnersEffectOnlyWinsKfifty'][0] == str(wins)
+    assert items['numLearnersEffectOnlyWinsHolmKfifty'][0] == str(holm) and holm <= wins
+    w = rob['effective_welfare']['cells']['main']['welfare']
+    eff_only, eff_ltv = w['CATE Only [effective]']['mean'], w['CATE x LTV [effective]']['mean']
+    assert items['numRobustnessEffectiveWelfareCateOnly'][0] == mt.fmt_welfare(eff_only)
+    assert items['numRobustnessEffectiveWelfareGapCateLtvMinusCateOnly'][0] == mt.fmt_signed(
+        eff_ltv - eff_only, mt.fmt_welfare)
+    assert 'no CI' in items['numRobustnessEffectiveWelfareGapCateLtvMinusCateOnly'][1]
+    base = 'numRobustnessDiffOverstatementCateLtvMinusCateOnly'
+    for suffix in ('', 'CiLo', 'CiHi', 'HolmP'):
+        assert base + suffix in items, base + suffix

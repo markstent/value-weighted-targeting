@@ -263,7 +263,7 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
              if c["dgp"] == "main" and c["kappa"] == HARM_KAPPA and c["c_harm"] == HARM_C]
     sigmas = sorted({c["sigma_h"] for c in cells})
     styles = {"tauV": ("#1f3b5c", "o", r"$\tau V$ (harm-blind)"),
-              "soft gate": ("#b34", "s", "soft gate"),
+              "soft gate": ("#b34", "s", "soft weight"),
               "hard cap": ("#2a7a2a", "^", "hard cap")}
     fig, axes = plt.subplots(1, len(sigmas), figsize=(3.0 * len(sigmas) + 0.6, 3.6),
                              sharey=True, squeeze=False)

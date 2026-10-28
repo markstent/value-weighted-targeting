@@ -1,6 +1,6 @@
-# Value-Weighted Retention Targeting Concentrates Harm
+# Value-Weighted Retention Targeting Can Concentrate Harm
 
-### A Diagnostic and a Harm-Aware Rule for Budget-Constrained Targeting in Online Gambling
+### A Diagnostic and Harm-Aware Rules for Online Gambling
 
 [![Paper (PDF)](https://img.shields.io/badge/paper-PDF-b31b1b.svg)](paper.pdf)
 [![Repo](https://img.shields.io/badge/GitHub-bonus--allocation--framework-181717.svg?logo=github)](https://github.com/markstent/bonus-allocation-framework)
@@ -10,7 +10,7 @@
 [![Build](https://img.shields.io/badge/build-LaTeX%20%2F%20tectonic-008080.svg)](#building-the-pdf)
 [![License](https://img.shields.io/badge/license-MIT%20(code)%20%2F%20CC%20BY%204.0%20(paper)-blue.svg)](LICENSE)
 
-Companion repository for the working paper *Value-Weighted Retention Targeting Concentrates Harm: A Diagnostic and a Harm-Aware Rule for Budget-Constrained Targeting in Online Gambling* by Mark Stent.
+Companion repository for the working paper *Value-Weighted Retention Targeting Can Concentrate Harm: A Diagnostic and Harm-Aware Rules for Online Gambling* by Mark Stent.
 
 - **Repository:** <https://github.com/markstent/bonus-allocation-framework>
 - **Read the paper:** [paper.pdf](paper.pdf) &nbsp;·&nbsp; latest source: [`docs/stent-2026-value-weighted-targeting.tex`](docs/stent-2026-value-weighted-targeting.tex)
@@ -25,25 +25,24 @@ git clone https://github.com/markstent/bonus-allocation-framework.git
 
 Retention incentives in online gambling are often allocated by ranking players on estimated treatment effect times lifetime value.
 Under a fixed budget this value-weighted rule maximises operator value, but operator value and player harm can rise together.
-We show that the harm exposure of any budget-exhausting rule exceeds the population mean by the covariance between treatment and harm divided by the budget, and give a sufficient condition under which value-weighted ranking makes that covariance positive: harm rises with value among players with the same treatment effect.
-In a simulation with 200 replications of 10,000 players, value-weighted ranking raises mean harm among treated players from 0.421 to 0.476, and the sign of the gap follows the harm-value association.
-A harm weight on the score brings exposure to 0.414 and, with estimated components and harm rising with value, raises operator value from 16,446 to 19,045.
-The gain persists (+3,246) when harm depends on the covariates only through structural value, so it needs no direct link between harm and the effect.
-A hard cap beats the harm weight only with feasible-oracle components, and its ceiling holds only for the measure it is given.
-In the main design, value weighting wins with feasible-oracle components, but with estimated effects ranking on the effect alone yields more operator value for every learner at tight and moderate budgets.
-The default T-learner favours value weighting in the null, misspecified-effect and asymmetric scenarios.
-A feasible oracle using only covariates reaches 73.5% of the hindsight oracle.
+We show that the harm exposure of any budget-exhausting rule exceeds the population mean by the covariance between treatment and harm divided by the budget, and give sufficient conditions for value-weighted ranking to make it non-negative.
+In a simulation where harm rises with value, the estimated value-weighted rule raises mean harm among treated players from 0.421 to 0.476 at a 30% budget and leaves a gap of +0.152 at 10%.
+Harm tracking value is not enough: in one design an accurate value-weighted rule falls below the population mean despite a strong harm-value correlation.
+A harm weight on the score lowers exposure to 0.414, close to what effect-only ranking reaches with no harm input.
+With estimated components it raises operator value, but not through harm information: the gain appears when harm falls with value, shrinks or vanishes when harm is independent of value and becomes a cost with accurate components, consistent with trimming the noisy upper tail of the product score.
+A hard cap beats the harm weight only with accurate components, and its ceiling holds only for the measure it is given.
+In this design, with estimated effects, ranking on the effect alone beats value weighting for every learner at budgets up to 30%; removing effect-churn moderation reverses this.
 All parameters are illustrative.
 
 ## Key Findings
 
 | Finding | Detail |
 |---|---|
-| Harm exposure obeys an exact identity | For any budget-exhausting rule, exposure of the treated minus the population mean equals the covariance of treatment and harm divided by the budget; value-weighted ranking makes it positive when harm rises with value among players with the same treatment effect |
-| Value-weighted ranking concentrates harm in simulation | Mean harm among treated players is 0.476 against a population mean of 0.421, a gap of +0.055 (95% CI +0.051 to +0.058); the feasible oracle gap is +0.033 (+0.032 to +0.034); the sign of the gap follows the harm-value association (sample correlation from -0.75 to +0.80 across the sweep) |
-| A soft harm weight removes the concentration at no operator-value cost, and the gain works through structural value | Exposure falls to 0.414, below the population mean, and operator value rises from 16,446 to 19,045, a difference of +2,598 (95% CI 2,406 to 2,790, Cohen's d 1.89), with estimated components and harm rising with value; it also beats CATE-only ranking by +2,411 (95% CI 2,239 to 2,583); in a decoupled design where harm depends on the covariates only through structural value (partial correlation of effect and harm given that value +0.000, against +0.245 in the main design) the gain persists and grows to +3,246 (95% CI 3,040 to 3,452, Cohen's d 2.20) over harm-blind ranking and +3,059 (95% CI 2,878 to 3,240) over CATE-only ranking |
+| Harm exposure obeys an identity, with sufficient conditions for its sign | For any budget-exhausting rule, exposure of the treated minus the population mean equals the covariance of treatment and harm divided by the budget; value-weighted ranking makes it non-negative when harm rises with value among players with the same treatment effect and ranking on the effect does not steer away from harm, conditions that are sufficient and not necessary |
+| Value-weighted ranking concentrates harm in the main design, most at tight budgets | Mean harm among treated players is 0.476 against a population mean of 0.421, a gap of +0.055 (95% CI +0.051 to +0.058) at kappa = 0.30 and +0.152 (95% CI +0.146 to +0.158) at kappa = 0.10; the feasible oracle gap is +0.033 (+0.032 to +0.034); the gap follows the harm-value association in the main design, but with feasible-oracle components effect-only ranking has a gap of -0.046 and in a decoupled design the feasible-oracle value-weighted rule has a gap of -0.014 although corr(harm, value) is +0.82 |
+| A soft harm weight lowers exposure, but its value gain is not a harm effect | Exposure falls to 0.414 at kappa = 0.30 (gap +0.018 at kappa = 0.10), close to the 0.416 that effect-only ranking reaches with no harm input; with estimated components operator value rises from 16,446 to 19,045 (+2,598, 95% CI 2,406 to 2,790), but the gain also appears when harm falls with value (+468, 95% CI 419 to 517), vanishes at kappa = 0.30 when harm is independent of value (-60, 95% CI -135 to 16), where at kappa = 0.10 random demotion still helps (+312, 95% CI 255 to 369) and becomes a cost with feasible-oracle components (2.5%), consistent with trimming the noisy upper tail of the product score where effects are small or negative; choose it for harm reduction and do not count on the gain transferring |
 | A hard harm cap needs accurate inputs | With estimated components the cap earns 15,701 at exposure 0.413, which is 3,344 less than the soft weight (95% CI -3,539 to -3,148); it is cheaper only with feasible-oracle components (+376, 95% CI 326 to 426), and with a noisy harm measure true exposure overshoots the ceiling by +0.013 (+0.012 to +0.014) at sigma_h = 0.5 and +0.043 (+0.041 to +0.044) at sigma_h = 1 |
-| Value weighting is an oracle property of the main design | With feasible-oracle effects and values it beats effect-only ranking at every budget (+1,441 at kappa = 0.10, 95% CI 1,383 to 1,499); with estimated effects, effect-only ranking wins for every learner at budgets up to kappa = 0.30 (T-learner, proxy value model: -1,482 for value weighting at kappa = 0.10, 95% CI -1,632 to -1,332, and -187 at 0.30, 95% CI -319 to -55); with the default T-learner value weighting wins in the null (+5,157), misspecified-effect (+287) and asymmetric (+398) scenarios |
+| In the main design, value weighting pays only with accurate components | With feasible-oracle effects and values it beats effect-only ranking at every budget (+1,441 at kappa = 0.10, 95% CI 1,383 to 1,499); with estimated effects, effect-only ranking wins for every learner at budgets up to kappa = 0.30 (T-learner, proxy value model: -1,482 for value weighting at kappa = 0.10, 95% CI -1,632 to -1,332, and -187 at 0.30, 95% CI -319 to -55; -385 on clip-adjusted welfare) and in 13 of 16 learner cells at 0.50; the null scenario without effect-churn moderation reverses this (+5,157, 95% CI 4,704 to 5,610), as do the misspecified-effect (+287) and asymmetric (+398) scenarios |
 | The crossover budget belongs to the learner | With the T-learner and the proxy value model kappa* is 0.350 (95% CI 0.325 to 0.375) and the X-learner gives 0.425; with the S-learner value weighting never crosses within the grid; with feasible-oracle components there is no crossing |
 | Estimation cost is measured against a feasible oracle | A covariate-only oracle reaches 73.5% (95% CI 73.3% to 73.7%) of the hindsight oracle; a Shapley split attributes 99.9% to 101.1% of regret to the effect estimate |
 | Preference-weight calibration does not help | Plug-in calibration selects the identity in 200 of 200 replications and AIPW calibration costs -881 (95% CI -1,217 to -544) against the identity |
@@ -124,7 +123,7 @@ cd docs && tectonic stent-2026-value-weighted-targeting.tex
 
 ```bibtex
 @unpublished{stent2026bonus,
-  title  = {Value-Weighted Retention Targeting Concentrates Harm: A Diagnostic and a Harm-Aware Rule for Budget-Constrained Targeting in Online Gambling},
+  title  = {Value-Weighted Retention Targeting Can Concentrate Harm: A Diagnostic and Harm-Aware Rules for Online Gambling},
   author = {Stent, Mark},
   year   = {2026},
   note   = {Working paper},
@@ -136,7 +135,8 @@ cd docs && tectonic stent-2026-value-weighted-targeting.tex
 
 The paper studies promotional targeting in online gambling, a harm-sensitive domain.
 It shows that value-weighted ranking can concentrate incentives on harmed players, and it treats an exclusion set, a harm-aware score and a fail-closed default as preconditions for any deployment.
-With estimated components the paper recommends the soft harm weight over the hard cap, and, where a guarantee is required, an audited harm measure and an exclusion set, because a cap binds only on the harm measure it is given.
+With estimated components the paper prefers the soft harm weight over the hard cap for harm reduction, and, where a guarantee is required, an audited harm measure and an exclusion set, because a cap binds only on the harm measure it is given.
+The soft weight's welfare gain in the simulation is not attributable to harm information, so it should not be expected to transfer.
 The paper distinguishes *operator welfare* (the quantity optimised) from player wellbeing.
 It should not be deployed in a gambling setting without those safeguards and the validated harm-measurement and regulatory infrastructure they depend on.
 See the paper's Responsible Deployment and Ethics sections.
