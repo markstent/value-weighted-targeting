@@ -505,7 +505,7 @@ def table_robustness(rob):
     return table(rows)
 
 
-FRONTIER_LABEL = ((r'(g=1)', r'($g{=}1$)'), ('phi=', r'$\phi{=}$'))
+FRONTIER_LABEL = ((r'(g=1)', r'($g{=}1$)'), ('phi=', r'$g_{\min}{=}$'))
 
 
 def frontier_label(name):

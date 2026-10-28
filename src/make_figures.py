@@ -87,7 +87,7 @@ def fig_g_function(figdir: Path = FIGDIR) -> Path:
         )
 
     ax.axhline(phi, color="#b34", linestyle="--", linewidth=0.7, alpha=0.7)
-    ax.annotate(r"$\phi$", xy=(1.01, phi), ha="left", va="center", fontsize=9, color="#b34")
+    ax.annotate(r"$g_{\min}$", xy=(1.01, phi), ha="left", va="center", fontsize=9, color="#b34")
 
     ax.set_xlim(0, 1)
     ax.set_ylim(-0.05, 1.1)
