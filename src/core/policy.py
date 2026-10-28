@@ -173,7 +173,9 @@ def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2,
 
 
 def misrank_terms(tau_hat, v_hat, tau_ref, v_ref, k):
-    """Exact-telescoping error terms over the misranked set, or None if it is empty.
+    """Decomposition of a BOUND on the mean absolute score gap over the misranked set (None
+    if the set is empty).  This is NOT a regret decomposition: it says nothing about welfare
+    lost, only how the score error splits between the two components.
 
     M = top-k by the deployed score tau_hat * v_hat XOR top-k by the reference score
     tau_ref * v_ref.  For every unit the score gap telescopes EXACTLY in one fixed order:
@@ -182,9 +184,14 @@ def misrank_terms(tau_hat, v_hat, tau_ref, v_ref, k):
 
     (CATE error evaluated at the REFERENCE value, then value error at the DEPLOYED CATE).
     The terms are the means over M of the absolute pieces, |tau_ref - tau_hat| |v_ref|
-    (CATE term) and |tau_hat| |v_ref - v_hat| (value term), so their sum bounds the mean
-    absolute score gap over M and no cross term is dropped.  Returns
-    (cate_term, value_term, |M|)."""
+    (CATE term) and |tau_hat| |v_ref - v_hat| (value term).  By the triangle inequality
+
+        mean_M |tau_ref v_ref - tau_hat v_hat| <= CATE term + VALUE term,
+
+    with equality when the two signed pieces have the same sign on every unit of M (always
+    when only one component is in error).  A "CATE share" built from the terms is a share of
+    this bound, in this fixed order (the order matters: the other telescoping order gives
+    different terms).  Returns (cate_term, value_term, |M|)."""
     pi_dep = set(target_topk(tau_hat * v_hat, k).tolist())
     pi_ref = set(target_topk(tau_ref * v_ref, k).tolist())
     m = np.array(sorted(pi_dep.symmetric_difference(pi_ref)), dtype=int)

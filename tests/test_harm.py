@@ -122,14 +122,14 @@ def test_soft_gate_has_no_violation_rate_and_oracle_flag():
 
 def test_paired_tests_keys_and_holm_family():
     """G1/G2: per-rep paired tests in every cell, estimated and feasible-oracle components,
-    one Holm family (the cell's seven tests: six + soft gate vs CATE only); statistics pinned to
+    one Holm family (the cell's eight tests: six + soft gate vs CATE only, both sources); statistics pinned to
     paired_test_raw on the raw
     per-rep welfare arrays, p_holm to holm_bonferroni over exactly that family."""
     from core.stats import holm_bonferroni, paired_ratio_ci, paired_test_raw
     raw = simulate(reps=4, n_players=3000, c_harms=[1.0], sigma_hs=[0.0, 0.5], kappas=[0.30])
     summary = summarise(raw, n_boot=50)
     tests = summary['paired_tests']
-    assert len(tests) == 2 * 7
+    assert len(tests) == 2 * 8
     assert {t['comparison'] for t in tests} == {'hard cap vs soft gate', 'soft gate vs tauV',
                                                  'hard cap vs tauV',
                                                  'soft gate vs CATE only'}
@@ -146,10 +146,10 @@ def test_paired_tests_keys_and_holm_family():
         blind = np.array(raw[key + ('tauV' + ('' if t['components'] == 'estimated'
                                               else ' (oracle tau,V)'),)]['welfare'])
         assert t['ratio_to_blind']['ratio'] == paired_ratio_ci(wa - wb, blind)[0]
-        assert t['family_size'] == 7 and t['p_holm'] >= t['p_raw']
-    for sigma in (0.0, 0.5):                      # Holm over exactly the cell's seven tests
+        assert t['family_size'] == 8 and t['p_holm'] >= t['p_raw']
+    for sigma in (0.0, 0.5):                      # Holm over exactly the cell's eight tests
         fam = [t for t in tests if t['sigma_h'] == sigma]
-        assert len(fam) == 7
+        assert len(fam) == 8
         assert [t['p_holm'] for t in fam] == list(holm_bonferroni([t['p_raw'] for t in fam]))
     oracle = [t for t in tests if t['components'] == 'oracle']
     assert all('(oracle tau,V)' in t['a'] and '(oracle tau,V)' in t['b'] for t in oracle)

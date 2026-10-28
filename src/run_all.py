@@ -23,6 +23,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -250,18 +251,45 @@ def is_full_run(args):
             and set(STUDIES) <= set(args.only))
 
 
-def results_targets():
-    """(source, destination) pairs copied to results/: each study JSON, then the manifest."""
-    names = [output_name(s, False) for s in STUDIES] + ['run_manifest.json']
-    return [(OUTPUT_DIR / n, RESULTS_DIR / n) for n in names]
+def results_names():
+    """File names published to results/: each study JSON, then the manifest."""
+    return [output_name(s, False) for s in STUDIES] + ['run_manifest.json']
 
 
-def publish_results(targets):
-    """Copy each (source, destination) pair; returns the copied destination paths."""
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    for src, dst in targets:
-        shutil.copyfile(src, dst)
-    return [dst for _, dst in targets]
+def publish_results(manifest):
+    """Atomically publish the full-run results to RESULTS_DIR.
+
+    Stages the five result JSONs and the manifest (which already lists the copied paths) in
+    results.tmp/ next to RESULTS_DIR, then swaps the directory in (old results are moved
+    aside and removed only after the new directory is in place; restored if the swap fails).
+    manifest['results'] is set only when staging succeeded, and the caller records the final
+    manifest only after this returns.  Returns the copied paths."""
+    tmp = RESULTS_DIR.with_name(RESULTS_DIR.name + '.tmp')
+    old = RESULTS_DIR.with_name(RESULTS_DIR.name + '.old')
+    for stale in (tmp, old):
+        shutil.rmtree(stale, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    try:
+        names = results_names()
+        for name in names[:-1]:
+            shutil.copyfile(OUTPUT_DIR / name, tmp / name)
+        copied = [_rel(RESULTS_DIR / n) for n in names]
+        manifest['results'] = {'copied': copied}
+        (tmp / 'run_manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+        if RESULTS_DIR.exists():
+            os.replace(RESULTS_DIR, old)
+        try:
+            os.replace(tmp, RESULTS_DIR)
+        except OSError:
+            if old.exists() and not RESULTS_DIR.exists():
+                os.replace(old, RESULTS_DIR)          # put the previous results back
+            raise
+        shutil.rmtree(old, ignore_errors=True)
+    except BaseException:
+        manifest['results'] = None
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    return copied
 
 
 def parse_only(text):
@@ -321,19 +349,32 @@ def main(argv=None):
     manifest = build_manifest(args, steps, args.only, git, started)
     manifest['total_wall_seconds'] = round(time.perf_counter() - t0, 2)
     publish = not failed and is_full_run(args)
-    targets = results_targets() if publish else []
-    manifest['results'] = {'copied': [_rel(dst) for _, dst in targets]} if publish else None
+    publish_error = None
+    manifest['results'] = None
+    if publish and git['dirty'] is not False:
+        publish_error = ('refusing to publish results/: the working tree was not clean when the run '
+                         f"started (git.dirty = {git['dirty']!r}); commit or stash, then rerun.  "
+                         'outputs/ holds the complete run.')
+    elif publish:
+        try:
+            publish_results(manifest)             # sets manifest['results'] only on success
+        except OSError as exc:
+            publish_error = f'publishing results/ failed ({exc}); previous results/ left in place'
+    if publish_error:
+        manifest['results_error'] = publish_error
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUTPUT_DIR / 'run_manifest.json'
     path.write_text(json.dumps(manifest, indent=2) + '\n')
-    if publish:
-        publish_results(targets)      # after the manifest exists, so it is copied too
+    if manifest['results']:
         print(f'results copied to {_rel(RESULTS_DIR)}/')
 
     for s in steps:
         print(f"{s['name']:<18} exit={s['exit_code']} {s['wall_seconds']:>8.1f}s  {s['log']}"
               + (f"  ERROR: {s['error']}" if s.get('error') else ''))
     print(f'manifest: {path}')
+    if publish_error:
+        print(f'FAILED: {publish_error}', file=sys.stderr)
+        return 1
     if failed:
         detail = '; '.join(f"{s['name']}: {s['error']}" for s in steps if s.get('error'))
         print(f"FAILED: {', '.join(failed)} (see outputs/logs/)" + (f' [{detail}]' if detail else ''),

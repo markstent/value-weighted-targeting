@@ -361,7 +361,7 @@ def table_harm_decoupled(harm):
     """Coupled (main) vs decoupled harm DGP at c_harm=1, kappa 0.30, estimated components, by
     sigma_h: soft gate minus harm-blind tauV welfare, soft gate minus CATE-only welfare (paired
     differences with 95% CI) and the soft gate's harm-exposure gap (95% CI)."""
-    rows = ['% NOTE: coupled = main DGP; decoupled = main DGP without the -0.04 z_spend term in tau_base. '
+    rows = ['% NOTE: coupled = main harm DGP; decoupled = harm depends on X only through V_bar (tau unchanged). '
             'Welfare differences are paired over replications; the exposure gap is the soft gate\'s '
             'treated mean true harm minus population mean harm.']
     for sigma in harm['_meta']['sigma_h']:
@@ -832,7 +832,7 @@ def add_harm_extra_macros(M, harm):
         for comparison, ctag in HARM_CMP_TAG.items():
             t = harm_test(harm, 1.0, 0.0, k, comparison, components)
             add_test(M, f'numHarmDiff{ctag}{stag}', t, fmt_welfare,
-                     f'{comparison}, {who}, c=1, sigma=0, kappa=0.30 (Holm family: the seven paired '
+                     f'{comparison}, {who}, c=1, sigma=0, kappa=0.30 (Holm family: the eight paired '
                      f'tests of this cell)', "harm_sweep.json:paired_tests[c_harm=1,sigma_h=0,kappa=0.3,"
                      f"comparison='{comparison}',components='{components}']",
                      ci_key='ci95', p_key='p_raw')
@@ -887,37 +887,56 @@ def add_harm_extra_macros(M, harm):
 def add_decoupled_macros(M, harm):
     """W1: soft gate minus CATE-only (coupled and decoupled DGP) and soft gate minus harm-blind
     (decoupled DGP; the coupled one is numHarmDiffSoftGateMinusTauV), c=1, sigma=0, kappa=0.30,
-    estimated components.  Holm family: the seven tests of the cell."""
+    for estimated and feasible-oracle components.  Holm family: the eight tests of the cell.
+    Also the coupling diagnostics of the two harm DGPs (partial correlations of tau and harm)."""
     k = DEFAULT_KAPPA
     for dgp, dtag in (('main', ''), ('decoupled', 'Decoupled')):
-        dwho = 'coupled (main) DGP' if dgp == 'main' else 'decoupled DGP (no z_spend term in tau_base)'
-        cell = f"cells[dgp={dgp},c_harm=1,sigma_h=0,kappa=0.3,rule='{{}}']"
-        for comparison, ctag, ref in (('soft gate vs CATE only', 'SoftGateMinusCateOnly', 'CATE only'),
-                                      ('soft gate vs tauV', 'SoftGateMinusTauV', 'tauV')):
-            if dgp == 'main' and ref == 'tauV':
-                continue                      # already emitted as numHarmDiffSoftGateMinusTauV
-            t = harm_test(harm, 1.0, 0.0, k, comparison, 'estimated', dgp)
-            tsrc = (f"harm_sweep.json:paired_tests[dgp={dgp},c_harm=1,sigma_h=0,kappa=0.3,"
-                    f"comparison='{comparison}',components='estimated']")
-            add_test(M, f'numHarm{dtag}Diff{ctag}', t, fmt_welfare,
-                     f'{comparison}, estimated components, {dwho}, c=1, sigma=0, kappa=0.30 (Holm '
-                     f'family: the seven paired tests of this cell)', tsrc, ci_key='ci95', p_key='p_raw')
-            if ref == 'CATE only':
-                bsrc = f"harm_sweep.json:{cell.format(ref)}/welfare/mean"
-                add_pct(M, f'numHarm{dtag}{ctag}Pct', t['ratio_to_cate_only'],
-                        f'soft gate minus CATE-only welfare, estimated components, {dwho}, c=1, '
-                        'sigma=0, kappa=0.30, as a share of CATE-only welfare: (soft gate welfare - '
-                        'CATE-only welfare) / CATE-only welfare; SIGN: positive = the soft gate beats '
-                        'CATE-only ranking', tsrc + '/ratio_to_cate_only',
-                        f'= CATE-only welfare ({bsrc})')
-            elif dgp == 'decoupled':
-                bsrc = f"harm_sweep.json:{cell.format(ref)}/welfare/mean"
-                add_pct(M, f'numHarm{dtag}SafetyCostSoftGatePct', t['ratio_to_blind'],
-                        f'relative cost of safety of the soft gate, estimated components, {dwho}, c=1, '
-                        'sigma=0, kappa=0.30: (harm-blind welfare - soft gate welfare) / harm-blind '
-                        'welfare; SIGN: positive = the rule costs welfare relative to harm-blind, '
-                        'negative = the rule beats harm-blind', tsrc + '/ratio_to_blind',
-                        f'= harm-blind tauV welfare ({bsrc})', sign=-1)
+        dwho = ('coupled (main) harm DGP' if dgp == 'main'
+                else 'decoupled harm DGP (harm depends on X only through V_bar)')
+        for components, suffix in (('estimated', ''), ('oracle', HARM_SUFFIX)):
+            stag = HARM_SRC_TAG[components]
+            who = 'feasible-oracle components' if suffix else 'estimated components'
+            cell = f"cells[dgp={dgp},c_harm=1,sigma_h=0,kappa=0.3,rule='{{}}']"
+            for comparison, ctag, ref in (('soft gate vs CATE only', 'SoftGateMinusCateOnly', 'CATE only'),
+                                          ('soft gate vs tauV', 'SoftGateMinusTauV', 'tauV')):
+                if dgp == 'main' and ref == 'tauV':
+                    continue                  # already emitted as numHarmDiffSoftGateMinusTauV[...]
+                t = harm_test(harm, 1.0, 0.0, k, comparison, components, dgp)
+                tsrc = (f"harm_sweep.json:paired_tests[dgp={dgp},c_harm=1,sigma_h=0,kappa=0.3,"
+                        f"comparison='{comparison}',components='{components}']")
+                add_test(M, f'numHarm{dtag}Diff{ctag}{stag}', t, fmt_welfare,
+                         f'{comparison}, {who}, {dwho}, c=1, sigma=0, kappa=0.30 (Holm family: the '
+                         f'eight paired tests of this cell)', tsrc, ci_key='ci95', p_key='p_raw')
+                bsrc = f"harm_sweep.json:{cell.format(ref + suffix)}/welfare/mean"
+                if ref == 'CATE only':
+                    add_pct(M, f'numHarm{dtag}{ctag}{stag}Pct', t['ratio_to_cate_only'],
+                            f'soft gate minus CATE-only welfare, {who}, {dwho}, c=1, sigma=0, '
+                            'kappa=0.30, as a share of CATE-only welfare: (soft gate welfare - '
+                            'CATE-only welfare) / CATE-only welfare; SIGN: positive = the soft gate '
+                            'beats CATE-only ranking', tsrc + '/ratio_to_cate_only',
+                            f'= CATE-only welfare ({bsrc})')
+                elif dgp == 'decoupled':
+                    add_pct(M, f'numHarm{dtag}SafetyCostSoftGate{stag}Pct', t['ratio_to_blind'],
+                            f'relative cost of safety of the soft gate, {who}, {dwho}, c=1, sigma=0, '
+                            'kappa=0.30: (harm-blind welfare - soft gate welfare) / harm-blind '
+                            'welfare; SIGN: positive = the rule costs welfare relative to harm-blind, '
+                            'negative = the rule beats harm-blind', tsrc + '/ratio_to_blind',
+                            f'= harm-blind tauV welfare ({bsrc})', sign=-1)
+    coupling = harm['_meta']['coupling']
+    for dgp, dtag in (('main', 'Coupled'), ('decoupled', 'Decoupled')):
+        d = coupling[dgp]
+        src = f'harm_sweep.json:_meta/coupling/{dgp}'
+        who = (f'{dtag.lower()} harm DGP, c=1, n={fmt_count(coupling["n"])} draw with a fixed seed')
+        M.add(f'numHarmCoupling{dtag}CorrHarmValue', fmt_signed(d['corr_harm_V'], lambda v: fmt_fixed(v, 2)),
+              f'corr(true harm, realised V), {who}', src + '/corr_harm_V')
+        M.add(f'numHarmCoupling{dtag}PartialCorrTauHarmGivenVbar',
+              fmt_signed(d['partial_corr_tau_harm_given_Vbar'], lambda v: fmt_fixed(v, 3)),
+              f'partial correlation of tau and the harm logit given the noise-free structural value '
+              f'V_bar (linear residuals), {who}', src + '/partial_corr_tau_harm_given_Vbar')
+        M.add(f'numHarmCoupling{dtag}PartialCorrTauHarmGivenValue',
+              fmt_signed(d['partial_corr_tau_harm_given_V'], lambda v: fmt_fixed(v, 3)),
+              f'partial correlation of tau and the harm logit given the realised V (linear residuals), '
+              f'{who}', src + '/partial_corr_tau_harm_given_V')
 
 
 def per_kappa_entry(b2, key, kappa):
@@ -1079,12 +1098,15 @@ def add_robustness_extra_macros(M, rob):
                 who = f'T-learner ({tn}), {vm} V, versus the {dk} reference'
                 add_ci_stat(M, f'numRobustnessObsCateSharePerRep{vtag}{tn.capitalize()}{dtag}',
                             d['cate_share_per_rep'], lambda v: fmt_pct(v / 100.0),
-                            f'CATE (tau) share of the exactly telescoping error over the misranked set, '
-                            f'mean over replications of the per-replication share, {who}',
+                            f'CATE (tau) share of the telescoping BOUND on the mean absolute score gap over the '
+                            f'misranked set (fixed order: CATE error at the reference V, then value error '
+                            f'at the deployed tau_hat; not a regret decomposition), mean over replications '
+                            f'of the per-replication share, {who}',
                             dsrc + '/cate_share_per_rep')
                 M.add(f'numRobustnessObsCateShareRatioOfMeans{vtag}{tn.capitalize()}{dtag}',
                       fmt_pct(d['cate_share_ratio_of_means_pct'] / 100.0),
-                      f'CATE (tau) share computed as a ratio of the replication-mean terms (a different '
+                      f'CATE (tau) share of the telescoping bound on the mean absolute score gap (not a regret '
+                      f'decomposition) computed as a ratio of the replication-mean terms (a different '
                       f'estimand from the per-replication level; no CI), {who}',
                       dsrc + '/cate_share_ratio_of_means_pct')
     # G17: tuned AIPW calibration minus identity

@@ -55,9 +55,6 @@ DGP_SPEC = {
              'peak at moderate churn (p=0.5) and are attenuated at extremes.'),
 }
 
-# Loading of tau_base on z_spend.  The decoupled harm DGP sets it to 0 (see structural_decoupled).
-TAU_SPEND_COEF = -0.04
-
 # Normalising constant for the asymmetric moderation p(1-p)^3 (max at p=0.25).
 _ASYM_PEAK = 0.25 * (1 - 0.25) ** 3  # = 0.10546875
 
@@ -144,17 +141,50 @@ def draw_harm(f, rng, c_harm=1.0, noise_scale=1.0):
     return (1.0 / (1.0 + np.exp(-logit))).clip(0.0, 1.0)
 
 
+# Noise-free structural value V_bar = 10 spend + 40 login + 5 age (the LTV formula without its
+# N(0, 80) noise and clip), standardised with population moments computed ONCE here from
+# POP_MEAN / POP_SD (the features are independent, so the variance is the sum of squares).
+V_BAR_MEAN = 10 * POP_MEAN['weekly_spend'] + 40 * POP_MEAN['login_freq'] + 5 * POP_MEAN['account_age']
+V_BAR_SD = math.sqrt((10 * POP_SD['weekly_spend']) ** 2 + (40 * POP_SD['login_freq']) ** 2
+                     + (5 * POP_SD['account_age']) ** 2)
+
+
+def z_vbar(f):
+    """Standardised noise-free structural value of the features (population moments)."""
+    v_bar = 10 * f['weekly_spend'] + 40 * f['login_freq'] + 5 * f['account_age']
+    return (v_bar - V_BAR_MEAN) / V_BAR_SD
+
+
+def draw_harm_decoupled(f, rng, c_harm=1.0, noise_scale=1.0):
+    """True harm that depends on X ONLY through V_bar (the decoupled harm DGP).
+
+    harm_logit = -0.3 + s * (c * z_Vbar + sqrt(1 - c^2) * Z) + N(0, 0.5), with the same s
+    (HARM_SCALE), the same Z / logit-noise draws and the same RNG order as draw_harm; only
+    the value-linked driver differs: z_Vbar replaces L_std = (1.1 z_spend + 0.4 z_login)/s.
+    By construction harm is a function of (V_bar, independent noise), so it is independent
+    of tau given V_bar (tau is unchanged from the main DGP, including its -0.04 z_spend
+    term).  Harm therefore carries no information about tau beyond V_bar; any gain from
+    using harm_hat can only come through value information (harm_hat informative about V
+    beyond the misspecified proxy V_hat), not through a tau channel."""
+    if not -1.0 <= c_harm <= 1.0:
+        raise ValueError(f'c_harm must be in [-1, 1], got {c_harm}')
+    n = len(f['weekly_spend'])
+    z = rng.normal(0, 1, n) * noise_scale
+    eps = rng.normal(0, 0.5 * noise_scale, n)
+    logit = (-0.3 + HARM_SCALE * (c_harm * z_vbar(f) + math.sqrt(1.0 - c_harm ** 2) * z) + eps)
+    return (1.0 / (1.0 + np.exp(-logit))).clip(0.0, 1.0)
+
+
 # --- Structural steps ---
 
 def _structural(f, rng, *, moderation, bonus_in_tau=False,
-                with_ltv=True, noise_scale=1.0, tau_spend_coef=TAU_SPEND_COEF):
+                with_ltv=True, noise_scale=1.0):
     """Shared latent structure. RNG order: churn noise, [ltv noise], tau noise,
     baseline noise.
 
     noise_scale multiplies every noise sd (1.0 reproduces the original draws
     bit-for-bit; 0.0 gives the noise-free structure used by the feasible oracle
-    tests).  tau_spend_coef is the loading of tau_base on z_spend (-0.04 in every
-    DGP except the decoupled harm variant, where it is 0)."""
+    tests)."""
     account_age = f['account_age']
     weekly_spend = f['weekly_spend']
     login_freq = f['login_freq']
@@ -176,10 +206,10 @@ def _structural(f, rng, *, moderation, bonus_in_tau=False,
                            + rng.normal(0, 80 * noise_scale, n)).clip(50, 8000)
 
     if bonus_in_tau:
-        tau_base = (0.06 + 0.10 * z_login - 0.02 * z_login**2 + tau_spend_coef * z_spend
+        tau_base = (0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
                     + 0.10 * z_bonus)
     else:
-        tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 + tau_spend_coef * z_spend
+        tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
     if moderation is None:
         true_tau = (tau_base + rng.normal(0, 0.03 * noise_scale, n)).clip(-0.20, 0.40)
     else:
@@ -214,25 +244,13 @@ def structural_asym(f, rng, noise_scale=1.0):
     return _structural(f, rng, moderation=churn_moderation_asym, noise_scale=noise_scale)
 
 
-def structural_decoupled(f, rng, noise_scale=1.0):
-    """Main structure with the -0.04*z_spend term removed from tau_base.
-
-    The harm logit loads on z_spend, so in the main DGP harm (and any estimate of
-    it) carries information about tau through z_spend.  Removing the term makes tau
-    independent of spend given the other drivers, which removes that channel while
-    leaving V, churn, baseline and the harm DGP untouched.  RNG order is identical
-    to structural_main."""
-    return _structural(f, rng, moderation=churn_moderation_sym, noise_scale=noise_scale,
-                       tau_spend_coef=0.0)
-
-
 def structural_harm(f, rng, noise_scale=1.0, c_harm=1.0, decoupled=False):
-    """Main structure (or the decoupled variant) plus true_harm, drawn LAST from the
-    same rng (so the rest of the population is identical to structural_main, or
-    structural_decoupled, for the same stream)."""
-    base = structural_decoupled if decoupled else structural_main
-    out = base(f, rng, noise_scale=noise_scale)
-    out['true_harm'] = draw_harm(f, rng, c_harm, noise_scale)
+    """Main structure plus true_harm, drawn LAST from the same rng (so the rest
+    of the population is identical to structural_main for the same stream).
+    decoupled=True draws harm with draw_harm_decoupled instead of draw_harm."""
+    out = structural_main(f, rng, noise_scale=noise_scale)
+    draw = draw_harm_decoupled if decoupled else draw_harm
+    out['true_harm'] = draw(f, rng, c_harm, noise_scale)
     return out
 
 
@@ -308,11 +326,11 @@ def generate_harm(n, rng, harm_rng=None, c_harm=1.0, decoupled=False):
     """Main DGP plus true_harm.  The population, treatment and outcomes are
     exactly generate_main's; harm is drawn LAST, from harm_rng (default: rng
     itself, after everything else), so it never perturbs anything else.
-    decoupled=True uses structural_decoupled (no z_spend term in tau_base) instead."""
-    data = _generate(n, rng, draw_features,
-                     structural_decoupled if decoupled else structural_main)
+    decoupled=True draws harm with draw_harm_decoupled (population, tau, V unchanged)."""
+    data = _generate(n, rng, draw_features, structural_main)
     f = {name: data['features'][:, i] for i, name in enumerate(FEATURE_NAMES)}
-    data['true_harm'] = draw_harm(f, rng if harm_rng is None else harm_rng, c_harm)
+    draw = draw_harm_decoupled if decoupled else draw_harm
+    data['true_harm'] = draw(f, rng if harm_rng is None else harm_rng, c_harm)
     return data
 
 
@@ -415,7 +433,7 @@ _STRUCTURAL = {
     'main': structural_main, 'null': structural_null,
     'correlated': structural_correlated, 'asym': structural_asym,
     'harm': structural_harm, 'adv': structural_adv,
-    'main_decoupled': structural_decoupled, 'harm_decoupled': structural_harm_decoupled,
+    'harm_decoupled': structural_harm_decoupled,
     'corr_gamma': structural_corr_gamma, 'heavytail': structural_heavytail,
 }
 
@@ -446,7 +464,7 @@ def conditional_means(dgp_name, features, n_mc=ORACLE_MC, *, seed, gamma=0.0,
                       noise_scale=1.0, tau_base_moments=None,
                       max_units_per_chunk=None):
     """Monte Carlo E[tau|X], E[V|X], E[churn|X] (and E[harm|X] for 'harm' and
-    'harm_decoupled'; 'main_decoupled' is the main DGP without the z_spend term in tau_base).
+    'harm_decoupled', whose harm depends on X only through V_bar).
 
     Features are held fixed; the structural step is re-run n_mc times per unit
     with fresh noise (churn-logit, tau, LTV and harm noise).  Clipping happens

@@ -60,11 +60,13 @@ Scenarios
       value-weighting advantage survive competing value signal?  Reports the sample
       corr(tau, V) and the LTV-weighting advantage in percent.
   heavy_tail  Multiplicative log-normal LTV (orders-of-magnitude spread).
-  obs_diagnostic  Plug-in regret diagnostic.  Over the misranked set M (top-k by
-      the deployed rule XOR top-k by a reference rule) the exactly telescoping terms
+  obs_diagnostic  Plug-in misranking diagnostic (NOT a regret decomposition).  Over the
+      misranked set M (top-k by the deployed rule XOR top-k by a reference rule) the terms
       (core.policy.misrank_terms; tau_ref V_ref - tau_hat V_hat = (tau_ref - tau_hat) V_ref
-      + tau_hat (V_ref - V_hat), one fixed order, no dropped cross term) are
-      |tau_ref - tau_hat| |V_ref| (CATE) and |tau_hat| |V_ref - V_hat| (value).  The
+      + tau_hat (V_ref - V_hat), one fixed telescoping order, no dropped cross term) are
+      |tau_ref - tau_hat| |V_ref| (CATE) and |tau_hat| |V_ref - V_hat| (value); their sum
+      bounds the mean absolute score gap over M (triangle inequality), and the "CATE share"
+      is a share of that bound in this order, not of welfare regret.  The
       observable reference is a held-out (single estimation/test split)
       X-learner tau with a richer value model; the same terms against Oracle hindsight
       (true tau, V) and Oracle feasible (tau_bar, V_bar) check that the proxy flags the
@@ -546,6 +548,10 @@ def run_obs_diagnostic(reps, n_players, tuned, n_jobs=1):
                                 'cohens_d': float('nan'), 'ci_95': [float('nan')] * 2})}
     m = _apply_holm({'all': {'comparisons': comps}})
     return {'cells': cells, 'comparisons': comps, 'kappa': KAPPA,
+            'note': ('CATE share = cate_term / (cate_term + value_term): a share of the telescoping '
+                     'BOUND on the mean absolute score gap over the misranked set, in one fixed '
+                     'order (CATE error at the reference V, then value error at the deployed '
+                     'tau_hat); not a regret decomposition (see core.policy.regret_split)'),
             'holm_family': 'per-replication CATE share, misspec vs wellspec, over the '
                            '2 arms x 3 references',
             'holm_family_size': m}

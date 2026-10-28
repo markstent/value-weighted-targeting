@@ -463,16 +463,26 @@ def test_decoupled_macros_table_and_siblings():
     data = smoke_data()
     harm, items = data['harm_sweep'], _macros()
     for base in ('numHarmDiffSoftGateMinusCateOnly', 'numHarmDecoupledDiffSoftGateMinusCateOnly',
-                 'numHarmDecoupledDiffSoftGateMinusTauV'):
+                 'numHarmDecoupledDiffSoftGateMinusTauV',
+                 'numHarmDiffSoftGateMinusCateOnlyOracleFeasibleTauV',
+                 'numHarmDecoupledDiffSoftGateMinusCateOnlyOracleFeasibleTauV',
+                 'numHarmDecoupledDiffSoftGateMinusTauVOracleFeasibleTauV'):
         for suffix in ('', 'CiLo', 'CiHi', 'P', 'HolmP', 'D'):
             assert base + suffix in items, base + suffix
     for base in ('numHarmSoftGateMinusCateOnlyPct', 'numHarmDecoupledSoftGateMinusCateOnlyPct',
-                 'numHarmDecoupledSafetyCostSoftGatePct'):
+                 'numHarmDecoupledSafetyCostSoftGatePct', 'numHarmSoftGateMinusCateOnlyOracleFeasibleTauVPct',
+                 'numHarmDecoupledSoftGateMinusCateOnlyOracleFeasibleTauVPct',
+                 'numHarmDecoupledSafetyCostSoftGateOracleFeasibleTauVPct'):
         for suffix in ('', 'CiLo', 'CiHi'):
             assert base + suffix in items, base + suffix
     t = mt.harm_test(harm, 1.0, 0.0, 0.3, 'soft gate vs CATE only', 'estimated', 'decoupled')
     assert items['numHarmDecoupledDiffSoftGateMinusCateOnly'][0] == mt.fmt_signed(t['mean_diff'], mt.fmt_welfare)
-    assert t['family_size'] == 7
+    assert t['family_size'] == 8
+    for dtag, dgp in (('Coupled', 'main'), ('Decoupled', 'decoupled')):
+        d = harm['_meta']['coupling'][dgp]
+        assert items[f'numHarmCoupling{dtag}PartialCorrTauHarmGivenVbar'][0] == mt.fmt_signed(
+            d['partial_corr_tau_harm_given_Vbar'], lambda v: mt.fmt_fixed(v, 3))
+        assert f'numHarmCoupling{dtag}PartialCorrTauHarmGivenValue' in items
     rows = [r for r in mt.build(data)['tab_harm_decoupled.tex'].splitlines() if r and not r.startswith('%')]
     assert len(rows) == 2 * len(harm['_meta']['sigma_h'])
     assert rows[0].startswith('coupled') and rows[1].startswith('decoupled')

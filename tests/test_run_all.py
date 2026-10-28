@@ -180,7 +180,7 @@ def test_make_tex_runs_last_only_when_all_studies_ran(tmp_path, monkeypatch):
     assert run_all.expected_generated(False)[0].parent.name == 'generated'
 
 
-def _fake_run(tmp_path, monkeypatch, fail=None):
+def _fake_run(tmp_path, monkeypatch, fail=None, dirty=False):
     out, results = tmp_path / 'outputs', tmp_path / 'results'
     out.mkdir()
     monkeypatch.setattr(run_all, 'OUTPUT_DIR', out)
@@ -188,6 +188,7 @@ def _fake_run(tmp_path, monkeypatch, fail=None):
     monkeypatch.setattr(run_all, 'LOG_DIR', out / 'logs')
     monkeypatch.setattr(run_all, 'expected_generated', lambda smoke: [])   # fake steps write no tex/figures
     monkeypatch.setattr(run_all, 'expected_figures', lambda smoke: [])
+    monkeypatch.setattr(run_all, 'git_state', lambda: {'sha': 'abc', 'dirty': dirty})
 
     def fake_step(name, script, flags, expected=()):
         if name.startswith('study_') and name != fail:
@@ -234,3 +235,62 @@ def test_results_folder_is_tracked_and_outputs_ignored():
         return subprocess.run(['git', 'check-ignore', '-q', p], cwd=root).returncode == 0
     assert not ignored('results/main.json') and not ignored('results/run_manifest.json')
     assert ignored('outputs/main.json')
+
+
+def test_dirty_tree_refuses_to_publish_with_clear_message(tmp_path, monkeypatch, capsys):
+    out, results = _fake_run(tmp_path, monkeypatch, dirty=True)
+    assert run_all.main(['--jobs', '2']) == 1
+    err = capsys.readouterr().err
+    assert 'refusing to publish' in err and 'clean' in err
+    assert not results.exists() and not (tmp_path / 'results.tmp').exists()
+    m = json.loads((out / 'run_manifest.json').read_text())
+    assert m['results'] is None and 'refusing to publish' in m['results_error']
+    assert m['git']['dirty'] is True
+
+
+def test_unknown_git_state_also_refuses(tmp_path, monkeypatch):
+    out, results = _fake_run(tmp_path, monkeypatch, dirty=None)
+    assert run_all.main([]) == 1 and not results.exists()
+
+
+def test_publish_replaces_old_results_atomically_and_leaves_no_staging(tmp_path, monkeypatch):
+    out, results = _fake_run(tmp_path, monkeypatch)
+    results.mkdir()
+    (results / 'stale.json').write_text('old')
+    assert run_all.main([]) == 0
+    assert not (results / 'stale.json').exists()
+    assert not (tmp_path / 'results.tmp').exists() and not (tmp_path / 'results.old').exists()
+
+
+def test_failed_publish_keeps_previous_results_and_records_nothing(tmp_path, monkeypatch, capsys):
+    out, results = _fake_run(tmp_path, monkeypatch)
+    results.mkdir()
+    (results / 'main.json').write_text('previous')
+    real = run_all.os.replace
+    calls = []
+
+    def flaky(src, dst):
+        calls.append((str(src), str(dst)))
+        if str(dst) == str(results) and str(src).endswith('results.tmp'):
+            raise OSError('disk gone')
+        return real(src, dst)
+
+    monkeypatch.setattr(run_all.os, 'replace', flaky)
+    assert run_all.main([]) == 1
+    assert (results / 'main.json').read_text() == 'previous'          # old results restored
+    assert not (tmp_path / 'results.tmp').exists()
+    m = json.loads((out / 'run_manifest.json').read_text())
+    assert m['results'] is None and 'disk gone' in m['results_error']
+    assert 'FAILED' in capsys.readouterr().err
+
+
+def test_missing_result_json_aborts_staging_without_touching_results(tmp_path, monkeypatch):
+    out, results = _fake_run(tmp_path, monkeypatch)
+    results.mkdir()
+    (results / 'main.json').write_text('previous')
+    manifest = {}
+    with pytest.raises(OSError):
+        run_all.publish_results(manifest)          # outputs/ has no JSONs yet
+    assert manifest['results'] is None
+    assert (results / 'main.json').read_text() == 'previous'
+    assert not (tmp_path / 'results.tmp').exists()
