@@ -43,39 +43,37 @@ def target_topk(scores, k):
 
 def h_protection(harm, h_lo=0.60, h_hi=0.90):
     """Harm-protection weight: 1 below h_lo, ramps to 0 above h_hi."""
-    h = np.where(harm <= h_lo, 1.0,
-                 np.where(harm >= h_hi, 0.0,
-                          1.0 - (harm - h_lo) / (h_hi - h_lo)))
+    h = np.where(harm <= h_lo, 1.0, np.where(harm >= h_hi, 0.0, 1.0 - (harm - h_lo) / (h_hi - h_lo)))
     return h
 
 
 # --- Expanded calibration grid [M15] ---
 THETA_GRID = [
     # g~1 identity (allows calibration to select no risk modulation)
-    {'pL': 0.00, 'pML': 0.01, 'pMH': 0.99, 'phi': 1.0},
+    {"pL": 0.00, "pML": 0.01, "pMH": 0.99, "phi": 1.0},
     # Original configs
-    {'pL': 0.03, 'pML': 0.30, 'pMH': 0.65, 'phi': 0.15},
-    {'pL': 0.05, 'pML': 0.35, 'pMH': 0.60, 'phi': 0.20},
-    {'pL': 0.05, 'pML': 0.40, 'pMH': 0.60, 'phi': 0.20},  # default
-    {'pL': 0.08, 'pML': 0.30, 'pMH': 0.55, 'phi': 0.10},
-    {'pL': 0.10, 'pML': 0.35, 'pMH': 0.55, 'phi': 0.15},
-    {'pL': 0.05, 'pML': 0.25, 'pMH': 0.50, 'phi': 0.10},
-    {'pL': 0.03, 'pML': 0.20, 'pMH': 0.55, 'phi': 0.10},
-    {'pL': 0.05, 'pML': 0.30, 'pMH': 0.55, 'phi': 0.15},
-    {'pL': 0.08, 'pML': 0.25, 'pMH': 0.50, 'phi': 0.05},
+    {"pL": 0.03, "pML": 0.30, "pMH": 0.65, "phi": 0.15},
+    {"pL": 0.05, "pML": 0.35, "pMH": 0.60, "phi": 0.20},
+    {"pL": 0.05, "pML": 0.40, "pMH": 0.60, "phi": 0.20},  # default
+    {"pL": 0.08, "pML": 0.30, "pMH": 0.55, "phi": 0.10},
+    {"pL": 0.10, "pML": 0.35, "pMH": 0.55, "phi": 0.15},
+    {"pL": 0.05, "pML": 0.25, "pMH": 0.50, "phi": 0.10},
+    {"pL": 0.03, "pML": 0.20, "pMH": 0.55, "phi": 0.10},
+    {"pL": 0.05, "pML": 0.30, "pMH": 0.55, "phi": 0.15},
+    {"pL": 0.08, "pML": 0.25, "pMH": 0.50, "phi": 0.05},
     # Extended range (not aligned with inverse-U)
-    {'pL': 0.00, 'pML': 0.10, 'pMH': 0.90, 'phi': 0.50},
-    {'pL': 0.15, 'pML': 0.40, 'pMH': 0.50, 'phi': 0.00},
-    {'pL': 0.00, 'pML': 0.05, 'pMH': 0.40, 'phi': 0.30},
-    {'pL': 0.20, 'pML': 0.50, 'pMH': 0.80, 'phi': 0.40},
-    {'pL': 0.10, 'pML': 0.20, 'pMH': 0.40, 'phi': 0.05},
-    {'pL': 0.05, 'pML': 0.15, 'pMH': 0.70, 'phi': 0.30},
-    {'pL': 0.00, 'pML': 0.30, 'pMH': 0.70, 'phi': 0.80},
-    {'pL': 0.02, 'pML': 0.25, 'pMH': 0.45, 'phi': 0.10},
-    {'pL': 0.05, 'pML': 0.45, 'pMH': 0.55, 'phi': 0.15},
-    {'pL': 0.10, 'pML': 0.30, 'pMH': 0.60, 'phi': 0.25},
-    {'pL': 0.03, 'pML': 0.35, 'pMH': 0.65, 'phi': 0.05},
-    {'pL': 0.00, 'pML': 0.50, 'pMH': 0.80, 'phi': 0.60},
+    {"pL": 0.00, "pML": 0.10, "pMH": 0.90, "phi": 0.50},
+    {"pL": 0.15, "pML": 0.40, "pMH": 0.50, "phi": 0.00},
+    {"pL": 0.00, "pML": 0.05, "pMH": 0.40, "phi": 0.30},
+    {"pL": 0.20, "pML": 0.50, "pMH": 0.80, "phi": 0.40},
+    {"pL": 0.10, "pML": 0.20, "pMH": 0.40, "phi": 0.05},
+    {"pL": 0.05, "pML": 0.15, "pMH": 0.70, "phi": 0.30},
+    {"pL": 0.00, "pML": 0.30, "pMH": 0.70, "phi": 0.80},
+    {"pL": 0.02, "pML": 0.25, "pMH": 0.45, "phi": 0.10},
+    {"pL": 0.05, "pML": 0.45, "pMH": 0.55, "phi": 0.15},
+    {"pL": 0.10, "pML": 0.30, "pMH": 0.60, "phi": 0.25},
+    {"pL": 0.03, "pML": 0.35, "pMH": 0.65, "phi": 0.05},
+    {"pL": 0.00, "pML": 0.50, "pMH": 0.80, "phi": 0.60},
 ]
 DEFAULT_THETA_IDX = 3  # pL=0.05, pML=0.40, pMH=0.60, phi=0.20
 
@@ -92,28 +90,28 @@ def aipw_scores(X, W, Y, seed, n_folds=2, e=PROPENSITY, params=None):
     {max_depth, n_estimators, learning_rate} for the outcome models (default
     depth 3, 100 trees, rate 0.1)."""
     from core.estimators import CROSSFIT_STREAM, seed_from
+
     n = len(Y)
     m1 = np.empty(n)
     m0 = np.empty(n)
-    kf = KFold(n_splits=n_folds, shuffle=True,
-               random_state=seed_from(seed, CROSSFIT_STREAM))
+    kf = KFold(n_splits=n_folds, shuffle=True, random_state=seed_from(seed, CROSSFIT_STREAM))
     for fit, pred in kf.split(np.arange(n)):
         for arm, out in ((1, m1), (0, m0)):
             sel = fit[W[fit] == arm]
             y_arm = Y[sel]
-            if len(np.unique(y_arm)) < 2:   # degenerate arm: constant outcome model
+            if len(np.unique(y_arm)) < 2:  # degenerate arm: constant outcome model
                 out[pred] = float(y_arm.mean()) if len(y_arm) else 0.5
                 continue
-            kw = ({'n_estimators': 100, 'max_depth': 3, 'learning_rate': 0.1}
-                  if params is None else params)
+            kw = {"n_estimators": 100, "max_depth": 3, "learning_rate": 0.1} if params is None else params
             model = GradientBoostingClassifier(random_state=0, **kw)
             model.fit(X[sel], y_arm)
             out[pred] = model.predict_proba(X[pred])[:, 1]
     return (m1 - m0) + W / e * (Y - m1) - (1 - W) / (1 - e) * (Y - m0)
 
 
-def calibrate_theta_all(data, train_idx, seed, kappa, objectives=("aipw", "plugin"),
-                        n_folds=2, est_func=None, cate_method='tlearner'):
+def calibrate_theta_all(
+    data, train_idx, seed, kappa, objectives=("aipw", "plugin"), n_folds=2, est_func=None, cate_method="tlearner"
+):
     """Calibrate theta for several objectives, fitting the est->val components once.
 
     Returns {objective: config}.  objective="aipw": policy value of theta is
@@ -129,26 +127,27 @@ def calibrate_theta_all(data, train_idx, seed, kappa, objectives=("aipw", "plugi
         if objective not in ("aipw", "plugin"):
             raise ValueError(f"unknown objective {objective!r}")
     from core.estimators import CALIB_SPLIT_STREAM, CALIB_STREAM, estimate_components, seed_from
+
     if est_func is None:
         est_func = estimate_components
     est_rel, val_rel = train_test_split(
-        np.arange(len(train_idx)), test_size=0.40,
-        random_state=seed_from(seed, CALIB_SPLIT_STREAM))
+        np.arange(len(train_idx)), test_size=0.40, random_state=seed_from(seed, CALIB_SPLIT_STREAM)
+    )
     est_idx = train_idx[est_rel]
     val_idx = train_idx[val_rel]
 
-    tau_val, ltv_val, churn_val = est_func(data, est_idx, val_idx,
-                                           cate_method=cate_method,
-                                           seed=seed, stream=CALIB_STREAM)
+    tau_val, ltv_val, churn_val = est_func(
+        data, est_idx, val_idx, cate_method=cate_method, seed=seed, stream=CALIB_STREAM
+    )
     k_val = int(len(val_idx) * kappa)
     base = tau_val * ltv_val
 
     out = {}
     for objective in objectives:
         if objective == "aipw":
-            gamma = aipw_scores(data['features'][val_idx],
-                                data['treatment'][val_idx],
-                                data['y_obs'][val_idx], seed, n_folds)
+            gamma = aipw_scores(
+                data["features"][val_idx], data["treatment"][val_idx], data["y_obs"][val_idx], seed, n_folds
+            )
             unit_value = gamma * ltv_val
         else:
             unit_value = base
@@ -158,18 +157,16 @@ def calibrate_theta_all(data, train_idx, seed, kappa, objectives=("aipw", "plugi
             g_val = f_churn_vec(churn_val, **cfg)
             targeted = np.sort(target_topk(base * g_val, k_val))
             w = float(np.sum(unit_value[targeted]))
-            if w > best_value:      # strict: ties keep the lowest grid index
+            if w > best_value:  # strict: ties keep the lowest grid index
                 best_value = w
                 best_config = cfg
         out[objective] = best_config
     return out
 
 
-def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2,
-                    est_func=None, cate_method='tlearner'):
+def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2, est_func=None, cate_method="tlearner"):
     """Single-objective calibration; see calibrate_theta_all."""
-    return calibrate_theta_all(data, train_idx, seed, kappa, (objective,), n_folds,
-                               est_func, cate_method)[objective]
+    return calibrate_theta_all(data, train_idx, seed, kappa, (objective,), n_folds, est_func, cate_method)[objective]
 
 
 def misrank_terms(tau_hat, v_hat, tau_ref, v_ref, k):
@@ -197,8 +194,11 @@ def misrank_terms(tau_hat, v_hat, tau_ref, v_ref, k):
     m = np.array(sorted(pi_dep.symmetric_difference(pi_ref)), dtype=int)
     if len(m) == 0:
         return None
-    return (float((np.abs(tau_ref[m] - tau_hat[m]) * np.abs(v_ref[m])).mean()),
-            float((np.abs(tau_hat[m]) * np.abs(v_ref[m] - v_hat[m])).mean()), len(m))
+    return (
+        float((np.abs(tau_ref[m] - tau_hat[m]) * np.abs(v_ref[m])).mean()),
+        float((np.abs(tau_hat[m]) * np.abs(v_ref[m] - v_hat[m])).mean()),
+        len(m),
+    )
 
 
 def regret_split(tau_ref, ltv_ref, tau_hat, ltv_hat, tau_true, ltv_true, k):
@@ -219,6 +219,7 @@ def regret_split(tau_ref, ltv_ref, tau_hat, ltv_hat, tau_true, ltv_true, k):
     and phi_tau + phi_v = total.  Shares are normalised by the total and sum to 1;
     they are NOT bounded to [0, 1] (the paths can have opposite signs).  If the
     total is exactly 0 the shares are NaN and zero_denominator is True."""
+
     def regret(a, b):
         return W_ref - compute_welfare(target_topk(a * b, k), tau_true, ltv_true)
 
@@ -235,12 +236,15 @@ def regret_split(tau_ref, ltv_ref, tau_hat, ltv_hat, tau_true, ltv_true, k):
 
     def shares(t, v):
         if zero:
-            return {'tau_share': float('nan'), 'v_share': float('nan'),
-                    'tau': float(t), 'v': float(v)}
-        return {'tau_share': float(t / total), 'v_share': float(v / total),
-                'tau': float(t), 'v': float(v)}
+            return {"tau_share": float("nan"), "v_share": float("nan"), "tau": float(t), "v": float(v)}
+        return {"tau_share": float(t / total), "v_share": float(v / total), "tau": float(t), "v": float(v)}
 
-    return {'order_a': shares(a_tau, a_v), 'order_b': shares(b_tau, b_v),
-            'shapley': shares(phi_tau, phi_v),
-            'phi_tau': float(phi_tau), 'phi_v': float(phi_v), 'total': float(total),
-            'zero_denominator': zero}
+    return {
+        "order_a": shares(a_tau, a_v),
+        "order_b": shares(b_tau, b_v),
+        "shapley": shares(phi_tau, phi_v),
+        "phi_tau": float(phi_tau),
+        "phi_v": float(phi_v),
+        "total": float(total),
+        "zero_denominator": zero,
+    }

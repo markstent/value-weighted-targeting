@@ -29,6 +29,19 @@ reviews/
 # LaTeX build logs
 *.log
 
-# arXiv submission bundle (build artifact; regenerate from docs/)
+# arXiv submission bundle (build artifact; regenerate from paper/)
 arxiv-stent-2026.tar.gz
-docs/generated_smoke/
+
+# Private paper sources (LaTeX, figures, generated tables) live in a separate private repo
+paper/
+
+# LaTeX build byproducts
+*.aux
+*.out
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv

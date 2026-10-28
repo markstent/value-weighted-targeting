@@ -155,16 +155,16 @@ from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 KAPPA = DEFAULT_BUDGET
 ADV_KAPPAS = (0.30, 0.10)
 logger = logging.getLogger(__name__)
-ARMS = ('default', 'tuned')
-ORACLES = ('Oracle hindsight', 'Oracle feasible')
-ADV_DROP_COLS = [0, 1, 2]   # bonus_history (index 3) dropped from the CATE model
+ARMS = ("default", "tuned")
+ORACLES = ("Oracle hindsight", "Oracle feasible")
+ADV_DROP_COLS = [0, 1, 2]  # bonus_history (index 3) dropped from the CATE model
 LOGIN_DROP_COLS = [0, 1, 3]  # login_freq (index 2) dropped
 MISSPEC_DROP_COLS = {2: LOGIN_DROP_COLS, 3: ADV_DROP_COLS}
 ALL_COLS = [0, 1, 2, 3]
 
 
 def _arm(name, pset):
-    return name if pset == 'default' else f'{name} (tuned)'
+    return name if pset == "default" else f"{name} (tuned)"
 
 
 # ---------------------------------------------------------------------------
@@ -173,51 +173,60 @@ def _arm(name, pset):
 def _setup(dgp_func, seed, n_players):
     """Simulate one replication and split it; returns the test-split truth."""
     data = dgp_func(n_players, np.random.RandomState(seed))
-    idx = np.arange(len(data['treatment']))
+    idx = np.arange(len(data["treatment"]))
     tr, te = train_test_split(idx, test_size=0.30, random_state=seed)
-    X, W, Y = data['features'], data['treatment'], data['y_obs']
+    X, W, Y = data["features"], data["treatment"], data["y_obs"]
     return SimpleNamespace(
-        data=data, seed=seed, tr=tr, te=te,
-        Xtr=X[tr], Xte=X[te], Wtr=W[tr], Ytr=Y[tr],
-        tau=data['true_tau'][te], ltv=data['true_ltv'][te])
+        data=data,
+        seed=seed,
+        tr=tr,
+        te=te,
+        Xtr=X[tr],
+        Xte=X[te],
+        Wtr=W[tr],
+        Ytr=Y[tr],
+        tau=data["true_tau"][te],
+        ltv=data["true_ltv"][te],
+    )
 
 
 def _tau_arms(rep, tuned, cols=ALL_COLS):
     """T-learner tau_hat per arm (default params, tuned params), on the given columns."""
-    return {pset: _estimate_cate_tlearner(rep.Xtr[:, cols], rep.Xte[:, cols],
-                                          rep.Wtr, rep.Ytr,
-                                          tuned['T'] if pset == 'tuned' else None)
-            for pset in ARMS}
+    return {
+        pset: _estimate_cate_tlearner(
+            rep.Xtr[:, cols], rep.Xte[:, cols], rep.Wtr, rep.Ytr, tuned["T"] if pset == "tuned" else None
+        )
+        for pset in ARMS
+    }
 
 
 def _est_func(params):
     """est_func for calibrate_theta_all: a T-learner with `params` (None: the legacy
     estimate_components fit) and the legacy value and churn models."""
-    def est(data, train_idx, test_idx, cate_method='tlearner', *, seed, stream=LTV_STREAM):
-        X, W, Y = data['features'], data['treatment'], data['y_obs']
-        tau = _estimate_cate_tlearner(X[train_idx], X[test_idx], W[train_idx],
-                                      Y[train_idx], params)
-        ltv, churn = _estimate_ltv_churn(X[train_idx], X[test_idx], W[train_idx],
-                                         Y[train_idx], seed, stream)
+
+    def est(data, train_idx, test_idx, cate_method="tlearner", *, seed, stream=LTV_STREAM):
+        X, W, Y = data["features"], data["treatment"], data["y_obs"]
+        tau = _estimate_cate_tlearner(X[train_idx], X[test_idx], W[train_idx], Y[train_idx], params)
+        ltv, churn = _estimate_ltv_churn(X[train_idx], X[test_idx], W[train_idx], Y[train_idx], seed, stream)
         return tau, ltv, churn
+
     return est
 
 
-def _calibrate(rep, kappa, pset, tuned, objectives=('aipw',)):
-    return calibrate_theta_all(rep.data, rep.tr, rep.seed, kappa, objectives,
-                               est_func=_est_func(tuned['T'] if pset == 'tuned' else None))
+def _calibrate(rep, kappa, pset, tuned, objectives=("aipw",)):
+    return calibrate_theta_all(
+        rep.data, rep.tr, rep.seed, kappa, objectives, est_func=_est_func(tuned["T"] if pset == "tuned" else None)
+    )
 
 
 def _oracle_cm(rep, dgp_func):
     """Feasible-oracle conditional means on the test features (once per replication)."""
     name, extra = dgp_spec(dgp_func)
-    if name == 'corr_gamma':
+    if name == "corr_gamma":
         # the DGP standardises tau_base on the full generating sample; X is observable
-        extra = dict(extra, tau_base_moments=tau_base_stats(
-            dict(zip(FEATURE_NAMES, rep.data['features'].T))))
+        extra = dict(extra, tau_base_moments=tau_base_stats(dict(zip(FEATURE_NAMES, rep.data["features"].T))))
     feats = {nm: rep.Xte[:, i] for i, nm in enumerate(FEATURE_NAMES)}
-    return conditional_means(name, feats, n_mc=ORACLE_MC,
-                             seed=seed_from(rep.seed, ORACLE_STREAM), **extra)
+    return conditional_means(name, feats, n_mc=ORACLE_MC, seed=seed_from(rep.seed, ORACLE_STREAM), **extra)
 
 
 def _oracle_welfare(rep, cm, kappa, tau_eval=None):
@@ -225,9 +234,9 @@ def _oracle_welfare(rep, cm, kappa, tau_eval=None):
     replaces the true tau in the welfare sum (effective_welfare)."""
     tau_eval = rep.tau if tau_eval is None else tau_eval
     return {
-        'Oracle hindsight': welfare_at_kappa(rep.tau * rep.ltv, kappa, tau_eval, rep.ltv),
-        'Oracle feasible': welfare_at_kappa(cm['tau_bar'] * cm['ltv_bar'], kappa,
-                                            tau_eval, rep.ltv)}
+        "Oracle hindsight": welfare_at_kappa(rep.tau * rep.ltv, kappa, tau_eval, rep.ltv),
+        "Oracle feasible": welfare_at_kappa(cm["tau_bar"] * cm["ltv_bar"], kappa, tau_eval, rep.ltv),
+    }
 
 
 def _map(fn, reps, n_jobs):
@@ -242,10 +251,9 @@ def _stack(rows):
 def _w_summary(v):
     v = np.asarray(v, dtype=float)
     n = len(v)
-    sd = float(v.std(ddof=1)) if n > 1 else float('nan')
-    half = float(scipy_stats.t.ppf(0.975, n - 1)) * sd / np.sqrt(n) if n > 1 else float('nan')
-    return {'mean': float(v.mean()), 'sd': sd, 'ci95': [float(v.mean()) - half,
-                                                         float(v.mean()) + half]}
+    sd = float(v.std(ddof=1)) if n > 1 else float("nan")
+    half = float(scipy_stats.t.ppf(0.975, n - 1)) * sd / np.sqrt(n) if n > 1 else float("nan")
+    return {"mean": float(v.mean()), "sd": sd, "ci95": [float(v.mean()) - half, float(v.mean()) + half]}
 
 
 def _cell(welfare, pairs):
@@ -253,15 +261,21 @@ def _cell(welfare, pairs):
     comparison also stores ratio_to_b and ratio_to_a: mean(a - b) over mean(b) (resp. a)
     with a delta-method CI from the per-replication pairs (core.stats.paired_ratio_ci)."""
     return {
-        'welfare': {s: _w_summary(v) for s, v in welfare.items()},
-        'comparisons': {f'{a} vs {b}': {'a': a, 'b': b,
-                                        **paired_test_raw(welfare[a], welfare[b]),
-                                        'ratio_to_b': ratio_entry(welfare[a] - welfare[b], welfare[b]),
-                                        'ratio_to_a': ratio_entry(welfare[a] - welfare[b], welfare[a])}
-                        for a, b in pairs}}
+        "welfare": {s: _w_summary(v) for s, v in welfare.items()},
+        "comparisons": {
+            f"{a} vs {b}": {
+                "a": a,
+                "b": b,
+                **paired_test_raw(welfare[a], welfare[b]),
+                "ratio_to_b": ratio_entry(welfare[a] - welfare[b], welfare[b]),
+                "ratio_to_a": ratio_entry(welfare[a] - welfare[b], welfare[a]),
+            }
+            for a, b in pairs
+        },
+    }
 
 
-def flag_degenerate(comparisons, prefix='Calibrated (plug-in)', warn_nonzero=True):
+def flag_degenerate(comparisons, prefix="Calibrated (plug-in)", warn_nonzero=True):
     """Flag the by-construction zero comparisons (kept in the output, excluded from Holm).
 
     The plug-in objective selects identity, so a plug-in arm normally equals the g=1 rule
@@ -272,47 +286,55 @@ def flag_degenerate(comparisons, prefix='Calibrated (plug-in)', warn_nonzero=Tru
     but not expected (a tuned learner that never splits on the dropped feature): pass
     warn_nonzero=False there."""
     for label, c in comparisons.items():
-        named = c['a'].startswith(prefix)
-        zero = c['mean_diff'] == 0.0
-        c['degenerate'] = bool(named and zero)
+        named = c["a"].startswith(prefix)
+        zero = c["mean_diff"] == 0.0
+        c["degenerate"] = bool(named and zero)
         if warn_nonzero and named and not zero:
-            logger.warning('%s: expected exactly zero mean_diff (plug-in selects identity) '
-                           'but got %r; kept in the Holm family', label, c['mean_diff'])
+            logger.warning(
+                "%s: expected exactly zero mean_diff (plug-in selects identity) but got %r; kept in the Holm family",
+                label,
+                c["mean_diff"],
+            )
 
 
 def _apply_holm(cells):
     """Add p_holm to every non-degenerate comparison, pooled over all cells; returns
     the family size.  A comparison flagged degenerate (zero by construction) is kept
     but excluded: its p_holm is None."""
-    all_c = [c for cell in cells.values() for c in cell['comparisons'].values()]
-    comps = [c for c in all_c if not c.get('degenerate')]
+    all_c = [c for cell in cells.values() for c in cell["comparisons"].values()]
+    comps = [c for c in all_c if not c.get("degenerate")]
     for c in all_c:
-        if c.get('degenerate'):
-            c['p_holm'] = None
+        if c.get("degenerate"):
+            c["p_holm"] = None
     if comps:
-        adj = holm_bonferroni(np.array([c['p_value'] for c in comps]))
+        adj = holm_bonferroni(np.array([c["p_value"] for c in comps]))
         for c, a in zip(comps, adj):
-            c['p_holm'] = float(a)
+            c["p_holm"] = float(a)
     return len(comps)
 
 
 def _finish(cells, family, **meta):
     m = _apply_holm(cells)
-    return {'cells': cells, 'holm_family': family, 'holm_family_size': m, **meta}
+    return {"cells": cells, "holm_family": family, "holm_family_size": m, **meta}
 
 
 def _ltv_advantage(cell):
     """Percent gain of CATE x LTV over CATE Only per arm, from the cell means."""
-    w = cell['welfare']
-    return {p: 100 * (w[_arm('CATE x LTV', p)]['mean'] - w[_arm('CATE Only', p)]['mean'])
-            / w[_arm('CATE Only', p)]['mean'] for p in ARMS}
+    w = cell["welfare"]
+    return {
+        p: 100 * (w[_arm("CATE x LTV", p)]["mean"] - w[_arm("CATE Only", p)]["mean"]) / w[_arm("CATE Only", p)]["mean"]
+        for p in ARMS
+    }
 
 
 def _calibration_summary(idxs):
     c = Counter(idxs)
-    return {'identity_selected': int(c.get(0, 0)), 'n_runs': len(idxs),
-            'identity_rate': c.get(0, 0) / len(idxs),
-            'selected_config_counts': {str(k): v for k, v in c.most_common()}}
+    return {
+        "identity_selected": int(c.get(0, 0)),
+        "n_runs": len(idxs),
+        "identity_rate": c.get(0, 0) / len(idxs),
+        "selected_config_counts": {str(k): v for k, v in c.most_common()},
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -322,175 +344,193 @@ def _dgp_rep(seed, *, dgp_func, n_players, tuned, kappa, calibrate, cols=ALL_COL
     rep = _setup(dgp_func, seed, n_players)
     taus = _tau_arms(rep, tuned, cols)
     ltv_hat, churn_hat = _estimate_ltv_churn(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, seed)
+
     def wel(s):
         return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
 
     w, cal_idx = {}, {}
     for pset, tau_hat in taus.items():
-        w[_arm('CATE Only', pset)] = wel(tau_hat)
-        w[_arm('CATE x LTV', pset)] = wel(tau_hat * ltv_hat)
+        w[_arm("CATE Only", pset)] = wel(tau_hat)
+        w[_arm("CATE x LTV", pset)] = wel(tau_hat * ltv_hat)
         if calibrate:
-            w[_arm('Full Framework (Est.)', pset)] = wel(
-                tau_hat * ltv_hat * f_churn_vec(churn_hat))
-            cfg = _calibrate(rep, kappa, pset, tuned)['aipw']
+            w[_arm("Full Framework (Est.)", pset)] = wel(tau_hat * ltv_hat * f_churn_vec(churn_hat))
+            cfg = _calibrate(rep, kappa, pset, tuned)["aipw"]
             cal_idx[pset] = THETA_GRID.index(cfg)
-            w[_arm('Full Framework (Cal.)', pset)] = wel(
-                tau_hat * ltv_hat * f_churn_vec(churn_hat, **cfg))
-    w['S-Learner'] = wel(_estimate_slearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, ltv_hat))
+            w[_arm("Full Framework (Cal.)", pset)] = wel(tau_hat * ltv_hat * f_churn_vec(churn_hat, **cfg))
+    w["S-Learner"] = wel(_estimate_slearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, ltv_hat))
     w.update(_oracle_welfare(rep, _oracle_cm(rep, dgp_func), kappa))
     feats = rep.data
-    corr = float(np.corrcoef(feats['true_tau'], feats['true_ltv'])[0, 1])
-    return {'w': w, 'cal_idx': cal_idx, 'corr_tau_V': corr}
+    corr = float(np.corrcoef(feats["true_tau"], feats["true_ltv"])[0, 1])
+    return {"w": w, "cal_idx": cal_idx, "corr_tau_V": corr}
 
 
 def _dgp_pairs(calibrate):
-    pairs = [(_arm('CATE x LTV', p), _arm('CATE Only', p)) for p in ARMS]
-    pairs += [('S-Learner', 'CATE x LTV'), ('CATE x LTV (tuned)', 'CATE x LTV')]
-    pairs += [('Oracle feasible', _arm('CATE x LTV', p)) for p in ARMS]
+    pairs = [(_arm("CATE x LTV", p), _arm("CATE Only", p)) for p in ARMS]
+    pairs += [("S-Learner", "CATE x LTV"), ("CATE x LTV (tuned)", "CATE x LTV")]
+    pairs += [("Oracle feasible", _arm("CATE x LTV", p)) for p in ARMS]
     if calibrate:
-        pairs += [(_arm('Full Framework (Cal.)', p), _arm('CATE x LTV', p)) for p in ARMS]
+        pairs += [(_arm("Full Framework (Cal.)", p), _arm("CATE x LTV", p)) for p in ARMS]
     return pairs
 
 
-def _dgp_scenario(dgp_cells, family, reps, n_players, tuned, n_jobs, *,
-                  kappa=KAPPA, calibrate=False):
+def _dgp_scenario(dgp_cells, family, reps, n_players, tuned, n_jobs, *, kappa=KAPPA, calibrate=False):
     cells = {}
     for name, spec in dgp_cells.items():
         dgp_func, cols = spec if isinstance(spec, tuple) else (spec, ALL_COLS)
-        rows = _map(partial(_dgp_rep, dgp_func=dgp_func, n_players=n_players,
-                            tuned=tuned, kappa=kappa, calibrate=calibrate, cols=cols),
-                    reps, n_jobs)
-        cell = _cell(_stack([r['w'] for r in rows]), _dgp_pairs(calibrate))
-        cell['kappa'] = kappa
-        cell['corr_tau_V'] = float(np.mean([r['corr_tau_V'] for r in rows]))
-        cell['ltv_advantage_pct'] = _ltv_advantage(cell)
+        rows = _map(
+            partial(
+                _dgp_rep,
+                dgp_func=dgp_func,
+                n_players=n_players,
+                tuned=tuned,
+                kappa=kappa,
+                calibrate=calibrate,
+                cols=cols,
+            ),
+            reps,
+            n_jobs,
+        )
+        cell = _cell(_stack([r["w"] for r in rows]), _dgp_pairs(calibrate))
+        cell["kappa"] = kappa
+        cell["corr_tau_V"] = float(np.mean([r["corr_tau_V"] for r in rows]))
+        cell["ltv_advantage_pct"] = _ltv_advantage(cell)
         if calibrate:
-            cell['calibration'] = {p: _calibration_summary([r['cal_idx'][p] for r in rows])
-                                   for p in ARMS}
+            cell["calibration"] = {p: _calibration_summary([r["cal_idx"][p] for r in rows]) for p in ARMS}
         cells[name] = cell
     return _finish(cells, family, kappa=kappa)
 
 
 def run_slearner_scenarios(reps, n_players, tuned, n_jobs=1):
     out = _dgp_scenario(
-        {'main': DGPS['main'], 'null': DGPS['null'], 'correlated': DGPS['correlated'],
-         'misspec': (DGPS['main'], LOGIN_DROP_COLS)},
-        'all comparisons in the main, null, correlated and misspec cells',
-        reps, n_players, tuned, n_jobs)
-    out['misspec_note'] = ('misspec cell: main DGP, the T-learner CATE model (both arms) drops '
-                           'login_freq while the S-learner keeps all four features, as in the '
-                           'paper; S-Learner vs CATE x LTV there is the paired test of that '
-                           'contrast.  The main cell is the full-feature comparison.')
+        {
+            "main": DGPS["main"],
+            "null": DGPS["null"],
+            "correlated": DGPS["correlated"],
+            "misspec": (DGPS["main"], LOGIN_DROP_COLS),
+        },
+        "all comparisons in the main, null, correlated and misspec cells",
+        reps,
+        n_players,
+        tuned,
+        n_jobs,
+    )
+    out["misspec_note"] = (
+        "misspec cell: main DGP, the T-learner CATE model (both arms) drops "
+        "login_freq while the S-learner keeps all four features, as in the "
+        "paper; S-Learner vs CATE x LTV there is the paired test of that "
+        "contrast.  The main cell is the full-feature comparison."
+    )
     return out
 
 
 def run_asym(reps, n_players, tuned, n_jobs=1):
-    return _dgp_scenario({'asym': DGPS['asym']},
-                         'all comparisons on the asymmetric DGP',
-                         reps, n_players, tuned, n_jobs, calibrate=True)
+    return _dgp_scenario(
+        {"asym": DGPS["asym"]}, "all comparisons on the asymmetric DGP", reps, n_players, tuned, n_jobs, calibrate=True
+    )
 
 
 def run_corr_sweep(reps, n_players, tuned, n_jobs=1):
-    cells = {label: make_corr_dgp(g)
-             for label, g in (('negative', -1.0), ('zero', 0.0), ('positive', 1.0))}
-    out = _dgp_scenario(cells, 'all comparisons across the three gamma cells',
-                        reps, n_players, tuned, n_jobs)
-    out['gamma'] = {'negative': -1.0, 'zero': 0.0, 'positive': 1.0}
+    cells = {label: make_corr_dgp(g) for label, g in (("negative", -1.0), ("zero", 0.0), ("positive", 1.0))}
+    out = _dgp_scenario(cells, "all comparisons across the three gamma cells", reps, n_players, tuned, n_jobs)
+    out["gamma"] = {"negative": -1.0, "zero": 0.0, "positive": 1.0}
     return out
 
 
 def run_heavy_tail(reps, n_players, tuned, n_jobs=1):
-    return _dgp_scenario({'heavy_tail': DGPS['heavytail']},
-                         'all comparisons on the heavy-tailed DGP',
-                         reps, n_players, tuned, n_jobs)
+    return _dgp_scenario(
+        {"heavy_tail": DGPS["heavytail"]}, "all comparisons on the heavy-tailed DGP", reps, n_players, tuned, n_jobs
+    )
 
 
 # ---------------------------------------------------------------------------
 # effective_welfare
 # ---------------------------------------------------------------------------
 def _effective_rep(seed, *, n_players, tuned, kappa):
-    dgp_func = DGPS['main']
+    dgp_func = DGPS["main"]
     rep = _setup(dgp_func, seed, n_players)
     d = rep.data
-    eff_tau = (d['y1_prob'] - d['y0_prob'])[rep.te]
+    eff_tau = (d["y1_prob"] - d["y0_prob"])[rep.te]
     taus = _tau_arms(rep, tuned)
     ltv_hat, churn_hat = _estimate_ltv_churn(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, seed)
     cm = _oracle_cm(rep, dgp_func)
     scores = {}
     for pset, tau_hat in taus.items():
-        scores[_arm('CATE Only', pset)] = tau_hat
-        scores[_arm('CATE x LTV', pset)] = tau_hat * ltv_hat
-        cfg = _calibrate(rep, kappa, pset, tuned)['aipw']
-        scores[_arm('Full Framework (Cal.)', pset)] = (
-            tau_hat * ltv_hat * f_churn_vec(churn_hat, **cfg))
-    scores['S-Learner'] = _estimate_slearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, ltv_hat)
-    scores['Oracle hindsight'] = rep.tau * rep.ltv
-    scores['Oracle feasible'] = cm['tau_bar'] * cm['ltv_bar']
+        scores[_arm("CATE Only", pset)] = tau_hat
+        scores[_arm("CATE x LTV", pset)] = tau_hat * ltv_hat
+        cfg = _calibrate(rep, kappa, pset, tuned)["aipw"]
+        scores[_arm("Full Framework (Cal.)", pset)] = tau_hat * ltv_hat * f_churn_vec(churn_hat, **cfg)
+    scores["S-Learner"] = _estimate_slearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, ltv_hat)
+    scores["Oracle hindsight"] = rep.tau * rep.ltv
+    scores["Oracle feasible"] = cm["tau_bar"] * cm["ltv_bar"]
     w = {}
     for s, sc in scores.items():
         nominal = welfare_at_kappa(sc, kappa, rep.tau, rep.ltv)
         effective = welfare_at_kappa(sc, kappa, eff_tau, rep.ltv)
-        w[s], w[f'{s} [effective]'] = nominal, effective
-        w[f'{s} [overstatement]'] = nominal - effective
+        w[s], w[f"{s} [effective]"] = nominal, effective
+        w[f"{s} [overstatement]"] = nominal - effective
     return w
 
 
 def run_effective_welfare(reps, n_players, tuned, n_jobs=1):
-    w = _stack(_map(partial(_effective_rep, n_players=n_players, tuned=tuned,
-                            kappa=KAPPA), reps, n_jobs))
-    strategies = [k for k in w if '[' not in k]
-    pairs = [(s, f'{s} [effective]') for s in strategies]
-    pairs += [(f'{s} [overstatement]', 'CATE Only [overstatement]')
-              for s in strategies if s != 'CATE Only']
-    cells = {'main': _cell(w, pairs)}
-    over = {s: {'nominal': float(w[s].mean()), 'effective': float(w[f'{s} [effective]'].mean()),
-                'pct_overstate': 100 * float(w[f'{s} [overstatement]'].mean()
-                                              / w[f'{s} [effective]'].mean())}
-            for s in strategies}
-    return _finish(cells, 'nominal-vs-effective per strategy and each strategy\'s '
-                          'overstatement vs CATE Only', kappa=KAPPA, overstatement=over)
+    w = _stack(_map(partial(_effective_rep, n_players=n_players, tuned=tuned, kappa=KAPPA), reps, n_jobs))
+    strategies = [k for k in w if "[" not in k]
+    pairs = [(s, f"{s} [effective]") for s in strategies]
+    pairs += [(f"{s} [overstatement]", "CATE Only [overstatement]") for s in strategies if s != "CATE Only"]
+    cells = {"main": _cell(w, pairs)}
+    over = {
+        s: {
+            "nominal": float(w[s].mean()),
+            "effective": float(w[f"{s} [effective]"].mean()),
+            "pct_overstate": 100 * float(w[f"{s} [overstatement]"].mean() / w[f"{s} [effective]"].mean()),
+        }
+        for s in strategies
+    }
+    return _finish(
+        cells,
+        "nominal-vs-effective per strategy and each strategy's overstatement vs CATE Only",
+        kappa=KAPPA,
+        overstatement=over,
+    )
 
 
 # ---------------------------------------------------------------------------
 # component_update
 # ---------------------------------------------------------------------------
 def _component_rep(seed, *, n_players, tuned, kappa):
-    dgp_func = DGPS['main']
+    dgp_func = DGPS["main"]
     rep = _setup(dgp_func, seed, n_players)
     taus = _tau_arms(rep, tuned)
     v_mis = _estimate_ltv_proxy(rep.Xtr, rep.Xte, seed)
     v_well = _wellspec_value_model(rep.Xtr, rep.Xte, seed)
+
     def wel(s):
         return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
 
     w = {}
     for pset, tau_hat in taus.items():
-        w[_arm('CATE x LTV, misspecified V', pset)] = wel(tau_hat * v_mis)
-        w[_arm('CATE x LTV, well-specified V', pset)] = wel(tau_hat * v_well)
+        w[_arm("CATE x LTV, misspecified V", pset)] = wel(tau_hat * v_mis)
+        w[_arm("CATE x LTV, well-specified V", pset)] = wel(tau_hat * v_well)
     w.update(_oracle_welfare(rep, _oracle_cm(rep, dgp_func), kappa))
     return w
 
 
 def run_component_update(reps, n_players, tuned, n_jobs=1):
-    w = _stack(_map(partial(_component_rep, n_players=n_players, tuned=tuned,
-                            kappa=KAPPA), reps, n_jobs))
-    pairs = [(_arm('CATE x LTV, well-specified V', p), _arm('CATE x LTV, misspecified V', p))
-             for p in ARMS]
+    w = _stack(_map(partial(_component_rep, n_players=n_players, tuned=tuned, kappa=KAPPA), reps, n_jobs))
+    pairs = [(_arm("CATE x LTV, well-specified V", p), _arm("CATE x LTV, misspecified V", p)) for p in ARMS]
     cell = _cell(w, pairs)
     recovery = {}
     for p in ARMS:
-        a = cell['welfare'][_arm('CATE x LTV, misspecified V', p)]['mean']
-        b = cell['welfare'][_arm('CATE x LTV, well-specified V', p)]['mean']
-        recovery[p] = {'recovery_abs': b - a, 'recovery_pct': 100 * (b - a) / a}
-    return _finish({'main': cell}, 'well-specified vs misspecified V, both arms',
-                   kappa=KAPPA, recovery=recovery)
+        a = cell["welfare"][_arm("CATE x LTV, misspecified V", p)]["mean"]
+        b = cell["welfare"][_arm("CATE x LTV, well-specified V", p)]["mean"]
+        recovery[p] = {"recovery_abs": b - a, "recovery_pct": 100 * (b - a) / a}
+    return _finish({"main": cell}, "well-specified vs misspecified V, both arms", kappa=KAPPA, recovery=recovery)
 
 
 # ---------------------------------------------------------------------------
 # obs_diagnostic
 # ---------------------------------------------------------------------------
 def _obs_rep(seed, *, n_players, tuned, kappa):
-    dgp_func = DGPS['main']
+    dgp_func = DGPS["main"]
     rep = _setup(dgp_func, seed, n_players)
     k = int(len(rep.te) * kappa)
     cm = _oracle_cm(rep, dgp_func)
@@ -499,13 +539,17 @@ def _obs_rep(seed, *, n_players, tuned, kappa):
     # observable proxy target
     tau_ref = _estimate_cate_xlearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr)
     vproxy = ltv_proxy_target(rep.Xtr, seed, REFERENCE_VALUE_STREAM)
-    vref = GradientBoostingRegressor(n_estimators=300, max_depth=5, learning_rate=0.05,
-                                     random_state=1).fit(rep.Xtr, vproxy)
+    vref = GradientBoostingRegressor(n_estimators=300, max_depth=5, learning_rate=0.05, random_state=1).fit(
+        rep.Xtr, vproxy
+    )
     v_ref = vref.predict(rep.Xte).clip(50, 8000)
-    refs = {'plug-in': (tau_ref, v_ref), 'Oracle hindsight': (rep.tau, rep.ltv),
-            'Oracle feasible': (cm['tau_bar'], cm['ltv_bar'])}
+    refs = {
+        "plug-in": (tau_ref, v_ref),
+        "Oracle hindsight": (rep.tau, rep.ltv),
+        "Oracle feasible": (cm["tau_bar"], cm["ltv_bar"]),
+    }
     out = {}
-    for cell, cols in (('wellspec', ALL_COLS), ('misspec', LOGIN_DROP_COLS)):
+    for cell, cols in (("wellspec", ALL_COLS), ("misspec", LOGIN_DROP_COLS)):
         for pset, tau_hat in _tau_arms(rep, tuned, cols).items():
             for ref, (t, v) in refs.items():
                 out[(cell, pset, ref)] = misrank_terms(tau_hat, v_hat, t, v, k)
@@ -513,99 +557,118 @@ def _obs_rep(seed, *, n_players, tuned, kappa):
 
 
 def run_obs_diagnostic(reps, n_players, tuned, n_jobs=1):
-    rows = _map(partial(_obs_rep, n_players=n_players, tuned=tuned, kappa=KAPPA),
-                reps, n_jobs)
-    refs = ('plug-in', 'Oracle hindsight', 'Oracle feasible')
-    cells = {c: {'diagnostic': {p: {} for p in ARMS}} for c in ('wellspec', 'misspec')}
+    rows = _map(partial(_obs_rep, n_players=n_players, tuned=tuned, kappa=KAPPA), reps, n_jobs)
+    refs = ("plug-in", "Oracle hindsight", "Oracle feasible")
+    cells = {c: {"diagnostic": {p: {} for p in ARMS}} for c in ("wellspec", "misspec")}
     shares = {}
     for key in rows[0]:
         cell, pset, ref = key
         terms = [r[key] for r in rows]
         used = [t for t in terms if t is not None]
-        a = float(np.mean([t[0] for t in used])) if used else float('nan')
-        b = float(np.mean([t[1] for t in used])) if used else float('nan')
+        a = float(np.mean([t[0] for t in used])) if used else float("nan")
+        b = float(np.mean([t[1] for t in used])) if used else float("nan")
         per_rep = [100 * t[0] / (t[0] + t[1]) for t in used]
-        cells[cell]['diagnostic'][pset][ref] = {
-            'cate_term': a, 'value_term': b,
+        cells[cell]["diagnostic"][pset][ref] = {
+            "cate_term": a,
+            "value_term": b,
             # the LEVEL: mean over replications of the per-replication CATE share, with CI
-            'cate_share_per_rep': t_mean_ci(per_rep) if per_rep else None,
+            "cate_share_per_rep": t_mean_ci(per_rep) if per_rep else None,
             # ratio of the replication-mean terms: a different estimand, no CI
-            'cate_share_ratio_of_means_pct': (100 * a / (a + b) if used and a + b > 0
-                                              else float('nan')),
-            'n_reps_used': len(used)}
+            "cate_share_ratio_of_means_pct": (100 * a / (a + b) if used and a + b > 0 else float("nan")),
+            "n_reps_used": len(used),
+        }
         shares[key] = [None if t is None else 100 * t[0] / (t[0] + t[1]) for t in terms]
     comps = {}
     for pset in ARMS:
         for ref in refs:
-            mis, well = shares[('misspec', pset, ref)], shares[('wellspec', pset, ref)]
+            mis, well = shares[("misspec", pset, ref)], shares[("wellspec", pset, ref)]
             both = [(m, w) for m, w in zip(mis, well) if m is not None and w is not None]
-            label = f'CATE share, misspec vs wellspec [{_arm("T", pset)}, {ref}]'
-            comps[label] = {'n_pairs': len(both),
-                            **(paired_test_raw([m for m, _ in both], [w for _, w in both])
-                               if len(both) > 1 else
-                               {'mean_diff': float('nan'), 'se_diff': float('nan'),
-                                't_stat': float('nan'), 'p_value': 1.0,
-                                'cohens_d': float('nan'), 'ci_95': [float('nan')] * 2})}
-    m = _apply_holm({'all': {'comparisons': comps}})
-    return {'cells': cells, 'comparisons': comps, 'kappa': KAPPA,
-            'note': ('CATE share = cate_term / (cate_term + value_term): a share of the telescoping '
-                     'BOUND on the mean absolute score gap over the misranked set, in one fixed '
-                     'order (CATE error at the reference V, then value error at the deployed '
-                     'tau_hat); not a regret decomposition (see core.policy.regret_split)'),
-            'holm_family': 'per-replication CATE share, misspec vs wellspec, over the '
-                           '2 arms x 3 references',
-            'holm_family_size': m}
+            label = f"CATE share, misspec vs wellspec [{_arm('T', pset)}, {ref}]"
+            comps[label] = {
+                "n_pairs": len(both),
+                **(
+                    paired_test_raw([m for m, _ in both], [w for _, w in both])
+                    if len(both) > 1
+                    else {
+                        "mean_diff": float("nan"),
+                        "se_diff": float("nan"),
+                        "t_stat": float("nan"),
+                        "p_value": 1.0,
+                        "cohens_d": float("nan"),
+                        "ci_95": [float("nan")] * 2,
+                    }
+                ),
+            }
+    m = _apply_holm({"all": {"comparisons": comps}})
+    return {
+        "cells": cells,
+        "comparisons": comps,
+        "kappa": KAPPA,
+        "note": (
+            "CATE share = cate_term / (cate_term + value_term): a share of the telescoping "
+            "BOUND on the mean absolute score gap over the misranked set, in one fixed "
+            "order (CATE error at the reference V, then value error at the deployed "
+            "tau_hat); not a regret decomposition (see core.policy.regret_split)"
+        ),
+        "holm_family": "per-replication CATE share, misspec vs wellspec, over the 2 arms x 3 references",
+        "holm_family_size": m,
+    }
 
 
 # ---------------------------------------------------------------------------
 # aipw_calibration
 # ---------------------------------------------------------------------------
 def _aipw_rep(seed, *, n_players, tuned, kappa):
-    dgp_func = DGPS['main']
+    dgp_func = DGPS["main"]
     rep = _setup(dgp_func, seed, n_players)
     ltv_hat, churn_hat = _estimate_ltv_churn(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, seed)
+
     def wel(s):
         return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
 
     w, idx = {}, {}
     for pset, tau_hat in _tau_arms(rep, tuned).items():
         base = tau_hat * ltv_hat
-        w[_arm('Identity (g=1)', pset)] = wel(base)
-        cals = _calibrate(rep, kappa, pset, tuned, ('aipw', 'plugin'))
-        for obj, name in (('aipw', 'Calibrated (aipw)'), ('plugin', 'Calibrated (plug-in)')):
+        w[_arm("Identity (g=1)", pset)] = wel(base)
+        cals = _calibrate(rep, kappa, pset, tuned, ("aipw", "plugin"))
+        for obj, name in (("aipw", "Calibrated (aipw)"), ("plugin", "Calibrated (plug-in)")):
             idx[(pset, obj)] = THETA_GRID.index(cals[obj])
             w[_arm(name, pset)] = wel(base * f_churn_vec(churn_hat, **cals[obj]))
     w.update(_oracle_welfare(rep, _oracle_cm(rep, dgp_func), kappa))
-    return {'w': w, 'idx': idx}
+    return {"w": w, "idx": idx}
 
 
 def run_aipw_calibration(reps, n_players, tuned, n_jobs=1):
-    rows = _map(partial(_aipw_rep, n_players=n_players, tuned=tuned, kappa=KAPPA),
-                reps, n_jobs)
-    pairs = [(_arm(f'Calibrated ({o})', p), _arm('Identity (g=1)', p))
-             for p in ARMS for o in ('aipw', 'plug-in')]
-    cell = _cell(_stack([r['w'] for r in rows]), pairs)
-    flag_degenerate(cell['comparisons'])
-    W = _stack([r['w'] for r in rows])
+    rows = _map(partial(_aipw_rep, n_players=n_players, tuned=tuned, kappa=KAPPA), reps, n_jobs)
+    pairs = [(_arm(f"Calibrated ({o})", p), _arm("Identity (g=1)", p)) for p in ARMS for o in ("aipw", "plug-in")]
+    cell = _cell(_stack([r["w"] for r in rows]), pairs)
+    flag_degenerate(cell["comparisons"])
+    W = _stack([r["w"] for r in rows])
     # per-replication paired quantities on TRUE welfare (replications shared by all arms)
-    cell['per_rep_diff_vs_identity'] = {a: (W[a] - W[b]).tolist() for a, b in pairs}
-    cell['regret_vs_feasible'] = {k: t_mean_ci(W['Oracle feasible'] - W[k]) for k in W
-                                  if k.startswith(('Identity', 'Calibrated'))}
-    cell['selection'] = {p: {o: _calibration_summary([r['idx'][(p, o)] for r in rows])
-                             for o in ('aipw', 'plugin')} for p in ARMS}
-    cell['kappa'] = KAPPA
-    out = _finish({'main': cell},
-                  'AIPW-calibrated vs identity, both arms (the degenerate plug-in comparisons are excluded)',
-                  kappa=KAPPA)
-    out['note'] = ('config index 0 is the near-identity g~1; index 3 is default theta0.  '
-                   'A comparison mean_diff is the true test welfare of the calibrated rule '
-                   'minus the g=1 (CATE x LTV) rule.  The plug-in objective selects '
-                   'identity by construction (difference exactly 0, p = 1; flagged degenerate and '
-                   'excluded from the Holm family).  Proposition 3 '
-                   'implies no g improves on identity at the population optimum (true tau '
-                   'and V); with estimated components that need not hold, so a negative '
-                   'or zero mean is an empirical observation, not a consequence of the '
-                   'proposition.')
+    cell["per_rep_diff_vs_identity"] = {a: (W[a] - W[b]).tolist() for a, b in pairs}
+    cell["regret_vs_feasible"] = {
+        k: t_mean_ci(W["Oracle feasible"] - W[k]) for k in W if k.startswith(("Identity", "Calibrated"))
+    }
+    cell["selection"] = {
+        p: {o: _calibration_summary([r["idx"][(p, o)] for r in rows]) for o in ("aipw", "plugin")} for p in ARMS
+    }
+    cell["kappa"] = KAPPA
+    out = _finish(
+        {"main": cell},
+        "AIPW-calibrated vs identity, both arms (the degenerate plug-in comparisons are excluded)",
+        kappa=KAPPA,
+    )
+    out["note"] = (
+        "config index 0 is the near-identity g~1; index 3 is default theta0.  "
+        "A comparison mean_diff is the true test welfare of the calibrated rule "
+        "minus the g=1 (CATE x LTV) rule.  The plug-in objective selects "
+        "identity by construction (difference exactly 0, p = 1; flagged degenerate and "
+        "excluded from the Holm family).  Proposition 3 "
+        "implies no g improves on identity at the population optimum (true tau "
+        "and V); with estimated components that need not hold, so a negative "
+        "or zero mean is an empirical observation, not a consequence of the "
+        "proposition."
+    )
     return out
 
 
@@ -622,41 +685,43 @@ def _adv_rep(seed, *, n_players, tuned, kappas):
     cm = _oracle_cm(rep, dgp_func)
     out = {}
     for kp in kappas:
+
         def wel(s):
             return welfare_at_kappa(s, kp, rep.tau, rep.ltv)
 
         w = {}
         for pset in ARMS:
-            w[_arm('CATE Only', pset)] = wel(drop[pset])
-            w[_arm('CATE x LTV', pset)] = wel(drop[pset] * ltv_hat)
-            w[_arm('CATE Only (well-specified)', pset)] = wel(full[pset])
-            w[_arm('CATE x LTV (well-specified)', pset)] = wel(full[pset] * ltv_hat)
-        w['S-Learner'] = wel(s_learner)      # sees bonus_history
+            w[_arm("CATE Only", pset)] = wel(drop[pset])
+            w[_arm("CATE x LTV", pset)] = wel(drop[pset] * ltv_hat)
+            w[_arm("CATE Only (well-specified)", pset)] = wel(full[pset])
+            w[_arm("CATE x LTV (well-specified)", pset)] = wel(full[pset] * ltv_hat)
+        w["S-Learner"] = wel(s_learner)  # sees bonus_history
         w.update(_oracle_welfare(rep, cm, kp))
-        out[f'kappa_{kp:.2f}'] = w
+        out[f"kappa_{kp:.2f}"] = w
     return out
 
 
 def run_adversarial(reps, n_players, tuned, n_jobs=1):
-    rows = _map(partial(_adv_rep, n_players=n_players, tuned=tuned, kappas=ADV_KAPPAS),
-                reps, n_jobs)
+    rows = _map(partial(_adv_rep, n_players=n_players, tuned=tuned, kappas=ADV_KAPPAS), reps, n_jobs)
     pairs = []
     for p in ARMS:
-        pairs += [(_arm('CATE x LTV', p), _arm('CATE Only', p)),
-                  (_arm('CATE x LTV (well-specified)', p),
-                   _arm('CATE Only (well-specified)', p)),
-                  ('Oracle feasible', _arm('CATE x LTV', p))]
-    pairs += [('S-Learner', 'CATE x LTV'), ('CATE x LTV (tuned)', 'CATE x LTV')]
+        pairs += [
+            (_arm("CATE x LTV", p), _arm("CATE Only", p)),
+            (_arm("CATE x LTV (well-specified)", p), _arm("CATE Only (well-specified)", p)),
+            ("Oracle feasible", _arm("CATE x LTV", p)),
+        ]
+    pairs += [("S-Learner", "CATE x LTV"), ("CATE x LTV (tuned)", "CATE x LTV")]
     cells = {}
     for name in rows[0]:
         cell = _cell(_stack([r[name] for r in rows]), pairs)
-        cell['kappa'] = float(name.split('_')[1])
+        cell["kappa"] = float(name.split("_")[1])
         cells[name] = cell
-    out = _finish(cells, 'all comparisons across both kappa cells')
-    out['interpretation'] = (
-        'If CATE x LTV minus CATE Only is <= 0 under the dropout (value weighting does NOT '
-        'beat pure CATE), the value model failed to rescue the dropped signal, bounding '
-        'the favourable login-drop result in the main misspecification table.')
+    out = _finish(cells, "all comparisons across both kappa cells")
+    out["interpretation"] = (
+        "If CATE x LTV minus CATE Only is <= 0 under the dropout (value weighting does NOT "
+        "beat pure CATE), the value model failed to rescue the dropped signal, bounding "
+        "the favourable login-drop result in the main misspecification table."
+    )
     return out
 
 
@@ -667,61 +732,70 @@ def _like_rep(seed, *, dgp_func, drop_idx, n_players, tuned, kappa):
     rep = _setup(dgp_func, seed, n_players)
     keep = MISSPEC_DROP_COLS[drop_idx]
     ltv_hat = _estimate_ltv_proxy(rep.Xtr, rep.Xte, seed)
+
     def wel(s):
         return welfare_at_kappa(s, kappa, rep.tau, rep.ltv)
 
-    w = {'S-Learner (all features)': wel(_estimate_slearner(
-             rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, ltv_hat)),
-         'S-Learner (feature dropped)': wel(_estimate_slearner(
-             rep.Xtr[:, keep], rep.Xte[:, keep], rep.Wtr, rep.Ytr, ltv_hat))}
+    w = {
+        "S-Learner (all features)": wel(_estimate_slearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr, ltv_hat)),
+        "S-Learner (feature dropped)": wel(
+            _estimate_slearner(rep.Xtr[:, keep], rep.Xte[:, keep], rep.Wtr, rep.Ytr, ltv_hat)
+        ),
+    }
     full, dropped = _tau_arms(rep, tuned, ALL_COLS), _tau_arms(rep, tuned, keep)
     for pset in ARMS:
-        def name(t):
-            return f'CATE Only ({t})' if pset == 'default' else f'CATE Only (tuned, {t})'
 
-        w[name('all features')] = wel(full[pset])
-        w[name('feature dropped')] = wel(dropped[pset])
+        def name(t):
+            return f"CATE Only ({t})" if pset == "default" else f"CATE Only (tuned, {t})"
+
+        w[name("all features")] = wel(full[pset])
+        w[name("feature dropped")] = wel(dropped[pset])
     w.update(_oracle_welfare(rep, _oracle_cm(rep, dgp_func), kappa))
     return w
 
 
 def run_like_for_like(reps, n_players, tuned, n_jobs=1):
-    pairs = [('S-Learner (all features)', 'S-Learner (feature dropped)'),
-             ('CATE Only (all features)', 'CATE Only (feature dropped)'),
-             ('CATE Only (tuned, all features)', 'CATE Only (tuned, feature dropped)')]
+    pairs = [
+        ("S-Learner (all features)", "S-Learner (feature dropped)"),
+        ("CATE Only (all features)", "CATE Only (feature dropped)"),
+        ("CATE Only (tuned, all features)", "CATE Only (tuned, feature dropped)"),
+    ]
     cells = {}
-    for name, dgp_func, drop_idx in (('login_drop_main', DGPS['main'], 2),
-                                     ('bonus_drop_adversarial', generate_adv, 3)):
-        w = _stack(_map(partial(_like_rep, dgp_func=dgp_func, drop_idx=drop_idx,
-                                n_players=n_players, tuned=tuned, kappa=KAPPA),
-                        reps, n_jobs))
+    for name, dgp_func, drop_idx in (("login_drop_main", DGPS["main"], 2), ("bonus_drop_adversarial", generate_adv, 3)):
+        w = _stack(
+            _map(
+                partial(_like_rep, dgp_func=dgp_func, drop_idx=drop_idx, n_players=n_players, tuned=tuned, kappa=KAPPA),
+                reps,
+                n_jobs,
+            )
+        )
         cell = _cell(w, pairs)
         # comparison keys read 'X (all features) vs X (feature dropped)'; a - b = degradation
-        cell['comparisons'] = {
-            ('S-Learner: all features vs dropped' if c['a'].startswith('S-Learner') else k): c
-            for k, c in cell['comparisons'].items()}
+        cell["comparisons"] = {
+            ("S-Learner: all features vs dropped" if c["a"].startswith("S-Learner") else k): c
+            for k, c in cell["comparisons"].items()
+        }
         # a tuned learner that never splits on the dropped feature gives an exactly zero
         # difference (t undefined, p = 1): flagged like the plug-in case, out of the Holm family
-        flag_degenerate(cell['comparisons'], prefix='', warn_nonzero=False)
-        cell['dropped_feature_index'] = drop_idx
-        cell['dropped_feature'] = FEATURE_NAMES[drop_idx]
-        cell['kappa'] = KAPPA
+        flag_degenerate(cell["comparisons"], prefix="", warn_nonzero=False)
+        cell["dropped_feature_index"] = drop_idx
+        cell["dropped_feature"] = FEATURE_NAMES[drop_idx]
+        cell["kappa"] = KAPPA
         cells[name] = cell
-    return _finish(cells, 'all-features vs dropped, S-learner and both T arms, both cells',
-                   kappa=KAPPA)
+    return _finish(cells, "all-features vs dropped, S-learner and both T arms, both cells", kappa=KAPPA)
 
 
 SCENARIOS = {
-    'slearner_scenarios': run_slearner_scenarios,
-    'asym': run_asym,
-    'effective_welfare': run_effective_welfare,
-    'component_update': run_component_update,
-    'corr_sweep': run_corr_sweep,
-    'heavy_tail': run_heavy_tail,
-    'obs_diagnostic': run_obs_diagnostic,
-    'aipw_calibration': run_aipw_calibration,
-    'adversarial': run_adversarial,
-    'like_for_like': run_like_for_like,
+    "slearner_scenarios": run_slearner_scenarios,
+    "asym": run_asym,
+    "effective_welfare": run_effective_welfare,
+    "component_update": run_component_update,
+    "corr_sweep": run_corr_sweep,
+    "heavy_tail": run_heavy_tail,
+    "obs_diagnostic": run_obs_diagnostic,
+    "aipw_calibration": run_aipw_calibration,
+    "adversarial": run_adversarial,
+    "like_for_like": run_like_for_like,
 }
 
 
@@ -737,23 +811,28 @@ def run_all(reps, n_players, tuned, n_jobs=1):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     add_common_args(parser)
-    parser.add_argument('--retune', action='store_true',
-                        help='rerun the tuning pilot even if the frozen file exists')
-    parser.add_argument('--jobs', type=int, default=1, help='parallel worker processes')
+    parser.add_argument("--retune", action="store_true", help="rerun the tuning pilot even if the frozen file exists")
+    parser.add_argument("--jobs", type=int, default=1, help="parallel worker processes")
     args = parser.parse_args(argv)
     reps, n_players = resolve_run_size(args, N_RUNS, N_PLAYERS)
     print(f"Robustness scenarios | reps={reps}, n={n_players}")
     tuned = load_or_tune(n_players=n_players, retune=args.retune, n_jobs=args.jobs)
     out, timing = run_all(reps, n_players, tuned, n_jobs=args.jobs)
-    out['_meta'] = {'n_runs': reps, 'n_players': n_players, 'seeds_base': SEED_BASE,
-                    'kappa': KAPPA, 'tuned_T_params': tuned['T'], 'tuned_on': 'main',
-                    'seconds_by_scenario': timing,
-                    'seconds_per_rep': sum(timing.values()) / reps}
-    name = 'robustness_smoke.json' if args.smoke else 'robustness.json'
+    out["_meta"] = {
+        "n_runs": reps,
+        "n_players": n_players,
+        "seeds_base": SEED_BASE,
+        "kappa": KAPPA,
+        "tuned_T_params": tuned["T"],
+        "tuned_on": "main",
+        "seconds_by_scenario": timing,
+        "seconds_per_rep": sum(timing.values()) / reps,
+    }
+    name = "robustness_smoke.json" if args.smoke else "robustness.json"
     print(f"Saved {save_json(out, name)}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

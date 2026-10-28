@@ -26,9 +26,8 @@ SOFTWARE.
 
 2. Manuscript, PDF and figures
 
-The manuscript (docs/stent-2026-value-weighted-targeting.tex), its compiled PDF
-(paper.pdf and docs/stent-2026-value-weighted-targeting.pdf) and the figures in
-docs/figures/ are Copyright (c) 2026 Mark Stent and are licensed under the
+The manuscript (its LaTeX source and figures) and its compiled PDF
+(docs/stent-2026-value-weighted-targeting.pdf) are Copyright (c) 2026 Mark Stent and are licensed under the
 Creative Commons Attribution 4.0 International licence (CC BY 4.0):
 https://creativecommons.org/licenses/by/4.0/
 

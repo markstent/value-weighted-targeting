@@ -79,23 +79,23 @@
     "robustness.json": "b9a97c6e903049590bb9508216d0a36c043dfa0bc279ee03b96dcd4292af58b9"
   },
   "figures": {
-    "docs/figures/fig_g_function.pdf": "153071f00ef3f9584c67d950582fcc204a40faf21899c3f2777f7315d809e6ed",
-    "docs/figures/fig_frontier.pdf": "39bac6b4f9a8741a67e10d1007a9aa64d2a1ede3e05aa701dc93d156ba9c8d2a",
-    "docs/figures/fig_welfare_bars.pdf": "24870f55c23b460a30cc2e870f941371ed3147054aee53a6acad963a4dfc051b",
-    "docs/figures/fig_harm_frontier.pdf": "8c36d3c39c2fe15103a7881c09ce1d922bb0867e2fca7c9451ade4ea211493cd"
+    "paper/figures/fig_g_function.pdf": "153071f00ef3f9584c67d950582fcc204a40faf21899c3f2777f7315d809e6ed",
+    "paper/figures/fig_frontier.pdf": "39bac6b4f9a8741a67e10d1007a9aa64d2a1ede3e05aa701dc93d156ba9c8d2a",
+    "paper/figures/fig_welfare_bars.pdf": "24870f55c23b460a30cc2e870f941371ed3147054aee53a6acad963a4dfc051b",
+    "paper/figures/fig_harm_frontier.pdf": "8c36d3c39c2fe15103a7881c09ce1d922bb0867e2fca7c9451ade4ea211493cd"
   },
   "generated_tex": {
-    "docs/generated/numbers.tex": "412ce0bb9cef8f453fdaf2269337b599cad400d712e29e353305712edbaf885d",
-    "docs/generated/tab_main.tex": "c5cef3c626b5aa4e2b70ec04d37c8a2cacccf598b7ceac6ee6b4f413a8d587c3",
-    "docs/generated/tab_budget.tex": "32bce676211959d237d0dc994fe52967a7ab6158addb8b4e9fc8fcffb1b61fc5",
-    "docs/generated/tab_kappa_star.tex": "58f94777c835e16496ea3a5567375951db3b9c08219e24b866d6b6565be57378",
-    "docs/generated/tab_harm.tex": "edd4fb6d7581cd4812eda068ab8b36e14e629553b95a6028dd1a0f7599c63e6f",
-    "docs/generated/tab_harm_welfare.tex": "c9ddeabdbafd2cd3cf8e64a6168fea0f9244b5618bc56524fea39467be500083",
-    "docs/generated/tab_harm_decoupled.tex": "bc73fec2f1066103103b30fc26f2d60716e3e1bbf711b3a90d3743289e09cea7",
-    "docs/generated/tab_learners.tex": "359a148d863c1a7bc76aabe8cca4bcd3c8d6941980e491d1be83d50b105d752a",
-    "docs/generated/tab_robustness.tex": "585fb81069c4d9f46091a5162aa564dc9f2e36a1cc2e61673e6593f95dff9da6",
-    "docs/generated/tab_calibration.tex": "c0278bf3db8ab55179b9fc8949a4308aa55cc9f6525dd95a2ad1badab2bde5eb",
-    "docs/generated/tab_frontier.tex": "0512b8ebb1ab148576b7b18c6636a90179d2b3f6b53197eb633c54300c0f56f6"
+    "paper/generated/numbers.tex": "412ce0bb9cef8f453fdaf2269337b599cad400d712e29e353305712edbaf885d",
+    "paper/generated/tab_main.tex": "c5cef3c626b5aa4e2b70ec04d37c8a2cacccf598b7ceac6ee6b4f413a8d587c3",
+    "paper/generated/tab_budget.tex": "32bce676211959d237d0dc994fe52967a7ab6158addb8b4e9fc8fcffb1b61fc5",
+    "paper/generated/tab_kappa_star.tex": "58f94777c835e16496ea3a5567375951db3b9c08219e24b866d6b6565be57378",
+    "paper/generated/tab_harm.tex": "edd4fb6d7581cd4812eda068ab8b36e14e629553b95a6028dd1a0f7599c63e6f",
+    "paper/generated/tab_harm_welfare.tex": "c9ddeabdbafd2cd3cf8e64a6168fea0f9244b5618bc56524fea39467be500083",
+    "paper/generated/tab_harm_decoupled.tex": "bc73fec2f1066103103b30fc26f2d60716e3e1bbf711b3a90d3743289e09cea7",
+    "paper/generated/tab_learners.tex": "359a148d863c1a7bc76aabe8cca4bcd3c8d6941980e491d1be83d50b105d752a",
+    "paper/generated/tab_robustness.tex": "585fb81069c4d9f46091a5162aa564dc9f2e36a1cc2e61673e6593f95dff9da6",
+    "paper/generated/tab_calibration.tex": "c0278bf3db8ab55179b9fc8949a4308aa55cc9f6525dd95a2ad1badab2bde5eb",
+    "paper/generated/tab_frontier.tex": "0512b8ebb1ab148576b7b18c6636a90179d2b3f6b53197eb633c54300c0f56f6"
   },
   "tuned_params": {
     "path": "config/tuned_params.json",

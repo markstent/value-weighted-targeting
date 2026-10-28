@@ -93,21 +93,22 @@ from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 
 KAPPAS = (0.10, 0.20, 0.30, 0.50)
 REGRET_KAPPA = DEFAULT_BUDGET
-PSETS = ('tuned', 'default')
-VALUE_MODELS = ('misspec', 'wellspec')
-COMPARED_LEARNERS = ('T', 'X', 'S', 'DR')   # R is algebraically DR at e = 0.5 (docstring)
-BASELINE = 'T (default)'
-BASELINE_CELL = f'{BASELINE}|misspec'
-E2E_KEY = 'E2E'
-LOGIN_COL = FEATURE_NAMES.index('login_freq')
-CONFIG_DIR = Path(__file__).resolve().parents[1] / 'config'
+PSETS = ("tuned", "default")
+VALUE_MODELS = ("misspec", "wellspec")
+COMPARED_LEARNERS = ("T", "X", "S", "DR")  # R is algebraically DR at e = 0.5 (docstring)
+BASELINE = "T (default)"
+BASELINE_CELL = f"{BASELINE}|misspec"
+E2E_KEY = "E2E"
+LOGIN_COL = FEATURE_NAMES.index("login_freq")
+CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 
-GRID = [{'max_depth': d, 'n_estimators': n, 'learning_rate': lr}
-        for d, n, lr in itertools.product((1, 2, 3, 4), (25, 50, 100, 300),
-                                          (0.005, 0.01, 0.02, 0.05, 0.1))]
+GRID = [
+    {"max_depth": d, "n_estimators": n, "learning_rate": lr}
+    for d, n, lr in itertools.product((1, 2, 3, 4), (25, 50, 100, 300), (0.005, 0.01, 0.02, 0.05, 0.1))
+]
 PILOT_REPS = 5
 PILOT_SEED_BASE = 10_000
-TUNED_FILE = 'tuned_params.json'
+TUNED_FILE = "tuned_params.json"
 
 
 def pilot_seeds(n_reps=PILOT_REPS):
@@ -116,13 +117,13 @@ def pilot_seeds(n_reps=PILOT_REPS):
 
 
 def label(learner, pset):
-    return f'{learner} ({pset})'
+    return f"{learner} ({pset})"
 
 
 def combo_key(learner, pset, vm=None):
     """'L (pset)|vm' is the tau_hat * V_hat rule; 'L (pset)|tau' is tau_hat alone
     (it ignores V, so it has no value-model dimension)."""
-    return f'{label(learner, pset)}|{vm if vm else "tau"}'
+    return f"{label(learner, pset)}|{vm if vm else 'tau'}"
 
 
 def welfare_at_kappa(scores, kappa, true_tau, true_ltv):
@@ -131,7 +132,7 @@ def welfare_at_kappa(scores, kappa, true_tau, true_ltv):
 
 
 def _split(data, seed):
-    idx = np.arange(len(data['treatment']))
+    idx = np.arange(len(data["treatment"]))
     return train_test_split(idx, test_size=0.30, random_state=seed)
 
 
@@ -142,14 +143,14 @@ def _pilot_rep_losses(learner, grid, seed, n_players, dgp_name):
     """Per-config cross-fitted R-loss on one pilot replication (mean over 2 folds)."""
     data = DGPS[dgp_name](n_players, np.random.RandomState(seed))
     train_idx, _ = _split(data, seed)
-    X, W, Y = (data['features'][train_idx], data['treatment'][train_idx],
-               data['y_obs'][train_idx])
-    folds = list(KFold(n_splits=2, shuffle=True,
-                       random_state=seed_from(seed, CROSSFIT_STREAM)).split(np.arange(len(Y))))
+    X, W, Y = (data["features"][train_idx], data["treatment"][train_idx], data["y_obs"][train_idx])
+    folds = list(
+        KFold(n_splits=2, shuffle=True, random_state=seed_from(seed, CROSSFIT_STREAM)).split(np.arange(len(Y)))
+    )
     # m_hat on the held-out fold comes from a model fitted on the fitting fold only.
     m_held = []
     for fit, held in folds:
-        m = GradientBoostingClassifier(random_state=0, **DEFAULT_PARAMS['R'])
+        m = GradientBoostingClassifier(random_state=0, **DEFAULT_PARAMS["R"])
         m.fit(X[fit], Y[fit])
         m_held.append(m.predict_proba(X[held])[:, 1])
     losses = []
@@ -158,26 +159,22 @@ def _pilot_rep_losses(learner, grid, seed, n_players, dgp_name):
         for (fit, held), m_hat in zip(folds, m_held):
             tau_hat = estimate_cate(learner, X[fit], X[held], W[fit], Y[fit], params, seed=seed)
             resid = (Y[held] - m_hat) - (W[held] - PROPENSITY) * tau_hat
-            fold_loss.append(float(np.mean(resid ** 2)))
+            fold_loss.append(float(np.mean(resid**2)))
         losses.append(float(np.mean(fold_loss)))
     return losses
 
 
-def tune_learner(learner, grid=GRID, seeds=None, n_players=N_PLAYERS, dgp_name='main',
-                 n_jobs=1):
+def tune_learner(learner, grid=GRID, seeds=None, n_players=N_PLAYERS, dgp_name="main", n_jobs=1):
     """Select params for one learner by mean cross-fitted R-loss over the pilot reps.
 
     Deterministic: ties go to the earliest grid entry.  Returns
     {'params', 'mean_loss', 'losses': [mean loss per grid entry]}."""
     seeds = pilot_seeds() if seeds is None else seeds
-    assert not set(seeds) & {SEED_BASE + 7 * r for r in range(N_RUNS)}, \
-        'pilot seeds overlap evaluation seeds'
-    per_rep = Parallel(n_jobs=n_jobs)(
-        delayed(_pilot_rep_losses)(learner, grid, s, n_players, dgp_name) for s in seeds)
+    assert not set(seeds) & {SEED_BASE + 7 * r for r in range(N_RUNS)}, "pilot seeds overlap evaluation seeds"
+    per_rep = Parallel(n_jobs=n_jobs)(delayed(_pilot_rep_losses)(learner, grid, s, n_players, dgp_name) for s in seeds)
     losses = np.mean(per_rep, axis=0)
     best = int(np.argmin(losses))
-    return {'params': dict(grid[best]), 'mean_loss': float(losses[best]),
-            'losses': [float(x) for x in losses]}
+    return {"params": dict(grid[best]), "mean_loss": float(losses[best]), "losses": [float(x) for x in losses]}
 
 
 def boundary_check(grid, params):
@@ -185,35 +182,43 @@ def boundary_check(grid, params):
     that axis, else 'interior'.  A depth-1 floor is reported as 'hard_floor' (no
     shallower tree exists); trees and rate floors are extendable axes."""
     out = {}
-    for axis in ('max_depth', 'n_estimators', 'learning_rate'):
+    for axis in ("max_depth", "n_estimators", "learning_rate"):
         vals = sorted({g[axis] for g in grid})
         if params[axis] == vals[0]:
-            out[axis] = 'hard_floor' if axis == 'max_depth' and vals[0] == 1 else 'floor'
+            out[axis] = "hard_floor" if axis == "max_depth" and vals[0] == 1 else "floor"
         elif params[axis] == vals[-1]:
-            out[axis] = 'ceiling'
+            out[axis] = "ceiling"
         else:
-            out[axis] = 'interior'
+            out[axis] = "interior"
     return out
 
 
-def make_meta(n_players, grid=GRID, seeds=None, dgp_name='main'):
+def make_meta(n_players, grid=GRID, seeds=None, dgp_name="main"):
     seeds = pilot_seeds() if seeds is None else seeds
-    return {'grid': grid, 'pilot_seeds': seeds, 'n_players': n_players, 'dgp': dgp_name,
-            'learners': list(COMPARED_LEARNERS),
-            'criterion': 'mean cross-fitted R-loss, 2 folds of the pilot training split'}
+    return {
+        "grid": grid,
+        "pilot_seeds": seeds,
+        "n_players": n_players,
+        "dgp": dgp_name,
+        "learners": list(COMPARED_LEARNERS),
+        "criterion": "mean cross-fitted R-loss, 2 folds of the pilot training split",
+    }
 
 
-def tune_all(n_players=N_PLAYERS, n_jobs=1, grid=GRID, seeds=None, dgp_name='main'):
-    out = {'learners': {}, '_meta': make_meta(n_players, grid, seeds, dgp_name)}
-    seeds = out['_meta']['pilot_seeds']
+def tune_all(n_players=N_PLAYERS, n_jobs=1, grid=GRID, seeds=None, dgp_name="main"):
+    out = {"learners": {}, "_meta": make_meta(n_players, grid, seeds, dgp_name)}
+    seeds = out["_meta"]["pilot_seeds"]
     for learner in COMPARED_LEARNERS:
         t0 = time.perf_counter()
         res = tune_learner(learner, grid, seeds, n_players, dgp_name, n_jobs)
-        out['learners'][learner] = res
-        out['_meta'].setdefault('boundary_check', {})[learner] = boundary_check(grid, res['params'])
-        print(f"  tuned {learner:>2}: {res['params']} R-loss={res['mean_loss']:.6f} "
-              f"edges={out['_meta']['boundary_check'][learner]} "
-              f"({time.perf_counter() - t0:.0f}s)", flush=True)
+        out["learners"][learner] = res
+        out["_meta"].setdefault("boundary_check", {})[learner] = boundary_check(grid, res["params"])
+        print(
+            f"  tuned {learner:>2}: {res['params']} R-loss={res['mean_loss']:.6f} "
+            f"edges={out['_meta']['boundary_check'][learner]} "
+            f"({time.perf_counter() - t0:.0f}s)",
+            flush=True,
+        )
     return out
 
 
@@ -223,15 +228,16 @@ def tuned_path(n_players, outdir=None):
     the config.  outdir only matters for the non-full file."""
     if n_players == N_PLAYERS:
         return CONFIG_DIR / TUNED_FILE
-    return Path(OUTPUT_DIR if outdir is None else outdir) / f'tuned_params_n{n_players}.json'
+    return Path(OUTPUT_DIR if outdir is None else outdir) / f"tuned_params_n{n_players}.json"
 
 
 def _check_meta(frozen_meta, expected, path):
-    for key in ('grid', 'pilot_seeds', 'n_players', 'dgp', 'learners', 'criterion'):
+    for key in ("grid", "pilot_seeds", "n_players", "dgp", "learners", "criterion"):
         if frozen_meta.get(key) != expected[key]:
             raise ValueError(
                 f"{path}: frozen tuning _meta[{key!r}] = {frozen_meta.get(key)!r} differs from "
-                f"the current code's {expected[key]!r}; rerun with --retune")
+                f"the current code's {expected[key]!r}; rerun with --retune"
+            )
 
 
 def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
@@ -246,15 +252,15 @@ def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
         frozen = tune_all(n_players, n_jobs)
         path.parent.mkdir(parents=True, exist_ok=True)
         # atomic: a concurrent study (run_all --jobs) must never read a half-written file
-        tmp = path.with_name(f'{path.name}.{os.getpid()}.tmp')
-        with open(tmp, 'w') as fp:
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        with open(tmp, "w") as fp:
             json.dump(frozen, fp, indent=2)
         os.replace(tmp, path)
     else:
         print(f"Reading frozen tuned params from {path}")
         frozen = json.loads(path.read_text())
-        _check_meta(frozen['_meta'], make_meta(n_players), path)
-    return {lrn: frozen['learners'][lrn]['params'] for lrn in COMPARED_LEARNERS}
+        _check_meta(frozen["_meta"], make_meta(n_players), path)
+    return {lrn: frozen["learners"][lrn]["params"] for lrn in COMPARED_LEARNERS}
 
 
 # ---------------------------------------------------------------------------
@@ -266,18 +272,16 @@ def end_to_end_score(Xtr, Xte, Wtr, Ytr, seed):
     the decomposed pipeline's training target (core.estimators.ltv_proxy_target on the
     shared LTV_STREAM, so it sees the same proxy noise as the deployed value model; not tuned)."""
     vproxy = ltv_proxy_target(Xtr, seed, LTV_STREAM).clip(50, 8000)
-    model = GradientBoostingRegressor(
-        n_estimators=100, max_depth=4, learning_rate=0.1, random_state=0)
+    model = GradientBoostingRegressor(n_estimators=100, max_depth=4, learning_rate=0.1, random_state=0)
     model.fit(np.column_stack([Xtr, Wtr]), vproxy * Ytr)
     n = len(Xte)
-    return (model.predict(np.column_stack([Xte, np.ones(n)]))
-            - model.predict(np.column_stack([Xte, np.zeros(n)])))
+    return model.predict(np.column_stack([Xte, np.ones(n)])) - model.predict(np.column_stack([Xte, np.zeros(n)]))
 
 
 # ---------------------------------------------------------------------------
 # One replication, simulation
 # ---------------------------------------------------------------------------
-def run_rep(rep, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, kappas=KAPPAS):
+def run_rep(rep, n_players, tuned, dgp_name="main", learners=COMPARED_LEARNERS, kappas=KAPPAS):
     """Fit everything once for one replication and score all combos."""
     seed = SEED_BASE + rep * 7
     t = defaultdict(float)
@@ -291,59 +295,62 @@ def run_rep(rep, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, 
 
     data = DGPS[dgp_name](n_players, np.random.RandomState(seed))
     train_idx, test_idx = _split(data, seed)
-    true_tau, true_ltv = data['true_tau'][test_idx], data['true_ltv'][test_idx]
-    X, W, Y = data['features'], data['treatment'], data['y_obs']
+    true_tau, true_ltv = data["true_tau"][test_idx], data["true_ltv"][test_idx]
+    X, W, Y = data["features"], data["treatment"], data["y_obs"]
     Xtr, Xte, Wtr, Ytr = X[train_idx], X[test_idx], W[train_idx], Y[train_idx]
-    lap('data')
+    lap("data")
 
     taus = {}
     for learner in learners:
         for pset in PSETS:
-            params = tuned[learner] if pset == 'tuned' else None
+            params = tuned[learner] if pset == "tuned" else None
             taus[(learner, pset)] = estimate_cate(learner, Xtr, Xte, Wtr, Ytr, params, seed=seed)
-            lap(f'fit_{learner}')
-    vs = {'misspec': _estimate_ltv_proxy(Xtr, Xte, seed),
-          'wellspec': _wellspec_value_model(Xtr, Xte, seed)}
-    lap('value_models')
+            lap(f"fit_{learner}")
+    vs = {"misspec": _estimate_ltv_proxy(Xtr, Xte, seed), "wellspec": _wellspec_value_model(Xtr, Xte, seed)}
+    lap("value_models")
     feats = {name: X[test_idx, i] for i, name in enumerate(FEATURE_NAMES)}
     cm = conditional_means(dgp_name, feats, n_mc=ORACLE_MC, seed=seed_from(seed, ORACLE_STREAM))
-    tau_bar, ltv_bar = cm['tau_bar'], cm['ltv_bar']
-    lap('oracle')
+    tau_bar, ltv_bar = cm["tau_bar"], cm["ltv_bar"]
+    lap("oracle")
     e2e = end_to_end_score(Xtr, Xte, Wtr, Ytr, seed)
-    lap('e2e')
+    lap("e2e")
 
     welfare = {}
     for (learner, pset), tau_hat in taus.items():
         for vm in VALUE_MODELS:
             welfare[combo_key(learner, pset, vm)] = [
-                welfare_at_kappa(tau_hat * vs[vm], kp, true_tau, true_ltv) for kp in kappas]
-        welfare[combo_key(learner, pset)] = [
-            welfare_at_kappa(tau_hat, kp, true_tau, true_ltv) for kp in kappas]
+                welfare_at_kappa(tau_hat * vs[vm], kp, true_tau, true_ltv) for kp in kappas
+            ]
+        welfare[combo_key(learner, pset)] = [welfare_at_kappa(tau_hat, kp, true_tau, true_ltv) for kp in kappas]
     welfare[E2E_KEY] = [welfare_at_kappa(e2e, kp, true_tau, true_ltv) for kp in kappas]
-    lap('welfare')
+    lap("welfare")
 
     k = int(len(test_idx) * REGRET_KAPPA)
-    regret = {f'{label(lrn, p)}|{vm}': regret_split(tau_bar, ltv_bar, tau_hat, vs[vm],
-                                                  true_tau, true_ltv, k)
-              for (lrn, p), tau_hat in taus.items() for vm in VALUE_MODELS}
-    lap('regret')
+    regret = {
+        f"{label(lrn, p)}|{vm}": regret_split(tau_bar, ltv_bar, tau_hat, vs[vm], true_tau, true_ltv, k)
+        for (lrn, p), tau_hat in taus.items()
+        for vm in VALUE_MODELS
+    }
+    lap("regret")
 
-    return {'welfare': welfare, 'regret': regret, 'timing': dict(t)}
+    return {"welfare": welfare, "regret": regret, "timing": dict(t)}
 
 
-def simulate(reps, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, kappas=KAPPAS,
-             n_jobs=1):
+def simulate(reps, n_players, tuned, dgp_name="main", learners=COMPARED_LEARNERS, kappas=KAPPAS, n_jobs=1):
     """Per-rep welfare for every combo (and E2E), regret splits, timing.
 
     Returns {'welfare': {key: (reps, K) array}, 'regret': [per-rep dicts],
     'timing': [per-rep dicts], 'kappas': [...]}."""
     rows = Parallel(n_jobs=n_jobs)(
-        delayed(run_rep)(r, n_players, tuned, dgp_name, learners, kappas) for r in range(reps))
-    keys = rows[0]['welfare'].keys()
-    return {'welfare': {key: np.array([row['welfare'][key] for row in rows]) for key in keys},
-            'regret': [row['regret'] for row in rows],
-            'timing': [row['timing'] for row in rows],
-            'kappas': [float(kp) for kp in kappas]}
+        delayed(run_rep)(r, n_players, tuned, dgp_name, learners, kappas) for r in range(reps)
+    )
+    keys = rows[0]["welfare"].keys()
+    return {
+        "welfare": {key: np.array([row["welfare"][key] for row in rows]) for key in keys},
+        "regret": [row["regret"] for row in rows],
+        "timing": [row["timing"] for row in rows],
+        "kappas": [float(kp) for kp in kappas],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -357,35 +364,46 @@ def comparison_pairs(keys):
         if key == E2E_KEY:
             pairs.append((key, BASELINE_CELL))
             continue
-        base = f'{BASELINE}|{key.split("|")[1]}'
-        if key != base:                      # a baseline is not compared with itself
+        base = f"{BASELINE}|{key.split('|')[1]}"
+        if key != base:  # a baseline is not compared with itself
             pairs.append((key, base))
     return pairs
 
 
 def tuned_pairs(keys):
     """(S (tuned), T (tuned)) per value model: the paired S-vs-T comparison at tuned params."""
-    return [(f'S (tuned)|{vm}', f'T (tuned)|{vm}') for vm in ('misspec', 'wellspec', 'tau')
-            if f'S (tuned)|{vm}' in keys and f'T (tuned)|{vm}' in keys]
+    return [
+        (f"S (tuned)|{vm}", f"T (tuned)|{vm}")
+        for vm in ("misspec", "wellspec", "tau")
+        if f"S (tuned)|{vm}" in keys and f"T (tuned)|{vm}" in keys
+    ]
 
 
 def effect_only_pairs(keys):
     """(tau-only key, tau_hat * V_hat key) for every learner x tuning x value model: the paired
     comparison of the effect-only rule against the value-weighted rule on the same CATE fit."""
-    return [(f'{lp}|tau', f'{lp}|{vm}')
-            for lp in dict.fromkeys(k.split('|')[0] for k in sorted(keys) if k != E2E_KEY)
-            for vm in VALUE_MODELS
-            if f'{lp}|tau' in keys and f'{lp}|{vm}' in keys]
+    return [
+        (f"{lp}|tau", f"{lp}|{vm}")
+        for lp in dict.fromkeys(k.split("|")[0] for k in sorted(keys) if k != E2E_KEY)
+        for vm in VALUE_MODELS
+        if f"{lp}|tau" in keys and f"{lp}|{vm}" in keys
+    ]
 
 
 def _test_row(welfare, j, key, base):
     r = paired_test_raw(welfare[key][:, j], welfare[base][:, j])
-    return {'combo': key, 'baseline': base, 'diff': r['mean_diff'],
-            'ci95': r['ci_95'], 'se_diff': r['se_diff'], 't_stat': r['t_stat'],
-            'cohens_d': r['cohens_d'], 'p_raw': r['p_value'],
-            # mean(combo - baseline) / mean(baseline), delta-method CI from per-rep pairs
-            'ratio_to_baseline': ratio_entry(welfare[key][:, j] - welfare[base][:, j],
-                                             welfare[base][:, j])}
+    return {
+        "combo": key,
+        "baseline": base,
+        "diff": r["mean_diff"],
+        "ci95": r["ci_95"],
+        "se_diff": r["se_diff"],
+        "t_stat": r["t_stat"],
+        "cohens_d": r["cohens_d"],
+        "p_raw": r["p_value"],
+        # mean(combo - baseline) / mean(baseline), delta-method CI from per-rep pairs
+        "ratio_to_baseline": ratio_entry(welfare[key][:, j] - welfare[base][:, j], welfare[base][:, j]),
+    }
 
 
 def summarise_welfare(raw):
@@ -398,8 +416,8 @@ def summarise_welfare(raw):
     (n_comparisons_per_kappa); (2) the effect-only family, tests_effect_only_vs_tauV alone
     (n_effect_only_comparisons_per_kappa, also family_size on each row).  The families
     answer different questions and are never pooled."""
-    kappas = raw['kappas']
-    welfare = raw['welfare']
+    kappas = raw["kappas"]
+    welfare = raw["welfare"]
     pairs = [p for p in comparison_pairs(list(welfare)) if p[1] in welfare]
     extra = tuned_pairs(set(welfare))
     effect = effect_only_pairs(set(welfare))
@@ -407,20 +425,24 @@ def summarise_welfare(raw):
     tests, tests_tuned, tests_effect = {}, {}, {}
     for j, kp in enumerate(kappas):
         rows = [_test_row(welfare, j, key, base) for key, base in pairs + extra]
-        for row, p in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
-            row['p_holm'] = float(p)
-        tests[str(kp)] = rows[:len(pairs)]
-        tests_tuned[str(kp)] = rows[len(pairs):]
+        for row, p in zip(rows, holm_bonferroni([r["p_raw"] for r in rows])):
+            row["p_holm"] = float(p)
+        tests[str(kp)] = rows[: len(pairs)]
+        tests_tuned[str(kp)] = rows[len(pairs) :]
         erows = [_test_row(welfare, j, key, base) for key, base in effect]
-        for row, p in zip(erows, holm_bonferroni([r['p_raw'] for r in erows])):
-            row['p_holm'] = float(p)
-            row['family_size'] = len(erows)
+        for row, p in zip(erows, holm_bonferroni([r["p_raw"] for r in erows])):
+            row["p_holm"] = float(p)
+            row["family_size"] = len(erows)
         tests_effect[str(kp)] = erows
-    return {'welfare': means, 'tests_vs_T_default': tests, 'tests_S_vs_T_tuned': tests_tuned,
-            'tests_effect_only_vs_tauV': tests_effect,
-            'kappas': kappas,
-            'n_comparisons_per_kappa': len(pairs) + len(extra),
-            'n_effect_only_comparisons_per_kappa': len(effect)}
+    return {
+        "welfare": means,
+        "tests_vs_T_default": tests,
+        "tests_S_vs_T_tuned": tests_tuned,
+        "tests_effect_only_vs_tauV": tests_effect,
+        "kappas": kappas,
+        "n_comparisons_per_kappa": len(pairs) + len(extra),
+        "n_effect_only_comparisons_per_kappa": len(effect),
+    }
 
 
 def summarise_regret(per_rep):
@@ -430,20 +452,20 @@ def summarise_regret(per_rep):
     out = {}
     for key in per_rep[0]:
         rows = [r[key] for r in per_rep]
-        total = float(np.mean([r['total'] for r in rows]))
-        entry = {'phi_tau': t_mean_ci([r['phi_tau'] for r in rows]),
-                 'phi_v': t_mean_ci([r['phi_v'] for r in rows]),
-                 'total': t_mean_ci([r['total'] for r in rows]),
-                 'n_zero_denominator': int(sum(r['zero_denominator'] for r in rows))}
-        for order in ('order_a', 'order_b'):
-            tau_part = float(np.mean([r[order]['tau'] for r in rows]))
-            entry[f'{order}_tau_share_of_mean'] = tau_part / total if total else float('nan')
-        entry['shapley_tau_share_of_mean'] = (entry['phi_tau']['mean'] / total
-                                              if total else float('nan'))
-        entry['shapley_v_share_of_mean'] = (entry['phi_v']['mean'] / total
-                                            if total else float('nan'))
-        shares = [r['shapley']['tau_share'] for r in rows if not r['zero_denominator']]
-        entry['shapley_tau_share_per_rep'] = t_mean_ci(shares) if shares else None
+        total = float(np.mean([r["total"] for r in rows]))
+        entry = {
+            "phi_tau": t_mean_ci([r["phi_tau"] for r in rows]),
+            "phi_v": t_mean_ci([r["phi_v"] for r in rows]),
+            "total": t_mean_ci([r["total"] for r in rows]),
+            "n_zero_denominator": int(sum(r["zero_denominator"] for r in rows)),
+        }
+        for order in ("order_a", "order_b"):
+            tau_part = float(np.mean([r[order]["tau"] for r in rows]))
+            entry[f"{order}_tau_share_of_mean"] = tau_part / total if total else float("nan")
+        entry["shapley_tau_share_of_mean"] = entry["phi_tau"]["mean"] / total if total else float("nan")
+        entry["shapley_v_share_of_mean"] = entry["phi_v"]["mean"] / total if total else float("nan")
+        shares = [r["shapley"]["tau_share"] for r in rows if not r["zero_denominator"]]
+        entry["shapley_tau_share_per_rep"] = t_mean_ci(shares) if shares else None
         out[key] = entry
     return out
 
@@ -451,52 +473,65 @@ def summarise_regret(per_rep):
 def summarise_timing(per_rep):
     stages = {s for t in per_rep for s in t}
     mean = {s: float(np.mean([t.get(s, 0.0) for t in per_rep])) for s in sorted(stages)}
-    return {'mean_seconds_per_rep': float(sum(mean.values())), 'by_stage': mean}
+    return {"mean_seconds_per_rep": float(sum(mean.values())), "by_stage": mean}
 
 
 def summarise(raw):
-    return {**summarise_welfare(raw), 'regret_split_kappa_0.30': summarise_regret(raw['regret']),
-            'timing': summarise_timing(raw['timing'])}
+    return {
+        **summarise_welfare(raw),
+        "regret_split_kappa_0.30": summarise_regret(raw["regret"]),
+        "timing": summarise_timing(raw["timing"]),
+    }
 
 
 def _print_table(summary):
-    j = summary['kappas'].index(REGRET_KAPPA)
-    tests = {r['combo']: r for r in summary['tests_vs_T_default'][str(REGRET_KAPPA)]}
-    print(f"\nWelfare at kappa={REGRET_KAPPA} (true tau, V); diff vs {BASELINE_CELL}, Holm over "
-          f"{summary['n_comparisons_per_kappa']} comparisons")
+    j = summary["kappas"].index(REGRET_KAPPA)
+    tests = {r["combo"]: r for r in summary["tests_vs_T_default"][str(REGRET_KAPPA)]}
+    print(
+        f"\nWelfare at kappa={REGRET_KAPPA} (true tau, V); diff vs {BASELINE_CELL}, Holm over "
+        f"{summary['n_comparisons_per_kappa']} comparisons"
+    )
     print(f"{'combo':<34} {'welfare':>10} {'diff':>9} {'p_holm':>8}")
-    for key, cis in summary['welfare'].items():
+    for key, cis in summary["welfare"].items():
         t = tests.get(key)
         d = f"{t['diff']:>9.0f} {t['p_holm']:>8.3f}" if t else f"{'-':>9} {'-':>8}"
         print(f"{key:<34} {cis[j]['mean']:>10.0f} {d}")
     print(f"\nRegret split at kappa={REGRET_KAPPA} (Shapley share of mean total regret)")
-    print(f"{'learner x value model':<30} {'total':>8} {'CATE share':>11} {'V share':>8} "
-          f"{'order_a':>8} {'order_b':>8}")
-    for key, r in summary['regret_split_kappa_0.30'].items():
-        print(f"{key:<30} {r['total']['mean']:>8.0f} {r['shapley_tau_share_of_mean']:>11.2f} "
-              f"{r['shapley_v_share_of_mean']:>8.2f} {r['order_a_tau_share_of_mean']:>8.2f} "
-              f"{r['order_b_tau_share_of_mean']:>8.2f}")
-    tm = summary['timing']
-    print(f"per-rep runtime {tm['mean_seconds_per_rep']:.1f}s: "
-          + ', '.join(f'{s} {v:.1f}' for s, v in tm['by_stage'].items()))
+    print(f"{'learner x value model':<30} {'total':>8} {'CATE share':>11} {'V share':>8} {'order_a':>8} {'order_b':>8}")
+    for key, r in summary["regret_split_kappa_0.30"].items():
+        print(
+            f"{key:<30} {r['total']['mean']:>8.0f} {r['shapley_tau_share_of_mean']:>11.2f} "
+            f"{r['shapley_v_share_of_mean']:>8.2f} {r['order_a_tau_share_of_mean']:>8.2f} "
+            f"{r['order_b_tau_share_of_mean']:>8.2f}"
+        )
+    tm = summary["timing"]
+    print(
+        f"per-rep runtime {tm['mean_seconds_per_rep']:.1f}s: "
+        + ", ".join(f"{s} {v:.1f}" for s, v in tm["by_stage"].items())
+    )
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     add_common_args(parser)
-    parser.add_argument('--retune', action='store_true',
-                        help='rerun the tuning pilot even if the frozen file exists')
-    parser.add_argument('--jobs', type=int, default=1, help='parallel worker processes')
+    parser.add_argument("--retune", action="store_true", help="rerun the tuning pilot even if the frozen file exists")
+    parser.add_argument("--jobs", type=int, default=1, help="parallel worker processes")
     args = parser.parse_args(argv)
     reps, n_players = resolve_run_size(args, N_RUNS, N_PLAYERS)
     print(f"CATE learner x value model | reps={reps}, n={n_players}")
     tuned = load_or_tune(n_players=n_players, retune=args.retune, n_jobs=args.jobs)
     summary = summarise(simulate(reps, n_players, tuned, n_jobs=args.jobs))
-    summary['_meta'] = {'n_runs': reps, 'n_players': n_players, 'seeds_base': SEED_BASE,
-                        'kappas': list(KAPPAS), 'tuned_params': tuned, 'dgp': 'main'}
+    summary["_meta"] = {
+        "n_runs": reps,
+        "n_players": n_players,
+        "seeds_base": SEED_BASE,
+        "kappas": list(KAPPAS),
+        "tuned_params": tuned,
+        "dgp": "main",
+    }
     _print_table(summary)
     print(f"Saved {save_json(summary, 'learners_smoke.json' if args.smoke else 'learners.json')}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

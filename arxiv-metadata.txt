@@ -3,7 +3,7 @@ arXiv submission metadata - paste into the corresponding fields
 
 TITLE
 -----
-Value-Weighted Retention Targeting Can Concentrate Harm: A Diagnostic and Harm-Aware Rules for Online Gambling
+Value-Weighted Retention Targeting Can Concentrate Harm: Diagnostics and Safeguards for Online Gambling
 
 AUTHORS
 -------

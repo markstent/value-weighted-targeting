@@ -30,10 +30,10 @@ def tost_paired(x, y, margin):
     p_lower = 1 - scipy_stats.t.cdf(t_lower, df=n - 1)
     p_tost = max(p_upper, p_lower)
     return {
-        'mean_diff': float(mean_diff),
-        'margin': float(margin),
-        'p_tost': float(p_tost),
-        'equivalent': bool(p_tost < 0.05),
+        "mean_diff": float(mean_diff),
+        "margin": float(margin),
+        "p_tost": float(p_tost),
+        "equivalent": bool(p_tost < 0.05),
     }
 
 
@@ -45,20 +45,20 @@ def paired_test_raw(w1, w2, label=None):
     diff = w1 - w2
     n = len(diff)
     mean = float(np.mean(diff))
-    sd = float(np.std(diff, ddof=1)) if n > 1 else float('nan')
-    se = sd / np.sqrt(n) if n > 1 else float('nan')
+    sd = float(np.std(diff, ddof=1)) if n > 1 else float("nan")
+    se = sd / np.sqrt(n) if n > 1 else float("nan")
     if n > 1 and sd == 0:
-        t_stat, p_val = float('nan'), (1.0 if mean == 0 else 0.0)
+        t_stat, p_val = float("nan"), (1.0 if mean == 0 else 0.0)
     else:
         t_stat, p_val = scipy_stats.ttest_rel(w1, w2)
-    half = scipy_stats.t.ppf(0.975, df=n - 1) * se if n > 1 else float('nan')
+    half = scipy_stats.t.ppf(0.975, df=n - 1) * se if n > 1 else float("nan")
     return {
-        'mean_diff': mean,
-        'se_diff': float(se),
-        't_stat': float(t_stat),
-        'p_value': float(p_val),
-        'cohens_d': (0.0 if sd == 0 else mean / sd) if n > 1 else float('nan'),
-        'ci_95': [mean - float(half), mean + float(half)],
+        "mean_diff": mean,
+        "se_diff": float(se),
+        "t_stat": float(t_stat),
+        "p_value": float(p_val),
+        "cohens_d": (0.0 if sd == 0 else mean / sd) if n > 1 else float("nan"),
+        "ci_95": [mean - float(half), mean + float(half)],
     }
 
 
@@ -67,9 +67,9 @@ def t_mean_ci(x):
     x = np.asarray(x, dtype=float)
     m = float(x.mean())
     if len(x) < 2:
-        return {'mean': m, 'ci95': None}
+        return {"mean": m, "ci95": None}
     half = scipy_stats.t.ppf(0.975, df=len(x) - 1) * x.std(ddof=1) / np.sqrt(len(x))
-    return {'mean': m, 'ci95': [m - half, m + half]}
+    return {"mean": m, "ci95": [m - half, m + half]}
 
 
 def paired_ratio_ci(d, b):
@@ -84,9 +84,9 @@ def paired_ratio_ci(d, b):
     mb = float(b.mean())
     ratio = float(d.mean()) / mb
     if n < 2:
-        return ratio, float('nan'), float('nan')
+        return ratio, float("nan"), float("nan")
     cov = np.cov(d, b, ddof=1)
-    var = (cov[0, 0] - 2 * ratio * cov[0, 1] + ratio ** 2 * cov[1, 1]) / (n * mb ** 2)
+    var = (cov[0, 0] - 2 * ratio * cov[0, 1] + ratio**2 * cov[1, 1]) / (n * mb**2)
     half = scipy_stats.t.ppf(0.975, df=n - 1) * np.sqrt(max(var, 0.0))
     return ratio, ratio - float(half), ratio + float(half)
 
@@ -94,4 +94,4 @@ def paired_ratio_ci(d, b):
 def ratio_entry(d, b):
     """paired_ratio_ci as a JSON-ready {'ratio', 'ci95'} entry."""
     r, lo, hi = paired_ratio_ci(d, b)
-    return {'ratio': r, 'ci95': [lo, hi]}
+    return {"ratio": r, "ci95": [lo, hi]}
