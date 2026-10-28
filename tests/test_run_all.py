@@ -1,5 +1,6 @@
 """run_all: manifest contents, failure reporting, atomic tuned-param writes."""
 import json
+from pathlib import Path
 
 import pytest
 
@@ -62,7 +63,7 @@ def test_tuned_params_write_is_atomic(tmp_path, monkeypatch):
     monkeypatch.setattr(study_learners, 'tuned_path', lambda n: tmp_path / 't.json')
     monkeypatch.setattr(study_learners, 'tune_all',
                         lambda n, j: {'_meta': study_learners.make_meta(n),
-                                      'learners': {l: {'params': {}} for l in study_learners.COMPARED_LEARNERS}})
+                                      'learners': {lrn: {'params': {}} for lrn in study_learners.COMPARED_LEARNERS}})
     study_learners.load_or_tune(n_players=study_learners.N_PLAYERS)
     assert (tmp_path / 't.json').exists()
     assert not list(tmp_path.glob('*.tmp'))
@@ -177,3 +178,59 @@ def test_make_tex_runs_last_only_when_all_studies_ran(tmp_path, monkeypatch):
     assert 'numbers.tex' in seen['make_tex'] and 'tab_main.tex' in seen['make_tex']
     assert run_all.expected_generated(True)[0].parent.name == 'generated_smoke'
     assert run_all.expected_generated(False)[0].parent.name == 'generated'
+
+
+def _fake_run(tmp_path, monkeypatch, fail=None):
+    out, results = tmp_path / 'outputs', tmp_path / 'results'
+    out.mkdir()
+    monkeypatch.setattr(run_all, 'OUTPUT_DIR', out)
+    monkeypatch.setattr(run_all, 'RESULTS_DIR', results)
+    monkeypatch.setattr(run_all, 'LOG_DIR', out / 'logs')
+    monkeypatch.setattr(run_all, 'expected_generated', lambda smoke: [])   # fake steps write no tex/figures
+    monkeypatch.setattr(run_all, 'expected_figures', lambda smoke: [])
+
+    def fake_step(name, script, flags, expected=()):
+        if name.startswith('study_') and name != fail:
+            for path in expected:
+                path.write_text(json.dumps({'study': name}))
+        return {'name': name, 'exit_code': 5 if name == fail else 0, 'wall_seconds': 0.0,
+                'log': f'outputs/logs/{name}.log'}
+
+    monkeypatch.setattr(run_all, 'run_step', fake_step)
+    return out, results
+
+
+def test_full_run_copies_results_and_manifest_and_records_paths(tmp_path, monkeypatch):
+    out, results = _fake_run(tmp_path, monkeypatch)
+    assert run_all.main(['--jobs', '2']) == 0
+    names = {'main.json', 'harm_sweep.json', 'budget_2x2.json', 'learners.json', 'robustness.json',
+             'run_manifest.json'}
+    assert {p.name for p in results.iterdir()} == names
+    for n in names:
+        assert (results / n).read_bytes() == (out / n).read_bytes()
+    manifest = json.loads((results / 'run_manifest.json').read_text())
+    assert {Path(p).name for p in manifest['results']['copied']} == names
+    assert manifest['args']['smoke'] is False
+
+
+def test_smoke_partial_resized_and_failed_runs_never_touch_results(tmp_path, monkeypatch):
+    out, results = _fake_run(tmp_path, monkeypatch)
+    assert run_all.main(['--smoke', '--jobs', '2']) == 0
+    assert run_all.main(['--only', 'main,harm']) == 0
+    assert run_all.main(['--reps', '2']) == 0
+    assert not results.exists()
+    assert json.loads((out / 'run_manifest.json').read_text())['results'] is None
+    monkeypatch.setattr(run_all, 'run_step', lambda name, script, flags, expected=(): {
+        'name': name, 'exit_code': 5 if name == 'study_budget' else 0, 'wall_seconds': 0.0, 'log': ''})
+    assert run_all.main([]) == 1
+    assert not results.exists()
+
+
+def test_results_folder_is_tracked_and_outputs_ignored():
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+
+    def ignored(p):
+        return subprocess.run(['git', 'check-ignore', '-q', p], cwd=root).returncode == 0
+    assert not ignored('results/main.json') and not ignored('results/run_manifest.json')
+    assert ignored('outputs/main.json')

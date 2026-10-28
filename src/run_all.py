@@ -9,7 +9,14 @@ studies ran) writes docs/generated/ (docs/generated_smoke/ under --smoke).
 Exits non-zero, naming the failed step, if anything fails.  outputs/run_manifest.json
 records the git SHA and dirty flag, python and package versions, run-size args, per-step
 wall time and exit code, the JSON outputs with their sha256, the figures, and the sha256
-of the tuned-parameter file the run actually read (config/tuned_params.json at full size, outputs/tuned_params_n<N>.json otherwise).
+of the tuned-parameter file the run actually read (config/tuned_params.json at full size,
+outputs/tuned_params_n<N>.json otherwise).
+
+Final results: after a FULL run succeeds (not --smoke, all five studies, no --reps/--n-players
+override, every step exit 0), the five result JSONs and run_manifest.json are copied into the
+tracked results/ folder at the repo root and the copied paths are recorded in the manifest
+('results').  outputs/ stays untracked, make_tex and make_figures keep reading it, and a
+smoke, partial, resized or failed run never touches results/.
 """
 
 import argparse
@@ -17,6 +24,7 @@ import hashlib
 import importlib.metadata
 import json
 import platform
+import shutil
 import subprocess
 import sys
 import time
@@ -26,6 +34,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / 'src'
 OUTPUT_DIR = REPO / 'outputs'
+RESULTS_DIR = REPO / 'results'    # tracked copy of the final full-run results
 LOG_DIR = OUTPUT_DIR / 'logs'
 FIGURE_DIR = REPO / 'docs' / 'figures'
 GENERATED_DIR = REPO / 'docs' / 'generated'
@@ -228,6 +237,33 @@ def build_manifest(args, steps, studies, git, started):
     }
 
 
+def _rel(path):
+    path = Path(path)
+    return str(path.relative_to(REPO)) if path.is_relative_to(REPO) else str(path)
+
+
+def is_full_run(args):
+    """True for a non-smoke run of every study at the default size (the only run whose
+    results are published to results/)."""
+    return (not args.smoke and not getattr(args, 'figures_only', False)
+            and args.reps is None and args.n_players is None
+            and set(STUDIES) <= set(args.only))
+
+
+def results_targets():
+    """(source, destination) pairs copied to results/: each study JSON, then the manifest."""
+    names = [output_name(s, False) for s in STUDIES] + ['run_manifest.json']
+    return [(OUTPUT_DIR / n, RESULTS_DIR / n) for n in names]
+
+
+def publish_results(targets):
+    """Copy each (source, destination) pair; returns the copied destination paths."""
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    for src, dst in targets:
+        shutil.copyfile(src, dst)
+    return [dst for _, dst in targets]
+
+
 def parse_only(text):
     names = [t.strip() for t in text.split(',') if t.strip()]
     names = [n if n.startswith('study_') else f'study_{n}' for n in names]
@@ -284,9 +320,15 @@ def main(argv=None):
 
     manifest = build_manifest(args, steps, args.only, git, started)
     manifest['total_wall_seconds'] = round(time.perf_counter() - t0, 2)
+    publish = not failed and is_full_run(args)
+    targets = results_targets() if publish else []
+    manifest['results'] = {'copied': [_rel(dst) for _, dst in targets]} if publish else None
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUTPUT_DIR / 'run_manifest.json'
     path.write_text(json.dumps(manifest, indent=2) + '\n')
+    if publish:
+        publish_results(targets)      # after the manifest exists, so it is copied too
+        print(f'results copied to {_rel(RESULTS_DIR)}/')
 
     for s in steps:
         print(f"{s['name']:<18} exit={s['exit_code']} {s['wall_seconds']:>8.1f}s  {s['log']}"
