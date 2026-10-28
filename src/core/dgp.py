@@ -52,6 +52,9 @@ DGP_SPEC = {
     'note': 'The CATE-churn moderation (4*p*(1-p)) creates an inverse-U relationship: treatment effects peak at moderate churn (p=0.5) and are attenuated at extremes.',
 }
 
+# Loading of tau_base on z_spend.  The decoupled harm DGP sets it to 0 (see structural_decoupled).
+TAU_SPEND_COEF = -0.04
+
 # Normalising constant for the asymmetric moderation p(1-p)^3 (max at p=0.25).
 _ASYM_PEAK = 0.25 * (1 - 0.25) ** 3  # = 0.10546875
 
@@ -141,13 +144,14 @@ def draw_harm(f, rng, c_harm=1.0, noise_scale=1.0):
 # --- Structural steps ---
 
 def _structural(f, rng, *, moderation, bonus_in_tau=False,
-                with_ltv=True, noise_scale=1.0):
+                with_ltv=True, noise_scale=1.0, tau_spend_coef=TAU_SPEND_COEF):
     """Shared latent structure. RNG order: churn noise, [ltv noise], tau noise,
     baseline noise.
 
     noise_scale multiplies every noise sd (1.0 reproduces the original draws
     bit-for-bit; 0.0 gives the noise-free structure used by the feasible oracle
-    tests)."""
+    tests).  tau_spend_coef is the loading of tau_base on z_spend (-0.04 in every
+    DGP except the decoupled harm variant, where it is 0)."""
     account_age = f['account_age']
     weekly_spend = f['weekly_spend']
     login_freq = f['login_freq']
@@ -169,10 +173,10 @@ def _structural(f, rng, *, moderation, bonus_in_tau=False,
                            + rng.normal(0, 80 * noise_scale, n)).clip(50, 8000)
 
     if bonus_in_tau:
-        tau_base = (0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
+        tau_base = (0.06 + 0.10 * z_login - 0.02 * z_login**2 + tau_spend_coef * z_spend
                     + 0.10 * z_bonus)
     else:
-        tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 - 0.04 * z_spend
+        tau_base = 0.06 + 0.10 * z_login - 0.02 * z_login**2 + tau_spend_coef * z_spend
     if moderation is None:
         true_tau = (tau_base + rng.normal(0, 0.03 * noise_scale, n)).clip(-0.20, 0.40)
     else:
@@ -207,12 +211,30 @@ def structural_asym(f, rng, noise_scale=1.0):
     return _structural(f, rng, moderation=churn_moderation_asym, noise_scale=noise_scale)
 
 
-def structural_harm(f, rng, noise_scale=1.0, c_harm=1.0):
-    """Main structure plus true_harm, drawn LAST from the same rng (so the rest
-    of the population is identical to structural_main for the same stream)."""
-    out = structural_main(f, rng, noise_scale=noise_scale)
+def structural_decoupled(f, rng, noise_scale=1.0):
+    """Main structure with the -0.04*z_spend term removed from tau_base.
+
+    The harm logit loads on z_spend, so in the main DGP harm (and any estimate of
+    it) carries information about tau through z_spend.  Removing the term makes tau
+    independent of spend given the other drivers, which removes that channel while
+    leaving V, churn, baseline and the harm DGP untouched.  RNG order is identical
+    to structural_main."""
+    return _structural(f, rng, moderation=churn_moderation_sym, noise_scale=noise_scale,
+                       tau_spend_coef=0.0)
+
+
+def structural_harm(f, rng, noise_scale=1.0, c_harm=1.0, decoupled=False):
+    """Main structure (or the decoupled variant) plus true_harm, drawn LAST from the
+    same rng (so the rest of the population is identical to structural_main, or
+    structural_decoupled, for the same stream)."""
+    base = structural_decoupled if decoupled else structural_main
+    out = base(f, rng, noise_scale=noise_scale)
     out['true_harm'] = draw_harm(f, rng, c_harm, noise_scale)
     return out
+
+
+def structural_harm_decoupled(f, rng, noise_scale=1.0, c_harm=1.0):
+    return structural_harm(f, rng, noise_scale, c_harm, decoupled=True)
 
 
 def structural_adv(f, rng, noise_scale=1.0):
@@ -279,11 +301,13 @@ def generate_asym(n, rng):
     return _generate(n, rng, draw_features, structural_asym)
 
 
-def generate_harm(n, rng, harm_rng=None, c_harm=1.0):
+def generate_harm(n, rng, harm_rng=None, c_harm=1.0, decoupled=False):
     """Main DGP plus true_harm.  The population, treatment and outcomes are
     exactly generate_main's; harm is drawn LAST, from harm_rng (default: rng
-    itself, after everything else), so it never perturbs anything else."""
-    data = _generate(n, rng, draw_features, structural_main)
+    itself, after everything else), so it never perturbs anything else.
+    decoupled=True uses structural_decoupled (no z_spend term in tau_base) instead."""
+    data = _generate(n, rng, draw_features,
+                     structural_decoupled if decoupled else structural_main)
     f = {name: data['features'][:, i] for i, name in enumerate(FEATURE_NAMES)}
     data['true_harm'] = draw_harm(f, rng if harm_rng is None else harm_rng, c_harm)
     return data
@@ -382,10 +406,13 @@ DGPS = {
 
 # --- Conditional means E[. | X] for the feasible oracle ---
 
+ORACLE_MC = 400   # noise draws per unit for the feasible oracle; the one value used by every study
+
 _STRUCTURAL = {
     'main': structural_main, 'null': structural_null,
     'correlated': structural_correlated, 'asym': structural_asym,
     'harm': structural_harm, 'adv': structural_adv,
+    'main_decoupled': structural_decoupled, 'harm_decoupled': structural_harm_decoupled,
     'corr_gamma': structural_corr_gamma, 'heavytail': structural_heavytail,
 }
 
@@ -412,7 +439,8 @@ class _CommonNoiseRng:
 def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
                       noise_scale=1.0, tau_base_stats=None,
                       max_units_per_chunk=None):
-    """Monte Carlo E[tau|X], E[V|X], E[churn|X] (and E[harm|X] for 'harm').
+    """Monte Carlo E[tau|X], E[V|X], E[churn|X] (and E[harm|X] for 'harm' and
+    'harm_decoupled'; 'main_decoupled' is the main DGP without the z_spend term in tau_base).
 
     Features are held fixed; the structural step is re-run n_mc times per unit
     with fresh noise (churn-logit, tau, LTV and harm noise).  Clipping happens
@@ -438,7 +466,7 @@ def conditional_means(dgp_name, features, n_mc=400, *, seed, gamma=0.0,
     if dgp_name == 'corr_gamma' and tau_base_stats is None:
         tau_base_stats = globals()['tau_base_stats'](features)
 
-    names = ['tau', 'ltv', 'churn'] + (['harm'] if dgp_name == 'harm' else [])
+    names = ['tau', 'ltv', 'churn'] + (['harm'] if dgp_name in ('harm', 'harm_decoupled') else [])
     mean = {k: np.empty(n) for k in names}
     se = {k: np.empty(n) for k in names}
 

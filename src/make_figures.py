@@ -261,7 +261,7 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
     both evaluated on true quantities.
     """
     cells = [c for c in harm["cells"]
-             if c["kappa"] == HARM_KAPPA and c["c_harm"] == HARM_C]
+             if c["dgp"] == "main" and c["kappa"] == HARM_KAPPA and c["c_harm"] == HARM_C]
     sigmas = sorted({c["sigma_h"] for c in cells})
     styles = {"tauV": ("#1f3b5c", "o", r"$\tau V$ (harm-blind)"),
               "soft gate": ("#b34", "s", "soft gate"),

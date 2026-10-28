@@ -14,12 +14,14 @@ def _ci(m):
 
 @pytest.fixture
 def harm_json():
-    cells = [{"c_harm": 1.0, "sigma_h": s, "kappa": 0.30, "rule": r,
+    cells = [{"dgp": "main", "c_harm": 1.0, "sigma_h": s, "kappa": 0.30, "rule": r,
               "welfare": _ci(1000 + 10 * i), "harm_exposure": _ci(0.45 + 0.01 * i),
               "n_reps": 3}
              for s in SIGMA_H_GRID for i, r in enumerate(RULES)]
-    cells.append({"c_harm": 0.0, "sigma_h": 0.0, "kappa": 0.10, "rule": "tauV",
+    cells.append({"dgp": "main", "c_harm": 0.0, "sigma_h": 0.0, "kappa": 0.10, "rule": "tauV",
                   "welfare": {"mean": 1.0, "ci95": None}, "harm_exposure": {"mean": 0.1, "ci95": None}})
+    cells.append({"dgp": "decoupled", "c_harm": 1.0, "sigma_h": 0.0, "kappa": 0.30, "rule": "tauV",
+                  "welfare": _ci(1.0), "harm_exposure": _ci(0.1), "n_reps": 3})   # must be ignored
     return {"cells": cells}
 
 

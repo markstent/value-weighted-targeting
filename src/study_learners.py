@@ -78,7 +78,7 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.model_selection import KFold, train_test_split
 
 from study_main import N_PLAYERS, N_RUNS, SEED_BASE
-from core.dgp import DGPS, FEATURE_NAMES, conditional_means
+from core.dgp import DGPS, FEATURE_NAMES, ORACLE_MC, conditional_means
 from core.estimators import (
     CROSSFIT_STREAM, DEFAULT_PARAMS, LTV_STREAM, ORACLE_STREAM,
     _estimate_cate_tlearner, _estimate_ltv_proxy,
@@ -95,7 +95,6 @@ REGRET_KAPPA = DEFAULT_BUDGET
 PSETS = ('tuned', 'default')
 VALUE_MODELS = ('misspec', 'wellspec')
 COMPARED_LEARNERS = ('T', 'X', 'S', 'DR')   # R is algebraically DR at e = 0.5 (docstring)
-ORACLE_MC = 200
 BASELINE = 'T (default)'
 BASELINE_CELL = f'{BASELINE}|misspec'
 E2E_KEY = 'E2E'

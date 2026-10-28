@@ -30,7 +30,7 @@ from core.dgp import (
     TREATMENT_PROB, POP_MEAN, POP_SD, DGP_SPEC, generate_main as generate_population,
     generate_null as generate_population_null,
     generate_correlated as generate_population_correlated,
-    FEATURE_NAMES, conditional_means, dgp_spec, tau_base_stats,
+    FEATURE_NAMES, ORACLE_MC, conditional_means, dgp_spec, tau_base_stats,
 )
 from core.estimators import (
     _estimate_slearner, estimate_components, estimate_components_misspec,
@@ -50,7 +50,6 @@ N_PLAYERS = 10000
 N_RUNS = 200
 BUDGET_FRACTIONS = [0.10, 0.20, 0.30, 0.50]
 SEED_BASE = 42
-ORACLE_MC = 400          # noise draws per unit for the feasible oracle
 ORACLE_STRATEGIES = ['Oracle hindsight (g=1)', 'Oracle feasible (g=1)',
                      'Oracle feasible (theta0)']
 

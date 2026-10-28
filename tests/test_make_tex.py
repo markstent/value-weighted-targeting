@@ -448,3 +448,22 @@ def test_holm_family_documented_for_new_tests():
     assert 'Holm family' in items['numHarmDiffHardCapMinusSoftGateHolmP'][1] or \
         'Holm family' in items['numHarmDiffHardCapMinusSoftGate'][1]
     assert 'own effect-only family' in items['numLearnersDiffEffectOnlyMinusTauVTTunedMisspecKten'][1]
+
+
+def test_decoupled_macros_table_and_siblings():
+    data = smoke_data()
+    harm, items = data['harm_sweep'], _macros()
+    for base in ('numHarmDiffSoftGateMinusCateOnly', 'numHarmDecoupledDiffSoftGateMinusCateOnly',
+                 'numHarmDecoupledDiffSoftGateMinusTauV'):
+        for suffix in ('', 'CiLo', 'CiHi', 'P', 'HolmP', 'D'):
+            assert base + suffix in items, base + suffix
+    for base in ('numHarmSoftGateMinusCateOnlyPct', 'numHarmDecoupledSoftGateMinusCateOnlyPct',
+                 'numHarmDecoupledSafetyCostSoftGatePct'):
+        for suffix in ('', 'CiLo', 'CiHi'):
+            assert base + suffix in items, base + suffix
+    t = mt.harm_test(harm, 1.0, 0.0, 0.3, 'soft gate vs CATE only', 'estimated', 'decoupled')
+    assert items['numHarmDecoupledDiffSoftGateMinusCateOnly'][0] == mt.fmt_signed(t['mean_diff'], mt.fmt_welfare)
+    assert t['family_size'] == 7
+    rows = [r for r in mt.build(data)['tab_harm_decoupled.tex'].splitlines() if r and not r.startswith('%')]
+    assert len(rows) == 2 * len(harm['_meta']['sigma_h'])
+    assert rows[0].startswith('coupled') and rows[1].startswith('decoupled')

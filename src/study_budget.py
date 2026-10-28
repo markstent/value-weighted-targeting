@@ -44,7 +44,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 from study_main import N_PLAYERS, N_RUNS, SEED_BASE
-from core.dgp import DGPS, FEATURE_NAMES, conditional_means
+from core.dgp import DGPS, FEATURE_NAMES, ORACLE_MC, conditional_means
 from core.estimators import (
     BOOT_STREAM, ORACLE_STREAM, _estimate_cate_slearner, _estimate_cate_tlearner,
     _estimate_cate_xlearner, _estimate_ltv_proxy, _wellspec_value_model, seed_from,
@@ -58,7 +58,6 @@ budget_grid = np.round(np.arange(0.05, 0.501, 0.025), 3)
 REPORTED_BUDGETS = (0.10, 0.20, 0.30, 0.50)
 TAU_SOURCES = ('oracle', 'T', 'X', 'S')
 V_SOURCES = ('oracle', 'misspec', 'wellspec')
-ORACLE_MC = 200
 N_BOOT = 2000
 
 

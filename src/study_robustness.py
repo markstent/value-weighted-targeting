@@ -110,7 +110,7 @@ from sklearn.model_selection import train_test_split
 
 from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import (
-    DGPS, FEATURE_NAMES, conditional_means, dgp_spec, generate_adv, make_corr_dgp,
+    DGPS, FEATURE_NAMES, ORACLE_MC, conditional_means, dgp_spec, generate_adv, make_corr_dgp,
     tau_base_stats,
 )
 from core.estimators import (
@@ -128,7 +128,6 @@ from study_learners import load_or_tune, welfare_at_kappa
 KAPPA = DEFAULT_BUDGET
 ADV_KAPPAS = (0.30, 0.10)
 logger = logging.getLogger(__name__)
-ORACLE_MC = 400            # noise draws per unit for the feasible oracle (as study_main)
 ARMS = ('default', 'tuned')
 ORACLES = ('Oracle hindsight', 'Oracle feasible')
 ADV_DROP_COLS = [0, 1, 2]   # bonus_history (index 3) dropped from the CATE model

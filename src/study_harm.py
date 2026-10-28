@@ -50,6 +50,25 @@ population mean true harm drifts (about 0.43 to 0.46).  Per c_harm the output
 reports pop_mean_harm and share_harm_gt_0_6 (population share above the soft gate's
 h_lo), so exposure differences can be read against them.
 
+Decoupled DGP variant (W1): the main DGP has a coupling.  The harm logit loads on z_spend
+and tau_base carries -0.04 z_spend, so harm_hat carries information about tau, and a rule
+that down-weights high harm_hat can gain welfare for a reason unrelated to harm protection.
+With estimated components the soft gate beats the harm-blind tauV and even CATE-only
+ranking; the suspicion is that this gain is an artefact of the coupling.  The "decoupled"
+variant (core.dgp.structural_decoupled) is identical except that the -0.04 z_spend term is
+removed from tau_base, so tau no longer depends on spend given login (and bonus-free churn
+moderation).  It is run at c_harm = 1 (harm still rises with spend, so the harm-value link
+is unchanged) for every sigma_h and kappa, with the same rules, both estimated and feasible-
+oracle components (conditional_means('main_decoupled')) and the same metrics.  Cells carry
+dgp = "main" or "decoupled".  If the soft gate's welfare advantage over tauV and over CATE-
+only persists in the decoupled cells it is not a coupling artefact.
+
+Soft gate versus CATE only: every cell (both DGPs) adds one paired welfare test of the soft
+gate minus CATE-only ranking (estimated components), with a CI and the delta-method
+paired_ratio_ci percentage relative to CATE-only welfare.  It joins the cell's Holm family,
+which is therefore SEVEN tests (the six of PAIRED_COMPARISONS x COMPONENT_SOURCES plus this
+one).
+
 Usage:  python study_harm.py [--reps R] [--n-players N] [--smoke]
 """
 
@@ -61,7 +80,7 @@ from sklearn.model_selection import train_test_split
 
 from study_main import N_PLAYERS, N_RUNS, SEED_BASE
 from core.dgp import (
-    C_HARM_GRID, FEATURE_NAMES, conditional_means, draw_harm, generate_harm,
+    C_HARM_GRID, FEATURE_NAMES, ORACLE_MC, conditional_means, draw_harm, generate_harm,
 )
 from core.estimators import (
     BOOT_STREAM, HARM_ESTIMATE_STREAM, ORACLE_STREAM, HARM_STREAM, estimate_components, seed_from,
@@ -79,12 +98,17 @@ SOFT_RULES = ('soft gate', 'soft gate' + ORACLE_SUFFIX)
 HARD_RULES = ('hard cap', 'hard cap' + ORACLE_SUFFIX)
 CAPPED_RULES = SOFT_RULES + HARD_RULES
 # Paired welfare tests per (c_harm, sigma_h, kappa) cell, for each component source:
-# (label, minuend rule, subtrahend rule).  One Holm family per cell: the six tests below.
+# (label, minuend rule, subtrahend rule).  One Holm family per (dgp, c_harm, sigma_h, kappa) cell:
+# these three x two component sources, plus CATE_ONLY_COMPARISON (estimated only) = seven tests.
 PAIRED_COMPARISONS = (('hard cap vs soft gate', 'hard cap', 'soft gate'),
                       ('soft gate vs tauV', 'soft gate', 'tauV'),
                       ('hard cap vs tauV', 'hard cap', 'tauV'))
+CATE_ONLY_COMPARISON = ('soft gate vs CATE only', 'soft gate', 'CATE only')
+HARM_DGPS = ('main', 'decoupled')
+DECOUPLED_C_HARMS = (1.0,)          # the decoupled variant is run at c_harm = 1 only
+# feasible-oracle structural name per DGP variant (tau and V do not depend on c_harm)
+_ORACLE_DGP = {'main': 'main', 'decoupled': 'main_decoupled'}
 COMPONENT_SOURCES = (('estimated', ''), ('oracle', ORACLE_SUFFIX))
-ORACLE_MC = 200
 H_LO = 0.60
 N_BOOT = 2000
 CAP_TOL = 1e-6
@@ -158,20 +182,25 @@ def select_rules(tau_hat, ltv_hat, tau_bar, ltv_bar, harm_hat, k):
 
 
 def simulate(reps, n_players, c_harms=C_HARM_GRID, sigma_hs=SIGMA_H_GRID,
-             kappas=KAPPA_GRID, _eval_harm_transform=None, _record=None):
-    """Run the sweep.  Returns {(c_harm, sigma_h, kappa, rule): per-rep lists}.
+             kappas=KAPPA_GRID, dgp='main', _eval_harm_transform=None, _record=None):
+    """Run the sweep for one DGP variant (dgp in HARM_DGPS).  Returns
+    {(c_harm, sigma_h, kappa, rule): per-rep lists}.
 
     Test seams (not for production use): _eval_harm_transform(harm) is applied to
     the true harm only AFTER harm_hat has been computed from it and REBINDS the
     variable `harm`, so every later use of true harm sees it (a rule that leaked
     true harm would change its selection); _record, if a dict, receives every
     rule's selected index set under (rep, c_harm, sigma_h, kappa, rule)."""
+    if dgp not in HARM_DGPS:
+        raise ValueError(f'unknown harm DGP variant {dgp!r}; expected one of {HARM_DGPS}')
+    decoupled = dgp == 'decoupled'
     raw = {(c, s, kp, r): _new_cell() for c in c_harms for s in sigma_hs
            for kp in kappas for r in RULES}
     for rep in range(reps):
         seed = SEED_BASE + rep * 7
         data = generate_harm(n_players, np.random.RandomState(seed),
-                             harm_rng=np.random.RandomState(seed_from(seed, HARM_STREAM)))
+                             harm_rng=np.random.RandomState(seed_from(seed, HARM_STREAM)),
+                             decoupled=decoupled)
         idx = np.arange(len(data['treatment']))
         train_idx, test_idx = train_test_split(idx, test_size=0.30, random_state=seed)
         tau = data['true_tau'][test_idx]
@@ -180,7 +209,7 @@ def simulate(reps, n_players, c_harms=C_HARM_GRID, sigma_hs=SIGMA_H_GRID,
         # Feasible oracle E[tau|X], E[V|X] on the test rows: once per rep.
         feats_test = {name: data['features'][test_idx, i]
                       for i, name in enumerate(FEATURE_NAMES)}
-        cm = conditional_means('main', feats_test, n_mc=ORACLE_MC,
+        cm = conditional_means(_ORACLE_DGP[dgp], feats_test, n_mc=ORACLE_MC,
                                seed=seed_from(seed, ORACLE_STREAM))
         tau_bar, ltv_bar = cm['tau_bar'], cm['ltv_bar']
         feats = {name: data['features'][:, i] for i, name in enumerate(FEATURE_NAMES)}
@@ -247,14 +276,14 @@ def _boot_ci(x, n_boot, seed):
     return {'mean': m, 'ci95': [float(lo), float(hi)]}
 
 
-def summarise(raw, n_boot=N_BOOT):
-    """Turn per-rep lists into one entry per (c_harm, sigma_h, kappa, rule)."""
+def summarise(raw, n_boot=N_BOOT, dgp='main'):
+    """Turn per-rep lists into one entry per (c_harm, sigma_h, kappa, rule), tagged dgp."""
     boot_seed = seed_from(SEED_BASE, BOOT_STREAM)
     cells = []
     for (c, sigma, kappa, rule), v in raw.items():
         capped = rule in CAPPED_RULES
         cells.append({
-            'c_harm': c, 'sigma_h': sigma, 'kappa': kappa, 'rule': rule,
+            'dgp': dgp, 'c_harm': c, 'sigma_h': sigma, 'kappa': kappa, 'rule': rule,
             'n_reps': len(v['welfare']),
             'welfare': _t_ci(v['welfare']),
             'harm_exposure': _t_ci(v['exposure']),
@@ -269,36 +298,44 @@ def summarise(raw, n_boot=N_BOOT):
             'share_harm_gt_0_6': float(np.mean(v['share_high'])),
             'corr_harm_V': float(np.mean(v['corr'])),
         })
-    return {'cells': cells, 'paired_tests': paired_tests(raw)}
+    return {'cells': cells, 'paired_tests': paired_tests(raw, dgp)}
 
 
-def paired_tests(raw):
+def paired_tests(raw, dgp='main'):
     """Per-replication paired welfare tests (core.stats.paired_test_raw, unrounded) in every
     (c_harm, sigma_h, kappa) cell, for estimated and feasible-oracle components:
     hard cap minus soft gate, soft gate minus the harm-blind tauV, hard cap minus tauV.
-    Holm (core.stats.holm_bonferroni) runs within each cell: the family is that cell's six
+    Each cell also gets the soft gate minus CATE-only test (estimated components), with its
+    ratio to CATE-only welfare in 'ratio_to_cate_only' (that row only).
+    Holm (core.stats.holm_bonferroni) runs within each cell: the family is that cell's seven
     tests (family_size).  Empty when there is a single replication (no variance)."""
     out = []
     for c, sigma, kappa in sorted({k[:3] for k in raw}):
         rows = []
-        for source, suffix in COMPONENT_SOURCES:
-            for label, a, b in PAIRED_COMPARISONS:
-                wa = raw[(c, sigma, kappa, a + suffix)]['welfare']
-                wb = raw[(c, sigma, kappa, b + suffix)]['welfare']
-                if len(wa) < 2:
-                    return []
-                r = paired_test_raw(wa, wb)
-                blind = np.array(raw[(c, sigma, kappa, 'tauV' + suffix)]['welfare'])
-                # mean(a - b) / mean(harm-blind tauV welfare), delta-method CI from the
-                # per-replication pairs (core.stats.paired_ratio_ci)
-                ratio = ratio_entry(np.array(wa) - np.array(wb), blind)
-                rows.append({'c_harm': c, 'sigma_h': sigma, 'kappa': kappa,
-                             'comparison': label, 'components': source,
-                             'a': a + suffix, 'b': b + suffix,
-                             'mean_diff': r['mean_diff'], 'ci95': r['ci_95'],
-                             'se_diff': r['se_diff'], 't_stat': r['t_stat'],
-                             'cohens_d': r['cohens_d'], 'p_raw': r['p_value'],
-                             'ratio_to_blind': ratio})
+        specs = [(source, suffix, cmp_) for source, suffix in COMPONENT_SOURCES
+                 for cmp_ in PAIRED_COMPARISONS]
+        specs.append(('estimated', '', CATE_ONLY_COMPARISON))
+        for source, suffix, (label, a, b) in specs:
+            wa = raw[(c, sigma, kappa, a + suffix)]['welfare']
+            wb = raw[(c, sigma, kappa, b + suffix)]['welfare']
+            if len(wa) < 2:
+                return []
+            r = paired_test_raw(wa, wb)
+            diffs = np.array(wa) - np.array(wb)
+            # mean(a - b) / mean(harm-blind tauV welfare), delta-method CI from the
+            # per-replication pairs (core.stats.paired_ratio_ci)
+            blind = np.array(raw[(c, sigma, kappa, 'tauV' + suffix)]['welfare'])
+            row = {'dgp': dgp, 'c_harm': c, 'sigma_h': sigma, 'kappa': kappa,
+                   'comparison': label, 'components': source,
+                   'a': a + suffix, 'b': b + suffix,
+                   'mean_diff': r['mean_diff'], 'ci95': r['ci_95'],
+                   'se_diff': r['se_diff'], 't_stat': r['t_stat'],
+                   'cohens_d': r['cohens_d'], 'p_raw': r['p_value'],
+                   'ratio_to_blind': ratio_entry(diffs, blind)}
+            if label == CATE_ONLY_COMPARISON[0]:
+                # mean(soft - CATE only) / mean(CATE-only welfare), delta-method CI
+                row['ratio_to_cate_only'] = ratio_entry(diffs, np.array(wb))
+            rows.append(row)
         for row, p in zip(rows, holm_bonferroni([r['p_raw'] for r in rows])):
             row['p_holm'] = float(p)
             row['family_size'] = len(rows)
@@ -310,7 +347,7 @@ def _print_table(summary, kappa=0.30):
     print(f"kappa={kappa}  diff = treated mean true harm - population mean; viol = "
           "hard-cap violation rate on true harm; over = mean (true - estimated) "
           "exposure; orc = sigma_h=0 (harm_hat is the true harm)")
-    print(f"{'c':>5} {'sig':>4}{'orc':>4} {'rule':<26} {'welfare':>8} {'expo':>6} "
+    print(f"{'dgp':<9} {'c':>5} {'sig':>4}{'orc':>4} {'rule':<26} {'welfare':>8} {'expo':>6} "
           f"{'diff':>7} {'diff 95% CI':>17} {'viol':>5} {'over':>7} {'popH':>5} {'>.6':>5} {'corr':>5}")
     for e in summary['cells']:
         if e['kappa'] != kappa:
@@ -319,7 +356,7 @@ def _print_table(summary, kappa=0.30):
         ci_s = f"[{ci[0]:+.3f},{ci[1]:+.3f}]" if ci else 'n/a'
         viol = '-' if e['cap_violation_rate'] is None else f"{e['cap_violation_rate']:.2f}"
         over = '-' if e['overshoot'] is None else f"{e['overshoot']['mean']:+.3f}"
-        print(f"{e['c_harm']:>5.1f} {e['sigma_h']:>4.1f}{'*' if e['oracle_harm'] else '':>4} "
+        print(f"{e['dgp']:<9} {e['c_harm']:>5.1f} {e['sigma_h']:>4.1f}{'*' if e['oracle_harm'] else '':>4} "
               f"{e['rule']:<26} {e['welfare']['mean']:>8.0f} "
               f"{e['harm_exposure']['mean']:>6.3f} {e['exposure_minus_pop']['mean']:>+7.3f} "
               f"{ci_s:>17} {viol:>5} {over:>7} {e['pop_mean_harm']:>5.3f} "
@@ -331,12 +368,19 @@ def main(argv=None):
     add_common_args(parser)
     args = parser.parse_args(argv)
     reps, n_players = resolve_run_size(args, N_RUNS, N_PLAYERS)
-    print(f"Harm sweep | reps={reps}, n={n_players}, "
-          f"{len(C_HARM_GRID) * len(SIGMA_H_GRID) * len(KAPPA_GRID)} cells x {len(RULES)} rules")
-    summary = summarise(simulate(reps, n_players))
+    n_cells = (len(C_HARM_GRID) + len(DECOUPLED_C_HARMS)) * len(SIGMA_H_GRID) * len(KAPPA_GRID)
+    print(f"Harm sweep | reps={reps}, n={n_players}, {n_cells} cells x {len(RULES)} rules "
+          f"(main + decoupled DGP)")
+    raws = {'main': simulate(reps, n_players, dgp='main'),
+            'decoupled': simulate(reps, n_players, c_harms=DECOUPLED_C_HARMS, dgp='decoupled')}
+    parts = [summarise(raw, dgp=name) for name, raw in raws.items()]
+    summary = {'cells': [c for p in parts for c in p['cells']],
+               'paired_tests': [t for p in parts for t in p['paired_tests']]}
     summary['_meta'] = {'n_runs': reps, 'n_players': n_players, 'seeds_base': SEED_BASE,
                         'n_boot': N_BOOT, 'c_harm': list(C_HARM_GRID),
-                        'sigma_h': list(SIGMA_H_GRID), 'kappa': list(KAPPA_GRID)}
+                        'sigma_h': list(SIGMA_H_GRID), 'kappa': list(KAPPA_GRID),
+                        'dgps': list(HARM_DGPS),
+                        'decoupled_c_harm': list(DECOUPLED_C_HARMS)}
     _print_table(summary)
     print(f"Saved {save_json(summary, 'harm_sweep_smoke.json' if args.smoke else 'harm_sweep.json')}")
 
