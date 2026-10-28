@@ -1,6 +1,6 @@
-# When Does Value-Weighted Targeting Pay (and When It Does Not)?
+# Value-Weighted Retention Targeting Concentrates Harm
 
-### A Diagnostic for Budget-Constrained Retention Targeting in Online Gaming
+### A Diagnostic and a Harm-Aware Rule for Budget-Constrained Targeting in Online Gambling
 
 [![Paper (PDF)](https://img.shields.io/badge/paper-PDF-b31b1b.svg)](paper.pdf)
 [![Repo](https://img.shields.io/badge/GitHub-bonus--allocation--framework-181717.svg?logo=github)](https://github.com/markstent/bonus-allocation-framework)
@@ -10,7 +10,7 @@
 [![Build](https://img.shields.io/badge/build-LaTeX%20%2F%20tectonic-008080.svg)](#building-the-pdf)
 [![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey.svg)](LICENSE)
 
-Companion repository for the working paper *When Does Value-Weighted Targeting Pay (and When It Does Not)? A Diagnostic for Budget-Constrained Retention Targeting in Online Gaming* by Mark Stent.
+Companion repository for the working paper *Value-Weighted Retention Targeting Concentrates Harm: A Diagnostic and a Harm-Aware Rule for Budget-Constrained Targeting in Online Gambling* by Mark Stent.
 
 - **Repository:** <https://github.com/markstent/bonus-allocation-framework>
 - **Read the paper:** [paper.pdf](paper.pdf) &nbsp;·&nbsp; latest source: [`docs/stent-2026-value-weighted-targeting.tex`](docs/stent-2026-value-weighted-targeting.tex)
@@ -23,69 +23,85 @@ git clone https://github.com/markstent/bonus-allocation-framework.git
 
 ## Abstract
 
-Budget-constrained treatment targeting -- selecting the top *k* individuals for intervention from a heterogeneous population -- is a central problem in personalised marketing, healthcare, and public policy. Practitioners routinely rank candidates by treatment effect times outcome value; this paper places that heuristic inside budget-constrained empirical welfare maximisation, where it is welfare-optimal as a corollary of the standard threshold result applied to a value-weighted outcome, and extends it with an operator-configurable preference weight. The answer the paper reaches is largely cautionary. Value weighting pays only at generous budgets: at a realistic campaign budget (κ ≈ 0.10) plain treatment-effect targeting matches or beats it, and a hybrid joint model (a joint treatment-effect model with a separate value model) outperforms the decomposed product rule at every budget tested. The operator-preference weight provably cannot raise welfare, so it prices restrictions rather than discovering them. The sharpest, most domain-specific finding is that value weighting is **harm-concentrating by construction**: because a gambler's lifetime value is high precisely when they are losing the most, the welfare optimum directs treatment at the most-harmed players and is unsafe by default. The paper's remedy is to internalise harm into the objective (a harm-aware score, or a hard harm-exposure constraint) rather than bolt it on, and to price the welfare cost of that safety. "Welfare" throughout denotes operator welfare, distinct from player wellbeing. The reported numbers are illustrative rather than transportable; the durable contribution is the procedure and the diagnostic, not the point estimates.
+Retention incentives in online gambling are often allocated by ranking players on estimated treatment effect times lifetime value.
+Under a fixed budget this value-weighted rule maximises operator value, but operator value and player harm can rise together.
+We show that the harm exposure of any budget-exhausting rule exceeds the population mean by the covariance between treatment and harm divided by the budget, and give a sufficient condition under which value-weighted ranking makes that covariance positive: harm rises with value among players with the same treatment effect.
+In a simulation with 200 replications of 10,000 players, value-weighted ranking raises mean harm among treated players from 0.421 to 0.476, and the sign of the gap follows the sign of the harm-value association.
+A harm-aware rule that multiplies the score by a harm weight brings exposure to 0.414 and, with estimated components, raises operator value from 16,446 to 19,045.
+A hard harm cap is optimal for a given ceiling in the population, but it beats the harm weight only with feasible-oracle components, and its ceiling holds only for the harm measure it is given.
+With estimated treatment effects, ranking on the effect alone yields more operator value than value weighting for every learner we test at tight and moderate budgets, so the budget at which value weighting starts to pay depends on the learner.
+A feasible oracle that uses only covariates reaches 73.5% of the hindsight oracle, which is the right benchmark for estimation cost.
+All parameters are illustrative.
 
 ## Key Findings
 
 | Finding | Detail |
 |---|---|
-| Value-weighting is harm-concentrating by construction | Where value correlates with harm (gambling LTV), the welfare optimum directs treatment at the most-harmed players (harm exposure 0.466 vs 0.42 population mean); the harm-blind rule is unsafe by default, and the fix is to internalise harm into the objective, not filter after |
-| Value-weighting is budget-contingent, with an estimated crossover | Pure CATE beats value weighting at tight budgets and the ranking reverses as the budget grows; the crossover budget is κ\* ≈ 0.34 (symmetric moderation) / 0.25 (asymmetric), with bootstrap CIs |
-| Value-weighting helps under misspecification *only when V carries the dropped signal* | An adversarial misspecification whose dropped driver is orthogonal to value removes the benefit and, at κ = 0.10, reverses it (−25%) |
-| The operator-preference weight cannot improve welfare | Calibration returns the neutral setting (Proposition 3); it holds under a doubly-robust (AIPW) objective too, where identity-selection drops to 14/200 but true welfare is not improved |
-| The hybrid architecture leads on welfare | A joint treatment-effect model with a separate value model beats both the pure decomposition and the pure end-to-end model at every budget |
-| "Joint model is more robust" is a mirage | The joint model looks immune to CATE misspecification only because the feature is dropped from one side; drop it from the joint model too and it degrades comparably (64%). The advantage is architectural (cross-component interactions), not robustness to missing inputs |
-| The regret decomposition is a working diagnostic | It localises welfare loss to a component and correctly fingers the degraded one - including in an observational (no-oracle) plug-in version |
-| Harm protection is quantifiable, and a hard constraint dominates a soft weight | A hard harm constraint reaches a given harm ceiling at lower welfare cost than the soft multiplicative gate, and cannot be overridden by a large τ·V |
+| Harm exposure obeys an exact identity | For any budget-exhausting rule, exposure of the treated minus the population mean equals the covariance of treatment and harm divided by the budget; value-weighted ranking makes it positive when harm rises with value among players with the same treatment effect |
+| Value-weighted ranking concentrates harm in simulation | Mean harm among treated players is 0.476 against a population mean of 0.421, a gap of +0.055 (95% CI +0.051 to +0.058); the feasible oracle gap is +0.033 (+0.032 to +0.034); the sign of the gap follows the harm-value association (sample correlation from -0.75 to +0.80 across the sweep) |
+| A soft harm weight removes the concentration at no operator-value cost | Exposure falls to 0.414, below the population mean, and operator value rises from 16,446 to 19,045, a difference of +2,598 (95% CI 2,406 to 2,790, Cohen's d 1.89); with estimated components and harm rising with value |
+| A hard harm cap needs accurate inputs | With estimated components the cap earns 15,701 at exposure 0.413, which is 3,344 less than the soft weight (95% CI -3,539 to -3,148); it is cheaper only with feasible-oracle components (+378, 95% CI 330 to 426), and with a noisy harm measure true exposure overshoots the ceiling by +0.013 (+0.012 to +0.014) at sigma_h = 0.5 and +0.043 (+0.041 to +0.044) at sigma_h = 1 |
+| Value weighting is an oracle property | With feasible-oracle effects and values it beats effect-only ranking at every budget (+1,445 at kappa = 0.10, 95% CI 1,388 to 1,503); with estimated effects, effect-only ranking wins for every learner at budgets up to kappa = 0.30 (T-learner, proxy value model: -1,482 for value weighting at kappa = 0.10, 95% CI -1,632 to -1,332, and -187 at 0.30, 95% CI -319 to -55) |
+| The crossover budget belongs to the learner | With the T-learner and the proxy value model kappa* is 0.350 (95% CI 0.325 to 0.375) and the X-learner gives 0.425; with the S-learner value weighting never crosses within the grid; with feasible-oracle components there is no crossing |
+| Estimation cost is measured against a feasible oracle | A covariate-only oracle reaches 73.5% (95% CI 73.3% to 73.7%) of the hindsight oracle; a Shapley split attributes 99.9% to 101.2% of regret to the effect estimate |
+| Preference-weight calibration does not help | Plug-in calibration selects the identity in 200 of 200 replications and AIPW calibration costs -1,437 (95% CI -1,828 to -1,046) against the identity |
+
+All parameters are illustrative; there is no operator data.
 
 ## Repository Structure
 
 ```
 paper.pdf                         The paper (stable link)
 LICENSE
+pytest.ini
 requirements.txt
+requirements-dev.txt
+config/
+  tuned_params.json               Frozen learner tuning used by the studies
 docs/
   stent-2026-value-weighted-targeting.tex   LaTeX source (current version)
   stent-2026-value-weighted-targeting.pdf   Compiled manuscript
   figures/                        Figures used in the manuscript
+  generated/                      numbers.tex (every number in the text) and tab_*.tex tables, written by make_tex.py
   peer_review/                    Simulated peer-review package that drove the revisions
 src/
-  study_main.py                   Main study: strategies, frontier, calibration, X-learner, misspecification,
-                                  null/correlated DGPs, budget sweep, hindsight and feasible oracle tables
-  study_harm.py                   Harm sweep: soft gate vs hard cap, oracle-component variants
-  study_budget.py                 Budget 2x2 (tau source x V source) across kappa
-  study_robustness.py             Robustness scenarios: null/correlated/asymmetric/heavy-tail DGPs,
-                                  corr(tau,V) sweep, clip-adjusted welfare, component update,
-                                  plug-in diagnostic, AIPW calibration, adversarial and
-                                  like-for-like misspecification
-  study_learners.py               CATE learner (T/X/S/DR/R) x value model comparison with frozen
-                                  tuning; order-free regret split; diagnostic; E2E model
-  run_all.py                      One-command pipeline (studies, manifest, figures)
+  core/                           Shared data generation, estimators, oracle, harm and statistics code
+  study_main.py                   Main study: strategies, oracles, budget sweep, calibration
+  study_harm.py                   Harm sweep: soft weight vs hard cap, harm-value alignment, harm-measure noise
+  study_budget.py                 Budget sweep (effect source x value source) and crossover budget
+  study_robustness.py             Robustness scenarios and calibration checks
+  study_learners.py               Learner (T/X/S/DR) x value model comparison with frozen tuning and Shapley regret split
+  run_all.py                      One-command pipeline (studies, manifest, figures, generated TeX)
   make_figures.py                 Figure generation (PDFs in docs/figures/)
-outputs/                          Simulation results (JSON); regenerated by the scripts
+  make_tex.py                     Writes docs/generated/numbers.tex and the tables from outputs/*.json
+tests/                            pytest suite, including golden-file and pipeline tests
+outputs/                          Simulation results (JSON) and run_manifest.json; regenerated by the scripts
 ```
 
 ## Reproducing the Results
 
-All quantities in the paper are produced by simulation; there is no empirical data. The study is **deterministic**: every replication `r` uses the fixed seed `42 + 7r`, so the scripts reproduce the reported tables and figures exactly.
+All quantities in the paper are produced by simulation; there is no empirical data.
+The study is **deterministic**: every replication `r` uses a fixed seed derived from `r`, so the scripts reproduce the reported tables and figures exactly.
+The paper reads every number from `docs/generated/numbers.tex`, so no figure in the text is typed by hand.
 
 ```bash
 # Python 3.12
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# everything: all five studies, then figures, then outputs/run_manifest.json
+# everything: all five studies, then figures, generated TeX, and outputs/run_manifest.json
 python src/run_all.py                       # full size (N=10000, 200 reps); --jobs N runs N studies in parallel
-python src/run_all.py --smoke --jobs 4      # quick check (3 reps, n=2000); figures go to outputs/figures_smoke/
+python src/run_all.py --smoke --jobs 4      # quick check (3 reps, n=2000); outputs go to smoke paths
 python src/run_all.py --only main,harm      # a subset of studies
 
-# or one study at a time (each accepts --smoke, --reps, --n-players)
+# or one step at a time (the studies accept --smoke, --reps, --n-players)
 python src/study_main.py                    # main.json
 python src/study_harm.py                    # harm_sweep.json
 python src/study_budget.py                  # budget_2x2.json
 python src/study_learners.py                # learners.json
 python src/study_robustness.py              # robustness.json
 python src/make_figures.py                  # docs/figures/*.pdf
+python src/make_tex.py                      # docs/generated/numbers.tex and tab_*.tex
 ```
 
 The manifest records the git SHA and dirty flag, package versions, run-size arguments, per-step wall time and exit code, the sha256 of every output JSON and figure, and the sha256 of `config/tuned_params.json`.
@@ -104,7 +120,7 @@ cd docs && tectonic stent-2026-value-weighted-targeting.tex
 
 ```bibtex
 @unpublished{stent2026bonus,
-  title  = {When Does Value-Weighted Targeting Pay (and When It Does Not)? A Diagnostic for Budget-Constrained Retention Targeting in Online Gaming},
+  title  = {Value-Weighted Retention Targeting Concentrates Harm: A Diagnostic and a Harm-Aware Rule for Budget-Constrained Targeting in Online Gambling},
   author = {Stent, Mark},
   year   = {2026},
   note   = {Working paper},
@@ -114,7 +130,12 @@ cd docs && tectonic stent-2026-value-weighted-targeting.tex
 
 ## Responsible Use
 
-The paper studies promotional targeting in online gambling, a harm-sensitive domain. The framework is presented with explicit responsible-gaming safeguards (a vulnerability-based exclusion set and a harm gate treated as deployment preconditions, conservative defaults, and a hard harm-exposure constraint) and draws a clear distinction between *operator welfare* (the econometric quantity optimised) and *player welfare*. It should not be deployed in a gambling setting without those safeguards and the validated harm-measurement and regulatory infrastructure they depend on. See the paper's Responsible-Gaming and Ethics sections.
+The paper studies promotional targeting in online gambling, a harm-sensitive domain.
+It shows that value-weighted ranking can concentrate incentives on harmed players, and it treats an exclusion set, a harm-aware score and a fail-closed default as preconditions for any deployment.
+With estimated components the paper recommends the soft harm weight over the hard cap, and, where a guarantee is required, an audited harm measure and an exclusion set, because a cap binds only on the harm measure it is given.
+The paper distinguishes *operator welfare* (the quantity optimised) from player wellbeing.
+It should not be deployed in a gambling setting without those safeguards and the validated harm-measurement and regulatory infrastructure they depend on.
+See the paper's Responsible Deployment and Ethics sections.
 
 ## License
 
