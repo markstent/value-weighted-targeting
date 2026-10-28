@@ -1,0 +1,115 @@
+{
+  "git": {
+    "sha": "3f608734350acf595665024837d2491fd0ca0e3f",
+    "dirty": false
+  },
+  "python": "3.12.9",
+  "packages": {
+    "numpy": "2.4.3",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.8.0",
+    "matplotlib": "3.10.8",
+    "joblib": "1.6.0",
+    "pytest": "8.4.2"
+  },
+  "args": {
+    "smoke": false,
+    "jobs": 12,
+    "only": [
+      "study_main",
+      "study_harm",
+      "study_budget",
+      "study_learners",
+      "study_robustness"
+    ],
+    "reps": null,
+    "n_players": null,
+    "figures_only": false
+  },
+  "started_utc": "2026-10-28T07:14:22Z",
+  "steps": [
+    {
+      "name": "study_main",
+      "exit_code": 0,
+      "wall_seconds": 799.31,
+      "log": "outputs/logs/study_main.log"
+    },
+    {
+      "name": "study_harm",
+      "exit_code": 0,
+      "wall_seconds": 837.02,
+      "log": "outputs/logs/study_harm.log"
+    },
+    {
+      "name": "study_budget",
+      "exit_code": 0,
+      "wall_seconds": 886.26,
+      "log": "outputs/logs/study_budget.log"
+    },
+    {
+      "name": "study_learners",
+      "exit_code": 0,
+      "wall_seconds": 196.22,
+      "log": "outputs/logs/study_learners.log"
+    },
+    {
+      "name": "study_robustness",
+      "exit_code": 0,
+      "wall_seconds": 893.19,
+      "log": "outputs/logs/study_robustness.log"
+    },
+    {
+      "name": "make_figures",
+      "exit_code": 0,
+      "wall_seconds": 0.85,
+      "log": "outputs/logs/make_figures.log"
+    },
+    {
+      "name": "make_tex",
+      "exit_code": 0,
+      "wall_seconds": 0.71,
+      "log": "outputs/logs/make_tex.log"
+    }
+  ],
+  "json_files": {
+    "main.json": "846e0e8e409b640c4836432d842957c812f58c3c4443331dcbf5c38efd45f614",
+    "harm_sweep.json": "51e84a280049bafaffddcb1cf52dd5528769117a5dbb69988657460ab8557dc6",
+    "budget_2x2.json": "b4c9df7a7f0040c587e278bad9d587b1f6858aefe3a822c214eb3960eba9f11c",
+    "learners.json": "b99c40fd88d4702e3a47400ee78304a33f999ff38f310f2b494435ea0e7cc40e",
+    "robustness.json": "bc83af28465a0d9125fe9025b8d4afb5944e11f6b5929e0a86d52f3652a08093"
+  },
+  "figures": {
+    "docs/figures/fig_g_function.pdf": "60ee9183e973cfb28700dbfaaef6d60a67f6b99767175cd3d4144a761c7ab006",
+    "docs/figures/fig_frontier.pdf": "1006f5d5a20579102041eefd822f1b0288296c70c14ff93cb03c9ee211cec843",
+    "docs/figures/fig_welfare_bars.pdf": "d7c48f8d4361cfb4f02e29e353c05856682c8b666e876c15db8f5c76d69e5709",
+    "docs/figures/fig_harm_frontier.pdf": "04399f5e87ebdbef8e875799acd3a25ca55a68831ae221a11002b831e2fd58d6"
+  },
+  "generated_tex": {
+    "docs/generated/numbers.tex": "412ce0bb9cef8f453fdaf2269337b599cad400d712e29e353305712edbaf885d",
+    "docs/generated/tab_main.tex": "c5cef3c626b5aa4e2b70ec04d37c8a2cacccf598b7ceac6ee6b4f413a8d587c3",
+    "docs/generated/tab_budget.tex": "32bce676211959d237d0dc994fe52967a7ab6158addb8b4e9fc8fcffb1b61fc5",
+    "docs/generated/tab_kappa_star.tex": "58f94777c835e16496ea3a5567375951db3b9c08219e24b866d6b6565be57378",
+    "docs/generated/tab_harm.tex": "edd4fb6d7581cd4812eda068ab8b36e14e629553b95a6028dd1a0f7599c63e6f",
+    "docs/generated/tab_harm_welfare.tex": "c9ddeabdbafd2cd3cf8e64a6168fea0f9244b5618bc56524fea39467be500083",
+    "docs/generated/tab_harm_decoupled.tex": "bc73fec2f1066103103b30fc26f2d60716e3e1bbf711b3a90d3743289e09cea7",
+    "docs/generated/tab_learners.tex": "359a148d863c1a7bc76aabe8cca4bcd3c8d6941980e491d1be83d50b105d752a",
+    "docs/generated/tab_robustness.tex": "585fb81069c4d9f46091a5162aa564dc9f2e36a1cc2e61673e6593f95dff9da6",
+    "docs/generated/tab_calibration.tex": "c0278bf3db8ab55179b9fc8949a4308aa55cc9f6525dd95a2ad1badab2bde5eb",
+    "docs/generated/tab_frontier.tex": "5c134d9780bef2fa863f8793730b9b49376d0299bc2552757dc34734115a822f"
+  },
+  "tuned_params": {
+    "path": "config/tuned_params.json",
+    "sha256": "22bdca41f85ab563220594c153d4ab56192495f559af3557cb29fe84d676e3c6"
+  },
+  "total_wall_seconds": 1092.19,
+  "results": {
+    "copied": [
+      "results/main.json",
+      "results/harm_sweep.json",
+      "results/budget_2x2.json",
+      "results/learners.json",
+      "results/robustness.json",
+      "results/run_manifest.json"
+    ]
+  }
+}

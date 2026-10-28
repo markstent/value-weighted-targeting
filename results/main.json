@@ -1,0 +1,1116 @@
+{
+  "main_results": {
+    "Random": {
+      "ate_mean": 1.1811111111111112,
+      "ate_sd": 2.1306163486624397,
+      "welfare_mean": 5398.772271117415,
+      "welfare_sd": 1362.0982532415796,
+      "risk_mean": 0.1659534341181747,
+      "risk_sd": 0.003067819565300392,
+      "mean_churn_mod": 0.5120683304900094,
+      "mean_ltv_cr": 697.1909368517584
+    },
+    "CATE Only": {
+      "ate_mean": 3.2616666666666663,
+      "ate_sd": 1.9191389148721323,
+      "welfare_mean": 16633.688342117373,
+      "welfare_sd": 2961.5397507439543,
+      "risk_mean": 0.15305403498865175,
+      "risk_sd": 0.010124600096377643,
+      "mean_churn_mod": 0.48466734215612634,
+      "mean_ltv_cr": 665.883317427006
+    },
+    "CATE x LTV": {
+      "ate_mean": 3.0588888888888888,
+      "ate_sd": 2.0532011506299614,
+      "welfare_mean": 16446.494918173135,
+      "welfare_sd": 3115.389418408404,
+      "risk_mean": 0.13564461523107796,
+      "risk_sd": 0.009814041369425784,
+      "mean_churn_mod": 0.439898540484805,
+      "mean_ltv_cr": 761.0307491793013
+    },
+    "Full Framework (Est.)": {
+      "ate_mean": 2.7427777777777775,
+      "ate_sd": 2.0044796751061464,
+      "welfare_mean": 13645.580455240492,
+      "welfare_sd": 3025.6537470565795,
+      "risk_mean": 0.14626881306823727,
+      "risk_sd": 0.010222151825475721,
+      "mean_churn_mod": 0.46839518796802543,
+      "mean_ltv_cr": 729.5142568177334
+    },
+    "Full Framework (Cal.)": {
+      "ate_mean": 2.9672222222222215,
+      "ate_sd": 2.1142325361873087,
+      "welfare_mean": 15565.924570611936,
+      "welfare_sd": 4029.0703776513496,
+      "risk_mean": 0.1415323019008306,
+      "risk_sd": 0.012731284544157905,
+      "mean_churn_mod": 0.4558923414178024,
+      "mean_ltv_cr": 743.423030459753
+    },
+    "Full Framework (Cal., plug-in)": {
+      "ate_mean": 3.0588888888888888,
+      "ate_sd": 2.0532011506299614,
+      "welfare_mean": 16446.494918173135,
+      "welfare_sd": 3115.389418408404,
+      "risk_mean": 0.13564461523107796,
+      "risk_sd": 0.009814041369425784,
+      "mean_churn_mod": 0.439898540484805,
+      "mean_ltv_cr": 761.0307491793013
+    },
+    "Oracle hindsight (theta0)": {
+      "ate_mean": 6.66,
+      "ate_sd": 1.9585518388697416,
+      "welfare_mean": 36641.356368676425,
+      "welfare_sd": 705.446945922323,
+      "risk_mean": 0.19177773802953485,
+      "risk_sd": 0.0028956070520748884,
+      "mean_churn_mod": 0.5957801165461192,
+      "mean_ltv_cr": 590.5525453804607
+    },
+    "S-Learner": {
+      "ate_mean": 3.897222222222223,
+      "ate_sd": 1.9561841504060005,
+      "welfare_mean": 24273.042808142927,
+      "welfare_sd": 4162.877259657605,
+      "risk_mean": 0.11987172116979425,
+      "risk_sd": 0.017046524928680754,
+      "mean_churn_mod": 0.3993396468988998,
+      "mean_ltv_cr": 776.6499548569986
+    },
+    "Oracle hindsight (g=1)": {
+      "ate_mean": 6.795,
+      "ate_sd": 1.8340851714560173,
+      "welfare_mean": 44615.048070995326,
+      "welfare_sd": 807.1566034995177,
+      "risk_mean": 0.1377490517988903,
+      "risk_sd": 0.0024438365579394633,
+      "mean_churn_mod": 0.4507973296233026,
+      "mean_ltv_cr": 723.8373775889746
+    },
+    "Oracle feasible (g=1)": {
+      "ate_mean": 5.420555555555556,
+      "ate_sd": 1.8283862156578254,
+      "welfare_mean": 32796.69040333206,
+      "welfare_sd": 791.0043305988333,
+      "risk_mean": 0.12288887784896914,
+      "risk_sd": 0.0026277319622812225,
+      "mean_churn_mod": 0.4129225820758275,
+      "mean_ltv_cr": 660.0750110229462
+    },
+    "Oracle feasible (theta0)": {
+      "ate_mean": 5.5233333333333325,
+      "ate_sd": 1.9734131477161292,
+      "welfare_mean": 28178.122089467895,
+      "welfare_sd": 705.4717753508439,
+      "risk_mean": 0.17533843489755113,
+      "risk_sd": 0.003046087178948207,
+      "mean_churn_mod": 0.5522818676112463,
+      "mean_ltv_cr": 544.8148958253734
+    }
+  },
+  "efficiency": {
+    "n_runs": 200,
+    "n_players": 10000,
+    "kappa": 0.3,
+    "oracle": "Oracle feasible (g=1)",
+    "definition": "mean over replications of the per-replication ratio",
+    "rules": {
+      "CATE Only": {
+        "level_ratio": {
+          "mean": 0.5072298324933463,
+          "ci95": [
+            0.4946709285972041,
+            0.5197887363894885
+          ]
+        },
+        "normalized": {
+          "mean": 0.40917664911998186,
+          "ci95": [
+            0.39392066156508015,
+            0.42443263667488357
+          ]
+        }
+      },
+      "CATE x LTV": {
+        "level_ratio": {
+          "mean": 0.5014549019698328,
+          "ci95": [
+            0.488290143697838,
+            0.5146196602418275
+          ]
+        },
+        "normalized": {
+          "mean": 0.402463183719822,
+          "ci95": [
+            0.3866843465197514,
+            0.41824202091989254
+          ]
+        }
+      },
+      "Full Framework (Est.)": {
+        "level_ratio": {
+          "mean": 0.4161788950019078,
+          "ci95": [
+            0.40329649519218225,
+            0.42906129481163335
+          ]
+        },
+        "normalized": {
+          "mean": 0.30017712501603716,
+          "ci95": [
+            0.28460995141587414,
+            0.3157442986162002
+          ]
+        }
+      },
+      "Full Framework (Cal.)": {
+        "level_ratio": {
+          "mean": 0.47459554161182993,
+          "ci95": [
+            0.45756077970076753,
+            0.49163030352289233
+          ]
+        },
+        "normalized": {
+          "mean": 0.3701658100082642,
+          "ci95": [
+            0.34963963573197143,
+            0.390691984284557
+          ]
+        }
+      },
+      "Full Framework (Cal., plug-in)": {
+        "level_ratio": {
+          "mean": 0.5014549019698328,
+          "ci95": [
+            0.488290143697838,
+            0.5146196602418275
+          ]
+        },
+        "normalized": {
+          "mean": 0.402463183719822,
+          "ci95": [
+            0.3866843465197514,
+            0.41824202091989254
+          ]
+        }
+      },
+      "S-Learner": {
+        "level_ratio": {
+          "mean": 0.7401323981166502,
+          "ci95": [
+            0.7225611901445103,
+            0.7577036060887902
+          ]
+        },
+        "normalized": {
+          "mean": 0.6888524841590224,
+          "ci95": [
+            0.6678510286738438,
+            0.7098539396442011
+          ]
+        }
+      }
+    },
+    "feasible_over_hindsight": {
+      "mean": 0.7351231533034397,
+      "ci95": [
+        0.7333210469135489,
+        0.7369252596933304
+      ]
+    }
+  },
+  "frontier": [
+    {
+      "config": "No reg (g=1)",
+      "welfare_mean": 16446.0,
+      "welfare_sd": 3115.0,
+      "risk_mean": 0.136,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.44
+    },
+    {
+      "config": "Wide (0.03/0.50/0.70)",
+      "welfare_mean": 12599.0,
+      "welfare_sd": 3159.0,
+      "risk_mean": 0.148,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.472
+    },
+    {
+      "config": "Default (0.05/0.40/0.60)",
+      "welfare_mean": 13646.0,
+      "welfare_sd": 3026.0,
+      "risk_mean": 0.146,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.468
+    },
+    {
+      "config": "Narrow (0.10/0.30/0.50)",
+      "welfare_mean": 14935.0,
+      "welfare_sd": 2920.0,
+      "risk_mean": 0.145,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.464
+    },
+    {
+      "config": "Aggressive (0.15/0.35/0.50/phi=0.05)",
+      "welfare_mean": 13738.0,
+      "welfare_sd": 2937.0,
+      "risk_mean": 0.149,
+      "risk_sd": 0.01,
+      "mean_churn_mod": 0.476
+    },
+    {
+      "config": "Calibrated",
+      "welfare_mean": 15566.0,
+      "welfare_sd": 4029.0,
+      "risk_mean": 0.142,
+      "risk_sd": 0.013,
+      "mean_churn_mod": 0.456
+    }
+  ],
+  "misspecification": {
+    "inverted_g": {
+      "welfare_mean": 13934.0,
+      "risk_mean": 0.145
+    }
+  },
+  "calibration_summary": {
+    "most_common_configs": {
+      "[('pL', 0.1), ('pMH', 0.4), ('pML', 0.2), ('phi', 0.05)]": 36,
+      "[('pL', 0.0), ('pMH', 0.4), ('pML', 0.05), ('phi', 0.3)]": 28,
+      "[('pL', 0.2), ('pMH', 0.8), ('pML', 0.5), ('phi', 0.4)]": 18
+    }
+  },
+  "paired_tests": {
+    "CATE Only vs Random": {
+      "mean_diff": 11234.91607099996,
+      "se_diff": 221.9975486713995,
+      "t_stat": 50.60828886732379,
+      "p_value": 1.350088254048973e-115,
+      "cohens_d": 3.5785464242332314,
+      "ci_95": [
+        10797.146552089545,
+        11672.685589910374
+      ],
+      "ratio_to_b": {
+        "ratio": 2.0810131464712818,
+        "ci95": [
+          1.954452072866915,
+          2.2075742200756485
+        ]
+      },
+      "p_holm": 6.750441270244865e-115
+    },
+    "CATE x LTV vs Random": {
+      "mean_diff": 11047.722647055723,
+      "se_diff": 228.65092546090577,
+      "t_stat": 48.316981988094504,
+      "p_value": 6.833976387605225e-112,
+      "cohens_d": 3.4165265610249897,
+      "ci_95": [
+        10596.832958243871,
+        11498.612335867576
+      ],
+      "ratio_to_b": {
+        "ratio": 2.0463398143609997,
+        "ci95": [
+          1.920980637368761,
+          2.1716989913532383
+        ]
+      },
+      "p_holm": 2.73359055504209e-111
+    },
+    "Full Framework (Cal.) vs CATE x LTV": {
+      "mean_diff": -880.5703475611977,
+      "se_diff": 170.4664029194134,
+      "t_stat": -5.165653363246482,
+      "p_value": 5.798331520673472e-07,
+      "cohens_d": -0.3652668522410683,
+      "ci_95": [
+        -1216.7226863731912,
+        -544.4180087492041
+      ],
+      "ratio_to_b": {
+        "ratio": -0.05354152066700731,
+        "ci95": [
+          -0.07409667473326405,
+          -0.03298636660075058
+        ]
+      },
+      "p_holm": 5.798331520673472e-07
+    },
+    "Full Framework (Cal.) vs CATE Only": {
+      "mean_diff": -1067.7637715054352,
+      "se_diff": 178.10574853731305,
+      "t_stat": -5.995111220577698,
+      "p_value": 9.41506038856988e-09,
+      "cohens_d": -0.4239183798038049,
+      "ci_95": [
+        -1418.9805679024469,
+        -716.5469751084236
+      ],
+      "ratio_to_b": {
+        "ratio": -0.06419284463817933,
+        "ci95": [
+          -0.08548648141735515,
+          -0.04289920785900351
+        ]
+      },
+      "p_holm": 1.883012077713976e-08
+    },
+    "Full Framework (Est.) vs CATE x LTV": {
+      "mean_diff": -2800.914462932645,
+      "se_diff": 62.15615986911076,
+      "t_stat": -45.062540363350095,
+      "p_value": 2.284155624869493e-106,
+      "cohens_d": -3.1864027868417364,
+      "ci_95": [
+        -2923.4837091520963,
+        -2678.345216713194
+      ],
+      "ratio_to_b": {
+        "ratio": -0.17030464405140064,
+        "ci95": [
+          -0.17802286611091722,
+          -0.16258642199188406
+        ]
+      },
+      "p_holm": 6.852466874608479e-106
+    },
+    "Oracle hindsight (theta0) vs CATE x LTV": {
+      "mean_diff": 20194.861450503293,
+      "se_diff": 218.91495470102458,
+      "t_stat": 92.24980302548867,
+      "p_value": 2.9230966128447586e-165,
+      "cohens_d": 6.523046128244632,
+      "ci_95": [
+        19763.17067294603,
+        20626.552228060555
+      ],
+      "ratio_to_b": {
+        "ratio": 1.2279127893803237,
+        "ci95": [
+          1.169606650869926,
+          1.2862189278907212
+        ]
+      },
+      "p_holm": 1.753857967706855e-164
+    }
+  },
+  "xlearner_results": {
+    "Random": {
+      "ate_mean": 1.1811111111111112,
+      "ate_sd": 2.1306163486624397,
+      "welfare_mean": 5398.772271117415,
+      "welfare_sd": 1362.0982532415796,
+      "risk_mean": 0.1659534341181747,
+      "risk_sd": 0.003067819565300392,
+      "mean_churn_mod": 0.5120683304900094,
+      "mean_ltv_cr": 697.1909368517584
+    },
+    "CATE Only": {
+      "ate_mean": 3.8283333333333336,
+      "ate_sd": 1.9757132462584637,
+      "welfare_mean": 20456.030256104343,
+      "welfare_sd": 3211.5676490815267,
+      "risk_mean": 0.14717847637394532,
+      "risk_sd": 0.013705310953137003,
+      "mean_churn_mod": 0.4703813149503749,
+      "mean_ltv_cr": 644.1576625695841
+    },
+    "CATE x LTV": {
+      "ate_mean": 3.505555555555556,
+      "ate_sd": 2.0872093108655827,
+      "welfare_mean": 20211.562758896438,
+      "welfare_sd": 3510.87077495213,
+      "risk_mean": 0.1284291769520652,
+      "risk_sd": 0.012771967027016065,
+      "mean_churn_mod": 0.4215140529944742,
+      "mean_ltv_cr": 758.1723425846468
+    },
+    "Full Framework (Est.)": {
+      "ate_mean": 3.21,
+      "ate_sd": 2.341409807857339,
+      "welfare_mean": 16774.298603170122,
+      "welfare_sd": 3566.7762052841663,
+      "risk_mean": 0.14175617054817796,
+      "risk_sd": 0.013355836562810332,
+      "mean_churn_mod": 0.4581065900212222,
+      "mean_ltv_cr": 718.2844189869992
+    },
+    "Full Framework (Cal.)": {
+      "ate_mean": 3.3227777777777785,
+      "ate_sd": 2.2453734719778415,
+      "welfare_mean": 18489.81885865599,
+      "welfare_sd": 4586.331257532754,
+      "risk_mean": 0.13678944253455533,
+      "risk_sd": 0.015854842207365417,
+      "mean_churn_mod": 0.4446069080693951,
+      "mean_ltv_cr": 733.5218670521833
+    },
+    "Full Framework (Cal., plug-in)": {
+      "ate_mean": 3.505555555555556,
+      "ate_sd": 2.0872093108655827,
+      "welfare_mean": 20211.562758896438,
+      "welfare_sd": 3510.87077495213,
+      "risk_mean": 0.1284291769520652,
+      "risk_sd": 0.012771967027016065,
+      "mean_churn_mod": 0.4215140529944742,
+      "mean_ltv_cr": 758.1723425846468
+    },
+    "Oracle hindsight (theta0)": {
+      "ate_mean": 6.66,
+      "ate_sd": 1.9585518388697416,
+      "welfare_mean": 36641.356368676425,
+      "welfare_sd": 705.446945922323,
+      "risk_mean": 0.19177773802953485,
+      "risk_sd": 0.0028956070520748884,
+      "mean_churn_mod": 0.5957801165461192,
+      "mean_ltv_cr": 590.5525453804607
+    },
+    "S-Learner": {
+      "ate_mean": 3.897222222222223,
+      "ate_sd": 1.9561841504060005,
+      "welfare_mean": 24273.042808142927,
+      "welfare_sd": 4162.877259657605,
+      "risk_mean": 0.11987172116979425,
+      "risk_sd": 0.017046524928680754,
+      "mean_churn_mod": 0.3993396468988998,
+      "mean_ltv_cr": 776.6499548569986
+    },
+    "Oracle hindsight (g=1)": {
+      "ate_mean": 6.795,
+      "ate_sd": 1.8340851714560173,
+      "welfare_mean": 44615.048070995326,
+      "welfare_sd": 807.1566034995177,
+      "risk_mean": 0.1377490517988903,
+      "risk_sd": 0.0024438365579394633,
+      "mean_churn_mod": 0.4507973296233026,
+      "mean_ltv_cr": 723.8373775889746
+    },
+    "Oracle feasible (g=1)": {
+      "ate_mean": 5.420555555555556,
+      "ate_sd": 1.8283862156578254,
+      "welfare_mean": 32796.69040333206,
+      "welfare_sd": 791.0043305988333,
+      "risk_mean": 0.12288887784896914,
+      "risk_sd": 0.0026277319622812225,
+      "mean_churn_mod": 0.4129225820758275,
+      "mean_ltv_cr": 660.0750110229462
+    },
+    "Oracle feasible (theta0)": {
+      "ate_mean": 5.5233333333333325,
+      "ate_sd": 1.9734131477161292,
+      "welfare_mean": 28178.122089467895,
+      "welfare_sd": 705.4717753508439,
+      "risk_mean": 0.17533843489755113,
+      "risk_sd": 0.003046087178948207,
+      "mean_churn_mod": 0.5522818676112463,
+      "mean_ltv_cr": 544.8148958253734
+    }
+  },
+  "xlearner_paired": {
+    "cal_vs_cate_only": {
+      "mean_diff": -1966.2113974483552,
+      "se_diff": 212.81500549188524,
+      "t_stat": -9.239063725341154,
+      "p_value": 3.8396670640297443e-17,
+      "cohens_d": -0.6533004612003376,
+      "ci_95": [
+        -2385.873340243051,
+        -1546.5494546536593
+      ]
+    },
+    "cal_vs_ltv": {
+      "mean_diff": -1721.7439002404478,
+      "se_diff": 187.88221092303186,
+      "t_stat": -9.16395379733838,
+      "p_value": 6.26996703553639e-17,
+      "cohens_d": -0.647989387257818,
+      "ci_95": [
+        -2092.2394556186086,
+        -1351.2483448622868
+      ]
+    }
+  },
+  "cate_misspec": {
+    "CATE Only": {
+      "welfare_mean": 6700.0,
+      "welfare_sd": 2061.0,
+      "ate_mean": 1.1
+    },
+    "CATE x LTV": {
+      "welfare_mean": 6987.0,
+      "welfare_sd": 2351.0,
+      "ate_mean": 1.4
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 3833.0,
+      "welfare_sd": 2372.0,
+      "ate_mean": 0.9
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 5751.0,
+      "welfare_sd": 4042.0,
+      "ate_mean": 1.2
+    }
+  },
+  "cate_misspec_paired": {
+    "cal_vs_cate": {
+      "mean_diff": -948.8337329444108,
+      "se_diff": 232.25753736054276,
+      "t_stat": -4.085265622495161,
+      "p_value": 6.379808692539925e-05,
+      "cohens_d": -0.28887190246146105,
+      "ci_95": [
+        -1406.8355036943292,
+        -490.8319621944924
+      ],
+      "p_holm": 6.379808692539925e-05
+    },
+    "cal_vs_ltv": {
+      "mean_diff": -1236.0422994898292,
+      "se_diff": 222.6071234952529,
+      "t_stat": -5.552572981862317,
+      "p_value": 8.931182971679041e-08,
+      "cohens_d": -0.39262620085080524,
+      "ci_95": [
+        -1675.0138734633515,
+        -797.070725516307
+      ],
+      "p_holm": 1.7862365943358082e-07
+    },
+    "tost_cal_vs_cate": {
+      "mean_diff": -948.8337329444108,
+      "margin": 334.988487677458,
+      "p_tost": 0.995563495585618,
+      "equivalent": false
+    }
+  },
+  "xlearner_misspec": {
+    "CATE Only": {
+      "welfare_mean": 7645.0,
+      "welfare_sd": 2522.0,
+      "ate_mean": 1.4
+    },
+    "CATE x LTV": {
+      "welfare_mean": 8201.0,
+      "welfare_sd": 2972.0,
+      "ate_mean": 1.7
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 4685.0,
+      "welfare_sd": 3123.0,
+      "ate_mean": 1.1
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 7430.0,
+      "welfare_sd": 4227.0,
+      "ate_mean": 1.6
+    }
+  },
+  "xlearner_misspec_paired": {
+    "cal_vs_cate": {
+      "mean_diff": -214.54853978976473,
+      "se_diff": 216.16490378303445,
+      "t_stat": -0.9925225419807645,
+      "p_value": 0.3221479865543877,
+      "cohens_d": -0.07018194199151084,
+      "ci_95": [
+        -640.8163364422701,
+        211.71925686274068
+      ]
+    }
+  },
+  "null_dgp": {
+    "CATE Only": {
+      "welfare_mean": 63098.0,
+      "welfare_sd": 5563.0
+    },
+    "CATE x LTV": {
+      "welfare_mean": 68254.0,
+      "welfare_sd": 6336.0
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 53893.0,
+      "welfare_sd": 6436.0
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 64462.0,
+      "welfare_sd": 9217.0
+    },
+    "paired_test_cal_vs_ltv": {
+      "mean_diff": -3793.0,
+      "t_stat": -7.76,
+      "p_value": 0.0
+    }
+  },
+  "correlated_dgp": {
+    "CATE Only": {
+      "welfare_mean": 16893.0,
+      "welfare_sd": 2905.0,
+      "ate_mean": 3.3
+    },
+    "CATE x LTV": {
+      "welfare_mean": 16215.0,
+      "welfare_sd": 3144.0,
+      "ate_mean": 3.0
+    },
+    "Full Framework (Est.)": {
+      "welfare_mean": 14171.0,
+      "welfare_sd": 3215.0,
+      "ate_mean": 2.7
+    },
+    "Full Framework (Cal.)": {
+      "welfare_mean": 15367.0,
+      "welfare_sd": 3839.0,
+      "ate_mean": 2.9
+    }
+  },
+  "correlated_dgp_paired": {
+    "cal_vs_cate": {
+      "mean_diff": -1526.4433395658066,
+      "se_diff": 147.5758812417629,
+      "t_stat": -10.343447226753433,
+      "p_value": 2.424779207831304e-20,
+      "cohens_d": -0.7313921674882543,
+      "ci_95": [
+        -1817.4565643542205,
+        -1235.4301147773926
+      ]
+    },
+    "cal_vs_ltv": {
+      "mean_diff": -848.3582820632822,
+      "se_diff": 134.0251995554053,
+      "t_stat": -6.32984158857809,
+      "p_value": 1.5954685313587456e-09,
+      "cohens_d": -0.4475873911120196,
+      "ci_95": [
+        -1112.650151421211,
+        -584.0664127053535
+      ]
+    }
+  },
+  "budget_sensitivity": {
+    "0.1": {
+      "Random": {
+        "welfare_mean": 1824.3250675675151,
+        "ate_mean": 1.46
+      },
+      "CATE Only": {
+        "welfare_mean": 4766.26930723513,
+        "ate_mean": 3.075
+      },
+      "CATE x LTV": {
+        "welfare_mean": 3284.0630886289046,
+        "ate_mean": 2.0083333333333333
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 2582.793531095118,
+        "ate_mean": 1.8216666666666668
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 3155.1456976651575,
+        "ate_mean": 2.1283333333333334
+      },
+      "Full Framework (Cal., plug-in)": {
+        "welfare_mean": 3284.0630886289046,
+        "ate_mean": 2.0083333333333333
+      },
+      "Oracle hindsight (theta0)": {
+        "welfare_mean": 16050.969946727724,
+        "ate_mean": 8.721666666666668
+      },
+      "S-Learner": {
+        "welfare_mean": 7585.400609341553,
+        "ate_mean": 3.353333333333333
+      },
+      "Oracle hindsight (g=1)": {
+        "welfare_mean": 21281.053418021686,
+        "ate_mean": 8.04
+      },
+      "Oracle feasible (g=1)": {
+        "welfare_mean": 13232.62138770639,
+        "ate_mean": 6.17
+      },
+      "Oracle feasible (theta0)": {
+        "welfare_mean": 10908.902957342822,
+        "ate_mean": 6.941666666666667
+      }
+    },
+    "0.2": {
+      "Random": {
+        "welfare_mean": 3687.851239080279,
+        "ate_mean": 1.1833333333333331
+      },
+      "CATE Only": {
+        "welfare_mean": 10750.151531474032,
+        "ate_mean": 3.3475
+      },
+      "CATE x LTV": {
+        "welfare_mean": 9907.669210970762,
+        "ate_mean": 2.77
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 7996.567802198376,
+        "ate_mean": 2.5691666666666664
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 9363.014863221442,
+        "ate_mean": 2.7975
+      },
+      "Full Framework (Cal., plug-in)": {
+        "welfare_mean": 9907.669210970762,
+        "ate_mean": 2.77
+      },
+      "Oracle hindsight (theta0)": {
+        "welfare_mean": 27467.750884161767,
+        "ate_mean": 7.586666666666668
+      },
+      "S-Learner": {
+        "welfare_mean": 16285.818767839908,
+        "ate_mean": 3.705
+      },
+      "Oracle hindsight (g=1)": {
+        "welfare_mean": 34764.8111271337,
+        "ate_mean": 7.405
+      },
+      "Oracle feasible (g=1)": {
+        "welfare_mean": 23863.651584432395,
+        "ate_mean": 5.939166666666668
+      },
+      "Oracle feasible (theta0)": {
+        "welfare_mean": 20284.496094978695,
+        "ate_mean": 6.033333333333334
+      }
+    },
+    "0.3": {
+      "Random": {
+        "welfare_mean": 5398.772271117415,
+        "ate_mean": 1.1811111111111112
+      },
+      "CATE Only": {
+        "welfare_mean": 16633.688342117373,
+        "ate_mean": 3.2616666666666663
+      },
+      "CATE x LTV": {
+        "welfare_mean": 16446.494918173135,
+        "ate_mean": 3.0588888888888888
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 13645.580455240492,
+        "ate_mean": 2.7427777777777775
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 15565.924570611936,
+        "ate_mean": 2.9672222222222215
+      },
+      "Full Framework (Cal., plug-in)": {
+        "welfare_mean": 16446.494918173135,
+        "ate_mean": 3.0588888888888888
+      },
+      "Oracle hindsight (theta0)": {
+        "welfare_mean": 36641.356368676425,
+        "ate_mean": 6.66
+      },
+      "S-Learner": {
+        "welfare_mean": 24273.042808142927,
+        "ate_mean": 3.897222222222223
+      },
+      "Oracle hindsight (g=1)": {
+        "welfare_mean": 44615.048070995326,
+        "ate_mean": 6.795
+      },
+      "Oracle feasible (g=1)": {
+        "welfare_mean": 32796.69040333206,
+        "ate_mean": 5.420555555555556
+      },
+      "Oracle feasible (theta0)": {
+        "welfare_mean": 28178.122089467895,
+        "ate_mean": 5.5233333333333325
+      }
+    },
+    "0.5": {
+      "Random": {
+        "welfare_mean": 8782.080216194912,
+        "ate_mean": 1.024
+      },
+      "CATE Only": {
+        "welfare_mean": 26739.89725462439,
+        "ate_mean": 2.9516666666666667
+      },
+      "CATE x LTV": {
+        "welfare_mean": 26934.532966252285,
+        "ate_mean": 2.975
+      },
+      "Full Framework (Est.)": {
+        "welfare_mean": 25158.481849198597,
+        "ate_mean": 2.8310000000000004
+      },
+      "Full Framework (Cal.)": {
+        "welfare_mean": 24987.441261457167,
+        "ate_mean": 2.878333333333334
+      },
+      "Full Framework (Cal., plug-in)": {
+        "welfare_mean": 26934.532966252285,
+        "ate_mean": 2.975
+      },
+      "Oracle hindsight (theta0)": {
+        "welfare_mean": 49680.825271123016,
+        "ate_mean": 5.154666666666667
+      },
+      "S-Learner": {
+        "welfare_mean": 36023.096694231266,
+        "ate_mean": 3.7569999999999997
+      },
+      "Oracle hindsight (g=1)": {
+        "welfare_mean": 56145.337838389125,
+        "ate_mean": 5.482
+      },
+      "Oracle feasible (g=1)": {
+        "welfare_mean": 46045.52461760668,
+        "ate_mean": 4.646333333333334
+      },
+      "Oracle feasible (theta0)": {
+        "welfare_mean": 40756.70129454517,
+        "ate_mean": 4.4719999999999995
+      }
+    }
+  },
+  "oracle_main": {
+    "n_runs": 200,
+    "n_players": 10000,
+    "kappa": 0.3,
+    "n_mc": 400,
+    "strategies": {
+      "Oracle hindsight (g=1)": {
+        "welfare_mean": 44615.048070995326,
+        "welfare_sd": 807.1566034995177,
+        "ate_mean_pp": 6.795,
+        "ate_sd_pp": 1.8340851714560173,
+        "risk_mean": 0.1377490517988903,
+        "churn_mod_mean": 0.4507973296233026
+      },
+      "Oracle feasible (g=1)": {
+        "welfare_mean": 32796.69040333206,
+        "welfare_sd": 791.0043305988333,
+        "ate_mean_pp": 5.420555555555556,
+        "ate_sd_pp": 1.8283862156578254,
+        "risk_mean": 0.12288887784896914,
+        "churn_mod_mean": 0.4129225820758275
+      },
+      "Oracle feasible (theta0)": {
+        "welfare_mean": 28178.122089467895,
+        "welfare_sd": 705.4717753508439,
+        "ate_mean_pp": 5.5233333333333325,
+        "ate_sd_pp": 1.9734131477161292,
+        "risk_mean": 0.17533843489755113,
+        "churn_mod_mean": 0.5522818676112463
+      }
+    }
+  },
+  "oracle_budget": {
+    "n_runs": 200,
+    "n_players": 10000,
+    "n_mc": 400,
+    "strategies": {
+      "Oracle hindsight (g=1)": {
+        "0.1": {
+          "welfare_mean": 21281.053418021686,
+          "welfare_sd": 454.456823955685
+        },
+        "0.2": {
+          "welfare_mean": 34764.8111271337,
+          "welfare_sd": 650.0526182180406
+        },
+        "0.3": {
+          "welfare_mean": 44615.048070995326,
+          "welfare_sd": 807.1566034995177
+        },
+        "0.5": {
+          "welfare_mean": 56145.337838389125,
+          "welfare_sd": 1084.62350310808
+        }
+      },
+      "Oracle feasible (g=1)": {
+        "0.1": {
+          "welfare_mean": 13232.62138770639,
+          "welfare_sd": 456.9655155521928
+        },
+        "0.2": {
+          "welfare_mean": 23863.651584432395,
+          "welfare_sd": 677.0748982269168
+        },
+        "0.3": {
+          "welfare_mean": 32796.69040333206,
+          "welfare_sd": 791.0043305988333
+        },
+        "0.5": {
+          "welfare_mean": 46045.52461760668,
+          "welfare_sd": 993.581523910281
+        }
+      },
+      "Oracle feasible (theta0)": {
+        "0.1": {
+          "welfare_mean": 10908.902957342822,
+          "welfare_sd": 367.92277684399
+        },
+        "0.2": {
+          "welfare_mean": 20284.496094978695,
+          "welfare_sd": 543.1010151521697
+        },
+        "0.3": {
+          "welfare_mean": 28178.122089467895,
+          "welfare_sd": 705.4717753508439
+        },
+        "0.5": {
+          "welfare_mean": 40756.70129454517,
+          "welfare_sd": 951.0271864168749
+        }
+      }
+    }
+  },
+  "budget_paired_tests": {
+    "0.1": {
+      "cal_vs_ltv": {
+        "mean_diff": -128.91739096374698,
+        "se_diff": 87.63649772338489,
+        "t_stat": -1.4710468162552635,
+        "p_value": 0.1428579490123178,
+        "cohens_d": -0.10401871792169778,
+        "ci_95": [
+          -301.7327561646797,
+          43.897974237185764
+        ],
+        "p_holm": 0.1428579490123178
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": -1611.1236095699728,
+        "se_diff": 109.40314023644083,
+        "t_stat": -14.726484140108143,
+        "p_value": 1.099148307799755e-33,
+        "cohens_d": -1.041319679850661,
+        "ci_95": [
+          -1826.8618479209147,
+          -1395.385371219031
+        ],
+        "p_holm": 2.19829661559951e-33
+      }
+    },
+    "0.2": {
+      "cal_vs_ltv": {
+        "mean_diff": -544.6543477493199,
+        "se_diff": 148.42220565672048,
+        "t_stat": -3.669628445011982,
+        "p_value": 0.00031189116580749714,
+        "cohens_d": -0.25948191579030183,
+        "ci_95": [
+          -837.3364875063694,
+          -251.97220799227028
+        ],
+        "p_holm": 0.00031189116580749714
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": -1387.13666825259,
+        "se_diff": 161.43110891488118,
+        "t_stat": -8.59274694683535,
+        "p_value": 2.4769637529072755e-15,
+        "cohens_d": -0.6075989635127277,
+        "ci_95": [
+          -1705.4717999231075,
+          -1068.8015365820725
+        ],
+        "p_holm": 4.953927505814551e-15
+      }
+    },
+    "0.3": {
+      "cal_vs_ltv": {
+        "mean_diff": -880.5703475611977,
+        "se_diff": 170.4664029194134,
+        "t_stat": -5.165653363246482,
+        "p_value": 5.798331520673472e-07,
+        "cohens_d": -0.3652668522410683,
+        "ci_95": [
+          -1216.7226863731912,
+          -544.4180087492041
+        ],
+        "p_holm": 5.798331520673472e-07
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": -1067.7637715054352,
+        "se_diff": 178.10574853731305,
+        "t_stat": -5.995111220577698,
+        "p_value": 9.41506038856988e-09,
+        "cohens_d": -0.4239183798038049,
+        "ci_95": [
+          -1418.9805679024469,
+          -716.5469751084236
+        ],
+        "p_holm": 1.883012077713976e-08
+      }
+    },
+    "0.5": {
+      "cal_vs_ltv": {
+        "mean_diff": -1947.0917047951207,
+        "se_diff": 168.0528769818562,
+        "t_stat": -11.586184894682512,
+        "p_value": 4.6542286259943825e-24,
+        "cohens_d": -0.819266990711115,
+        "ci_95": [
+          -2278.484675339827,
+          -1615.6987342504144
+        ],
+        "p_holm": 9.308457251988765e-24
+      },
+      "cal_vs_cate_only": {
+        "mean_diff": -1752.4559931672195,
+        "se_diff": 165.5436171287678,
+        "t_stat": -10.58606803187147,
+        "p_value": 4.6464023569446835e-21,
+        "cohens_d": -0.7485480491438447,
+        "ci_95": [
+          -2078.9008123234,
+          -1426.0111740110392
+        ],
+        "p_holm": 4.6464023569446835e-21
+      }
+    }
+  },
+  "dgp": {
+    "features": {
+      "account_age": "N(24, 8), clipped [1, 60]",
+      "weekly_spend": "exp(N(3.5, 0.8)), clipped [5, 500]",
+      "login_freq": "Poisson(4), clipped [1, 15]",
+      "bonus_history": "N(3, 1.5), clipped [0, 10]"
+    },
+    "standardisation": "Population parameters (fixed across replications)",
+    "churn": "logit = -1.0 + 0.04*(30-age) - 0.25*login + 0.01*(40-spend) + 0.1*z_bonus + N(0,0.4); sigmoid, clip [0.01, 0.99]",
+    "ltv": "10*spend + 40*login + 5*age + N(0,80), clip [50, 8000]",
+    "ltv_proxy": "12*spend^0.9 + 35*login + N(0,200) -- misspecified form for estimation",
+    "cate": "tau_base = 0.06 + 0.10*z_login - 0.02*z_login^2 - 0.04*z_spend; churn_mod = 4*p*(1-p); tau = tau_base * churn_mod + N(0,0.03), clip [-0.20, 0.40]",
+    "baseline": "0.6 + 0.15*z_login + 0.05*z_spend - 0.08*z_age + N(0,0.05), clip [0.05, 0.95]",
+    "treatment": "Bernoulli(0.5)",
+    "note": "The CATE-churn moderation (4*p*(1-p)) creates an inverse-U relationship: treatment effects peak at moderate churn (p=0.5) and are attenuated at extremes."
+  },
+  "design": {
+    "n_players": 10000,
+    "n_runs": 200,
+    "default_budget": 0.3,
+    "treatment_prob": 0.5,
+    "budget_sensitivity_runs": 200,
+    "calibration_grid_size": 22,
+    "cate_estimators": [
+      "T-Learner",
+      "X-Learner"
+    ],
+    "corrections": [
+      "Holm-Bonferroni",
+      "TOST (equivalence)"
+    ]
+  }
+}
