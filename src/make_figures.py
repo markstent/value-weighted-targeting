@@ -22,6 +22,10 @@ import numpy as np  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
+# Figures are drawn at the width they are printed (the elsarticle preprint text block is 16 cm),
+# so the 9-10 pt fonts below appear at roughly the size of the caption text.  Titles are left to
+# the LaTeX captions.
+TEXT_WIDTH_IN = 16.0 / 2.54
 OUTDIR = REPO / "outputs"
 FIGDIR = REPO / "paper" / "figures"
 SMOKE_FIGDIR = OUTDIR / "figures_smoke"
@@ -37,10 +41,11 @@ def _style() -> None:
             "font.family": "serif",
             "font.size": 10,
             "axes.labelsize": 10,
-            "axes.titlesize": 11,
+            "axes.titlesize": 10,
             "xtick.labelsize": 9,
             "ytick.labelsize": 9,
             "legend.fontsize": 9,
+            "mathtext.fontset": "cm",
             "axes.spines.top": False,
             "axes.spines.right": False,
             "axes.grid": True,
@@ -70,7 +75,7 @@ def fig_g_function(figdir: Path = FIGDIR) -> Path:
     p = np.linspace(0, 1, 1000)
     g = g_piecewise(p, theta)
 
-    fig, ax = plt.subplots(figsize=(6.0, 3.2))
+    fig, ax = plt.subplots(figsize=(0.8 * TEXT_WIDTH_IN, 2.9))
     ax.plot(p, g, color="#1f3b5c", linewidth=1.8)
     ax.fill_between(p, 0, g, color="#1f3b5c", alpha=0.08)
 
@@ -87,7 +92,7 @@ def fig_g_function(figdir: Path = FIGDIR) -> Path:
         )
 
     ax.axhline(phi, color="#b34", linestyle="--", linewidth=0.7, alpha=0.7)
-    ax.annotate(r"$g_{\min}$", xy=(1.01, phi), ha="left", va="center", fontsize=9, color="#b34")
+    ax.annotate(r"$g_{\min}$", xy=(0.99, phi + 0.03), ha="right", va="bottom", fontsize=9, color="#b34")
 
     ax.set_xlim(0, 1)
     ax.set_ylim(-0.05, 1.1)
@@ -97,7 +102,6 @@ def fig_g_function(figdir: Path = FIGDIR) -> Path:
     ax.set_xticks([0.0, 0.2, 0.8, 1.0])
     ax.set_xlabel("churn probability $p$")
     ax.set_ylabel(r"risk-modulation weight $g(p;\theta)$")
-    ax.set_title(r"Piecewise linear $g$ with default $\theta=(0.05,0.40,0.60,0.90,0.20)$", pad=10)
 
     regimes = [
         (0.0, p_L, "excluded"),
@@ -127,7 +131,7 @@ def fig_frontier(data: dict, figdir: Path = FIGDIR) -> Path:
         "Calibrated": "Calibrated",
     }
 
-    fig, ax = plt.subplots(figsize=(6.0, 3.6))
+    fig, ax = plt.subplots(figsize=(0.8 * TEXT_WIDTH_IN, 3.0))
 
     seen = set()
     for e in entries:
@@ -157,9 +161,10 @@ def fig_frontier(data: dict, figdir: Path = FIGDIR) -> Path:
             color="#222",
         )
 
-    ax.set_xlabel("risk exposure $\\rho(\\pi)$ (mean churn among treated)")
-    ax.set_ylabel(r"welfare $W(\pi;\mathbf{1})$")
-    ax.set_title("Observation 1: each non-trivial $g$ costs welfare", pad=10)
+    ax.set_xlabel("risk exposure (mean churn probability among treated)")
+    ax.set_ylabel(r"welfare $\mathcal{W}(\pi;\mathbf{1})$")
+    ax.margins(x=0.08, y=0.1)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
 
     fig.tight_layout()
     out = figdir / "fig_frontier.pdf"
@@ -185,9 +190,9 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
         "Random": "Random",
         "CATE Only": "CATE only",
         "CATE x LTV": r"CATE $\times$ LTV",
-        "Full Framework (Est.)": "Full (default $g$)",
-        "Full Framework (Cal.)": r"Full (calibrated $g$, AIPW)",
-        "S-Learner": "S-Learner",
+        "Full Framework (Est.)": "Full framework (est.)",
+        "Full Framework (Cal.)": "Full framework (cal., AIPW)",
+        "S-Learner": "S-learner",
         "Oracle feasible (g=1)": r"Feasible oracle ($g\equiv 1$)",
         "Oracle hindsight (g=1)": r"Hindsight oracle ($g\equiv 1$)",
         "Oracle feasible (theta0)": r"Feasible oracle ($\theta_0$)",
@@ -198,7 +203,7 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
     sds = [data["main_results"][k]["welfare_sd"] for k in order]
     labels = [display[k] for k in order]
 
-    fig, ax = plt.subplots(figsize=(6.4, 3.6))
+    fig, ax = plt.subplots(figsize=(0.9 * TEXT_WIDTH_IN, 3.4))
     y = np.arange(len(order))
     colors = []
     for k in order:
@@ -224,8 +229,8 @@ def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
     ax.invert_yaxis()
-    ax.set_xlabel(r"welfare $W(\pi;\mathbf{1})$ (mean $\pm$ SD across replications)")
-    ax.set_title(r"Welfare by strategy ($\kappa=0.30$)", pad=10)
+    ax.set_xlabel(r"welfare $\mathcal{W}(\pi;\mathbf{1})$ (mean $\pm$ SD across replications)")
+    ax.grid(axis="y", visible=False)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
 
     # Place each value label past the end of its error bar (w + sd), not just
@@ -265,7 +270,7 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
         "soft gate": ("#b34", "s", "soft weight"),
         "hard cap": ("#2a7a2a", "^", "hard cap"),
     }
-    fig, axes = plt.subplots(1, len(sigmas), figsize=(3.0 * len(sigmas) + 0.6, 3.6), sharey=True, squeeze=False)
+    fig, axes = plt.subplots(1, len(sigmas), figsize=(TEXT_WIDTH_IN, 3.0), sharey=True, squeeze=False)
     for ax, sigma in zip(axes[0], sigmas):
         for rule, (color, marker, _) in styles.items():
             for oracle in (False, True):
@@ -294,8 +299,9 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
                     zorder=3,
                 )
         ax.set_title(rf"$\sigma_h={sigma:g}$" + (" (oracle harm)" if sigma == 0 else ""))
-        ax.set_xlabel("harm exposure among treated")
-    axes[0][0].set_ylabel(r"welfare $W(\pi;\mathbf{1})$")
+        ax.margins(x=0.12)
+    axes[0][len(sigmas) // 2].set_xlabel("harm exposure among treated")
+    axes[0][0].set_ylabel(r"welfare $\mathcal{W}(\pi;\mathbf{1})$")
     axes[0][0].yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
     handles = [
         plt.Line2D([], [], marker=m, color=col, linestyle="", markersize=7, label=lab)
@@ -317,9 +323,10 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
             label=r"oracle $\tau,V$ (feasible)",
         ),
     ]
-    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, fontsize=8)
-    fig.suptitle(rf"Welfare vs harm exposure ($\kappa={HARM_KAPPA:.2f}$, $c_{{harm}}={HARM_C:g}$)")
-    fig.tight_layout(rect=(0, 0.14, 1, 1))
+    fig.legend(
+        handles=handles, loc="lower center", ncol=5, frameon=False, fontsize=9, handletextpad=0.3, columnspacing=1.2
+    )
+    fig.tight_layout(rect=(0, 0.09, 1, 1))
     out = figdir / "fig_harm_frontier.pdf"
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)

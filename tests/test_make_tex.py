@@ -127,6 +127,11 @@ def test_kappa_star_censoring():
 # ---- generated files
 
 
+def _data_rows(text):
+    """Table-body lines that are data rows: no header, comments, rules, spacing or panel headings."""
+    return [ln for ln in text.splitlines()[1:] if ln and not ln.startswith(("%",) + mt.STRUCTURAL_PREFIXES)]
+
+
 def test_generated_files_contract():
     files = mt.build(smoke_data())
     assert set(files) == set(mt.generated_names())
@@ -136,7 +141,7 @@ def test_generated_files_contract():
     for name, text in files.items():
         if name.startswith("tab_"):
             assert "begin{table" not in text and "begin{tabular" not in text, name
-            rows = [ln for ln in text.splitlines()[1:] if ln != r"\midrule" and not ln.startswith("%")]
+            rows = [ln for ln in _data_rows(text)]
             assert rows and all(ln.endswith(r"\\") for ln in rows), name
             assert len({ln.count("&") for ln in rows}) == 1, f"{name}: ragged rows"
             assert not re.search(r"\bnan\b|None", text), name
@@ -277,8 +282,9 @@ def test_robustness_and_harm_table_content():
     assert "pp" in files["tab_robustness.tex"].splitlines()[-1]  # obs_diagnostic unit
     assert "obs_diagnostic/None" not in files["numbers.tex"]
     assert "sigma_h by construction" in files["tab_harm.tex"]
-    rows = [r for r in files["tab_harm.tex"].splitlines() if r and not r.startswith("%")]
-    assert len(rows) == 15 and rows[0].count("&") == 7  # 2 keys + 6 exposure columns
+    rows = _data_rows(files["tab_harm.tex"])
+    assert len(rows) == 30 and rows[0].count("&") == 4  # 2 keys + 3 rules, panel A then panel B
+    assert files["tab_harm.tex"].count("Panel ") == 2
     cal = files["tab_calibration.tex"]
     assert "degenerate" in cal and cal.count("--") >= 2
 
@@ -455,7 +461,8 @@ def test_g7_g10_g14_macros_equal_json_values():
         assert items[n + "HolmP"][0] == mt.fmt_p(e["p_holm"]) and items[n + "D"][0] == mt.fmt_d(e["cohens_d"])
     # G10: the tuned-T arm macros and the tuned table column
     files = mt.build(data)
-    rows = files["tab_robustness.tex"].splitlines()[1:]
+    rows = _data_rows(files["tab_robustness.tex"])
+    assert len(rows) == len(mt.ROBUSTNESS_ROWS)
     for i, (section, cell, label, comp_key) in enumerate(mt.ROBUSTNESS_ROWS):
         tc = mt.tuned_comparison(rob, section, cell, comp_key)
         if tc is None:
@@ -464,7 +471,7 @@ def test_g7_g10_g14_macros_equal_json_values():
         n = f"numRobustnessDiffTuned{mt.SCENARIO_TAG[(section, cell)]}"
         assert items[n][0] == mt.fmt_signed(tc["mean_diff"], mt.fmt_welfare)
         assert items[n + "HolmP"][0] == mt.fmt_p(tc["p_holm"])
-        cell_text = mt.fmt_signed(tc["mean_diff"], mt.fmt_welfare) + " " + mt.fmt_ci(*tc["ci_95"], mt.fmt_welfare)
+        cell_text = mt.stacked(mt.fmt_signed(tc["mean_diff"], mt.fmt_welfare), mt.fmt_ci(*tc["ci_95"], mt.fmt_welfare))
         assert mt.tex(cell_text) in rows[i]
     # G14: CATE-share levels
     d = rob["obs_diagnostic"]["cells"]["wellspec"]["diagnostic"]["tuned"]["Oracle feasible"]
@@ -495,10 +502,13 @@ def test_tab_frontier_and_tuned_robustness_column():
     rows = [r for r in files["tab_frontier.tex"].splitlines()[1:] if r != r"\midrule"]
     assert len(rows) == len(data["main"]["frontier"]) + 1 and rows[-1].startswith(r"Inverted $g$")
     assert all(r.count("&") == 2 for r in rows)
-    rob = [r for r in files["tab_robustness.tex"].splitlines()[1:]]
-    assert all(r.count("&") == 8 for r in rob)  # 7 base + tuned diff/CI + tuned Holm p
-    assert rob[0].count("--") == 0 and "Main DGP" in rob[0]  # tuned arm exists for the main DGP
+    rob = _data_rows(files["tab_robustness.tex"])
+    assert all(r.count("&") == 6 for r in rob)  # label, diff/CI, d, Holm p, family, tuned diff/CI, tuned p
+    assert rob[0].count("--") == 0 and "Main design" in rob[0]  # tuned arm exists for the main design
     assert rob[-1].count("--") >= 2  # obs_diagnostic has no tuned arm
+    body = files["tab_robustness.tex"]
+    assert body.count("Panel A") == 1 and body.count("Panel B") == 1
+    assert body.index("Panel B") > body.index(rob[sum(c == mt.HEADLINE_KEY for *_, c in mt.ROBUSTNESS_ROWS) - 1])
 
 
 def test_tuning_macros_match_frozen_file_and_learners_meta():
@@ -578,26 +588,27 @@ def test_load_honours_outdir_for_non_full_tuned_params(tmp_path):
 def test_harm_kten_and_budget_tables():
     data = smoke_data()
     harm, files = data["harm_sweep"], mt.build(data)
-    rows = [r for r in files["tab_harm_kten.tex"].splitlines() if r and not r.startswith("%")]
-    assert len(rows) == 15 and rows[0].count("&") == 7
+    rows = _data_rows(files["tab_harm_kten.tex"])
+    assert len(rows) == 30 and rows[0].count("&") == 4
     em = mt.harm_cell(harm, 1.0, 0.0, 0.1, "tauV")["exposure_minus_pop"]
     assert mt.tex(mt.gap_text(em)) in files["tab_harm_kten.tex"]
     assert files["tab_harm_kten.tex"] != files["tab_harm.tex"]
-    body = [r for r in files["tab_harm_budget.tex"].splitlines() if r and not r.startswith("%")]
+    text = files["tab_harm_budget.tex"]
     dgps = harm["_meta"]["dgps"]
-    data_rows = [r for r in body if r != r"\midrule"]
-    assert len(data_rows) == len(mt.HARM_BUDGET_RULES) * len(dgps)
-    assert body.count(r"\midrule") == len(dgps) - 1
-    assert all(r.count("&") == 5 for r in data_rows)
-    # columns: estimated 0.10, 0.30, then feasible-oracle 0.10, 0.30
-    first = data_rows[0].rstrip(" \\").split(" & ")
-    assert first[0] == mt.DGP_LABEL[dgps[0]] and "Harm-blind" in first[1]
-    expect = [
-        mt.tex(mt.gap_text(mt.harm_cell(harm, 1.0, 0.0, k, "tauV" + sfx, dgps[0])["exposure_minus_pop"]))
-        for sfx in ("", mt.HARM_SUFFIX)
-        for k in (0.1, 0.3)
-    ]
-    assert first[2:] == expect
+    data_rows = _data_rows(text)
+    n_panel = len(mt.HARM_BUDGET_RULES) * len(dgps)
+    assert len(data_rows) == 2 * n_panel  # panel A estimated, panel B feasible-oracle components
+    assert text.count("Panel ") == 2
+    assert all(r.count("&") == 3 for r in data_rows)
+    # columns: kappa 0.10, 0.30; panel A estimated, panel B feasible-oracle
+    for i, sfx in ((0, ""), (n_panel, mt.HARM_SUFFIX)):
+        first = data_rows[i].rstrip(" \\").split(" & ")
+        assert first[0] == mt.DGP_LABEL[dgps[0]] and "Harm-blind" in first[1]
+        expect = [
+            mt.tex(mt.gap_text(mt.harm_cell(harm, 1.0, 0.0, k, "tauV" + sfx, dgps[0])["exposure_minus_pop"]))
+            for k in (0.1, 0.3)
+        ]
+        assert first[2:] == expect
     last = data_rows[-1].rstrip(" \\").split(" & ")
     assert last[0] == mt.DGP_LABEL[dgps[-1]] and last[1] == "CATE only"
 

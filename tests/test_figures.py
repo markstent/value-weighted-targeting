@@ -135,7 +135,7 @@ def test_welfare_bars_label_calibrated_and_pair_oracles():
     import inspect
 
     src = inspect.getsource(mf.fig_welfare_bars)
-    assert r"Full (calibrated $g$, AIPW)" in src
+    assert '"Full framework (cal., AIPW)"' in src
     order = src.split("order = [")[1].split("]")[0]
     for pair in ("g=1", "theta0"):  # feasible immediately before hindsight, per pair
         assert order.index(f"Oracle feasible ({pair})") < order.index(f"Oracle hindsight ({pair})")
@@ -151,9 +151,11 @@ def test_harm_frontier_welfare_axis_has_thousands_separators(tmp_path, harm_json
     assert fmt(12345.0, 0) == "12,345"
 
 
-def test_frontier_title_refers_to_observation_1(tmp_path, monkeypatch):
+def test_frontier_has_no_title_and_no_undefined_notation(tmp_path, monkeypatch):
     seen = {}
     real = matplotlib.pyplot.close
     monkeypatch.setattr(matplotlib.pyplot, "close", lambda f: seen.setdefault("fig", f) and real(f))
     mf.fig_frontier({"frontier": [{"config": "Calibrated", "risk_mean": 0.45, "welfare_mean": 1500.0}]}, tmp_path)
-    assert "Observation 1" in seen["fig"].axes[0].get_title()
+    ax = seen["fig"].axes[0]
+    assert ax.get_title() == ""  # the LaTeX caption carries the message
+    assert "rho" not in ax.get_xlabel()

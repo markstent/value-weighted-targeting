@@ -244,12 +244,12 @@ BUDGET_RULES = ("CATE Only", "CATE x LTV", "Full Framework (Cal.)")
 LEARNERS = ("T", "X", "S", "DR")
 VMODELS = ("misspec", "wellspec", "tau")
 VMODEL_LABEL = {
-    "misspec": "misspecified V",
-    "wellspec": "well-specified V",
+    "misspec": "proxy",
+    "wellspec": "well-specified",
     "tau": r"none (CATE only)",
-    "oracle": "oracle (feasible) V",
+    "oracle": "feasible oracle",
 }
-TAU_LABEL = {"oracle": "oracle (feasible)", "T": "T", "X": "X", "S": "S"}
+TAU_LABEL = {"oracle": "feasible oracle", "T": "T-learner", "X": "X-learner", "S": "S-learner"}
 DEFAULT_KAPPA = 0.3
 
 
@@ -259,6 +259,22 @@ def key_str(k):
 
 def row(cells):
     return " & ".join(tex(c) for c in cells) + r" \\"
+
+
+# Lines in a table body that are layout rather than data rows: rules, vertical space and panel
+# headings.  Data rows all have the same number of cells; these lines are exempt.
+STRUCTURAL_PREFIXES = (r"\midrule", r"\addlinespace", r"\multicolumn")
+
+
+def panel(title, ncols):
+    """A full-width italic panel heading row."""
+    return rf"\multicolumn{{{ncols}}}{{@{{}}l}}{{\textit{{{title}}}}} \\"
+
+
+def stacked(top, bottom):
+    """Two right-aligned lines in one cell (an estimate above its confidence interval).  The second
+    line is braced so that a leading [ is not read as the optional argument of \\\\."""
+    return rf"\makecell[r]{{{top}\\{{{bottom}}}}}"
 
 
 def table(rows):
@@ -344,7 +360,7 @@ def table_budget(main):
     rows = []
     for k in BUDGET_KAPPAS:
         tests = main["budget_paired_tests"][key_str(k)]
-        cells = [fmt_kappa(k)]
+        cells = [fmt_fixed(k, 2)]
         cells += [fmt_welfare(budget_welfare(main, nm, k)) for nm in (*BUDGET_RULES, "Oracle feasible (g=1)")]
         cells += [fmt_p(tests["cal_vs_cate_only"]["p_holm"]), fmt_p(tests["cal_vs_ltv"]["p_holm"])]
         rows.append(row(cells))
@@ -389,17 +405,26 @@ def gap_text(em):
     return fmt_signed(em["mean"], fmt_harm) + " " + fmt_ci(*em["ci95"], fmt_harm)
 
 
+HARM_PANELS = (("", "Panel A: estimated components"), (HARM_SUFFIX, "Panel B: feasible-oracle components"))
+
+
 def table_harm(harm, kappa=DEFAULT_KAPPA):
-    """Exposure minus population mean harm (95% CI) at one budget, by rule and tau,V source."""
+    """Exposure minus population mean harm (95% CI) at one budget: panel A with estimated and
+    panel B with feasible-oracle tau,V; columns c_harm, sigma_h, then the three rules."""
     meta = harm["_meta"]
     rows = [HARM_EXPOSURE_NOTE]
-    for c in meta["c_harm"]:
-        for s in meta["sigma_h"]:
-            cells = [fmt_fixed(c, 1), fmt_fixed(s, 1)]
-            for suffix in ("", HARM_SUFFIX):
+    for i, (suffix, title) in enumerate(HARM_PANELS):
+        if i:
+            rows.append(r"\midrule")
+        rows.append(panel(title, 2 + len(HARM_RULES)))
+        for j, c in enumerate(meta["c_harm"]):
+            if j:
+                rows.append(r"\addlinespace[2pt]")
+            for s in meta["sigma_h"]:
+                cells = [fmt_fixed(c, 1), fmt_fixed(s, 1)]
                 for rule in HARM_RULES:
                     cells.append(gap_text(harm_cell(harm, c, s, kappa, rule + suffix)["exposure_minus_pop"]))
-            rows.append(row(cells))
+                rows.append(row(cells))
     return table(rows)
 
 
@@ -418,18 +443,21 @@ def table_harm_budget(harm):
     feasible-oracle components.  Shows the budget dependence of the gap and the two cases in
     which a rule's gap is negative although harm rises with value."""
     rows = [
-        "% NOTE: c_harm=1, sigma_h=0; columns: estimated kappa=0.10, 0.30, then feasible-oracle "
+        "% NOTE: c_harm=1, sigma_h=0; panel A estimated, panel B feasible-oracle components; columns "
         "kappa=0.10, 0.30; cell = treated mean true harm minus population mean harm of the design."
     ]
-    for i, dgp in enumerate(harm["_meta"]["dgps"]):
+    for i, (suffix, title) in enumerate(HARM_PANELS):
         if i:
             rows.append(r"\midrule")
-        for rule, label in HARM_BUDGET_RULES:
-            cells = [DGP_LABEL[dgp], label]
-            for suffix in ("", HARM_SUFFIX):
+        rows.append(panel(title, 2 + len(HARM_BUDGET_KAPPAS)))
+        for j, dgp in enumerate(harm["_meta"]["dgps"]):
+            if j:
+                rows.append(r"\addlinespace[3pt]")
+            for rule, label in HARM_BUDGET_RULES:
+                cells = [DGP_LABEL[dgp], label]
                 for k in HARM_BUDGET_KAPPAS:
                     cells.append(gap_text(harm_cell(harm, 1.0, 0.0, k, rule + suffix, dgp)["exposure_minus_pop"]))
-            rows.append(row(cells))
+                rows.append(row(cells))
     return table(rows)
 
 
@@ -501,7 +529,9 @@ def table_learners(learners):
     kappas = learners["kappas"]
     split = learners["regret_split_kappa_0.30"]
     rows = []
-    for combo in learner_combos(learners):
+    for n, combo in enumerate(learner_combos(learners)):
+        if n and n % len(VMODELS) == 0:
+            rows.append(r"\addlinespace[3pt]")
         lr_tn, vm = combo.split("|")
         cells = [lr_tn.replace(" (", " ").rstrip(")"), VMODEL_LABEL[vm]]
         for k in (0.1, 0.3):
@@ -515,40 +545,62 @@ def table_learners(learners):
 
 
 ROBUSTNESS_ROWS = (
-    # (section, cell or None, label, comparison key)
-    ("slearner_scenarios", "main", "Main DGP", "CATE x LTV vs CATE Only"),
-    ("slearner_scenarios", "null", "Null DGP", "CATE x LTV vs CATE Only"),
-    ("slearner_scenarios", "correlated", "Correlated DGP", "CATE x LTV vs CATE Only"),
-    ("slearner_scenarios", "misspec", "Misspecified CATE model", "CATE x LTV vs CATE Only"),
-    ("asym", "asym", "Asymmetric DGP", "CATE x LTV vs CATE Only"),
-    ("corr_sweep", "negative", r"Corr. sweep, $\gamma{=}-1$", "CATE x LTV vs CATE Only"),
-    ("corr_sweep", "zero", r"Corr. sweep, $\gamma{=}0$", "CATE x LTV vs CATE Only"),
-    ("corr_sweep", "positive", r"Corr. sweep, $\gamma{=}1$", "CATE x LTV vs CATE Only"),
-    ("heavy_tail", "heavy_tail", "Heavy-tailed DGP", "CATE x LTV vs CATE Only"),
-    ("adversarial", "kappa_0.30", r"Adversarial dropout, $\kappa{=}0.30$", "CATE x LTV vs CATE Only"),
-    ("adversarial", "kappa_0.10", r"Adversarial dropout, $\kappa{=}0.10$", "CATE x LTV vs CATE Only"),
-    ("effective_welfare", "main", "Nominal vs effective welfare", "CATE x LTV vs CATE x LTV [effective]"),
+    # (section, cell or None, label, comparison key).  Rows comparing CATE x LTV with CATE only
+    # form panel A, labelled by scenario; the other contrasts form panel B, labelled by contrast.
+    ("slearner_scenarios", "main", "Main design", "CATE x LTV vs CATE Only"),
+    ("slearner_scenarios", "null", "Null design", "CATE x LTV vs CATE Only"),
+    ("slearner_scenarios", "correlated", "Correlated covariates", "CATE x LTV vs CATE Only"),
+    ("slearner_scenarios", "misspec", "Misspecified effect model", "CATE x LTV vs CATE Only"),
+    ("asym", "asym", "Asymmetric moderation", "CATE x LTV vs CATE Only"),
+    ("corr_sweep", "negative", r"Correlation sweep, $\gamma = -1$", "CATE x LTV vs CATE Only"),
+    ("corr_sweep", "zero", r"Correlation sweep, $\gamma = 0$", "CATE x LTV vs CATE Only"),
+    ("corr_sweep", "positive", r"Correlation sweep, $\gamma = 1$", "CATE x LTV vs CATE Only"),
+    ("heavy_tail", "heavy_tail", "Heavy-tailed value", "CATE x LTV vs CATE Only"),
+    ("adversarial", "kappa_0.30", r"Adversarial design, $\kappa = 0.30$", "CATE x LTV vs CATE Only"),
+    ("adversarial", "kappa_0.10", r"Adversarial design, $\kappa = 0.10$", "CATE x LTV vs CATE Only"),
+    (
+        "effective_welfare",
+        "main",
+        r"CATE $\times$ LTV, nominal minus clip-adjusted welfare",
+        "CATE x LTV vs CATE x LTV [effective]",
+    ),
     (
         "component_update",
         "main",
-        "Well-specified vs misspecified V",
+        r"CATE $\times$ LTV, well-specified minus proxy value model",
         "CATE x LTV, well-specified V vs CATE x LTV, misspecified V",
     ),
-    ("aipw_calibration", "main", "AIPW calibration vs identity", "Calibrated (aipw) vs Identity (g=1)"),
+    (
+        "aipw_calibration",
+        "main",
+        r"Full framework, AIPW-calibrated minus identity $g$",
+        "Calibrated (aipw) vs Identity (g=1)",
+    ),
     (
         "like_for_like",
         "login_drop_main",
-        "Like-for-like, login dropped",
+        "CATE only, all features minus login frequency dropped",
         "CATE Only (all features) vs CATE Only (feature dropped)",
     ),
     (
         "like_for_like",
         "bonus_drop_adversarial",
-        "Like-for-like, bonus dropped",
+        "CATE only, all features minus bonus history dropped (adversarial design)",
         "CATE Only (all features) vs CATE Only (feature dropped)",
     ),
-    ("obs_diagnostic", None, "CATE share, misspec vs wellspec", "CATE share, misspec vs wellspec [T, plug-in]"),
+    (
+        "obs_diagnostic",
+        None,
+        "Effect share of the score-gap bound, login dropped minus all features (T-learner, plug-in reference)",
+        "CATE share, misspec vs wellspec [T, plug-in]",
+    ),
 )
+HEADLINE_KEY = "CATE x LTV vs CATE Only"
+ROBUSTNESS_PANELS = {
+    True: r"Panel A: CATE $\times$ LTV minus CATE only, by scenario",
+    False: "Panel B: other contrasts",
+}
+ROBUSTNESS_NCOLS = 7
 
 SCENARIO_TAG = {
     ("slearner_scenarios", "main"): "Main",
@@ -601,17 +653,25 @@ def tuned_comparison(rob, section, cell, comp_key):
 
 
 def table_robustness(rob):
-    """Columns: scenario, comparison, difference, 95% CI, d, Holm p, family size, then the
-    tuned-learner arm of the same comparison (difference with CI, Holm p; '--' where the
-    scenario has no tuned arm)."""
+    """Columns: scenario or contrast, difference over its 95% CI, Cohen's d, Holm p, Holm family
+    size, then the tuned-learner arm of the same comparison (difference over its CI, Holm p; '--'
+    where the scenario has no tuned arm).  Panel A holds the CATE x LTV vs CATE only scenarios,
+    panel B the other contrasts."""
     rows = []
+    current = None
     for section, cell, label, comp_key in ROBUSTNESS_ROWS:
+        headline = comp_key == HEADLINE_KEY
+        if headline != current:
+            if current is not None:
+                rows.append(r"\midrule")
+            rows.append(panel(ROBUSTNESS_PANELS[headline], ROBUSTNESS_NCOLS))
+            current = headline
         key, c, fam = robustness_comparison(rob, section, cell, comp_key)
         fmt, unit = robustness_unit(section)
         tc = tuned_comparison(rob, section, cell, comp_key)
         tuned = (
             [
-                fmt_signed(tc["mean_diff"], fmt_welfare) + " " + fmt_ci(*tc["ci_95"], fmt_welfare),
+                stacked(fmt_signed(tc["mean_diff"], fmt_welfare), fmt_ci(*tc["ci_95"], fmt_welfare)),
                 fmt_p_or_dash(tc["p_holm"]),
             ]
             if tc
@@ -621,9 +681,7 @@ def table_robustness(rob):
             row(
                 [
                     label,
-                    key.replace(" x ", r" $\times$ "),
-                    fmt_signed(c["mean_diff"], fmt) + unit,
-                    fmt_ci(*c["ci_95"], fmt) + unit,
+                    stacked(fmt_signed(c["mean_diff"], fmt) + unit, fmt_ci(*c["ci_95"], fmt) + unit),
                     fmt_d(c["cohens_d"]),
                     fmt_p_or_dash(c["p_holm"]),
                     str(fam),
@@ -694,9 +752,9 @@ def table_calibration(rob):
                     r["tuning"],
                     fmt_pct(sel["identity_rate"]),
                     f"{sel['identity_selected']}/{sel['n_runs']}",
-                    fmt_signed(c["mean_diff"], fmt_welfare) + " " + fmt_ci(*c["ci_95"], fmt_welfare),
+                    stacked(fmt_signed(c["mean_diff"], fmt_welfare), fmt_ci(*c["ci_95"], fmt_welfare)),
                     "--" if r["degenerate"] else fmt_p(c["p_holm"]),
-                    fmt_welfare(r["regret"]["mean"]) + " " + fmt_ci(*r["regret"]["ci95"], fmt_welfare),
+                    stacked(fmt_welfare(r["regret"]["mean"]), fmt_ci(*r["regret"]["ci95"], fmt_welfare)),
                 ]
             )
         )
