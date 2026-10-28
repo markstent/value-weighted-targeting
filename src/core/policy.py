@@ -171,6 +171,28 @@ def calibrate_theta(data, train_idx, seed, kappa, objective="aipw", n_folds=2,
                                est_func, cate_method)[objective]
 
 
+def misrank_terms(tau_hat, v_hat, tau_ref, v_ref, k):
+    """Exact-telescoping error terms over the misranked set, or None if it is empty.
+
+    M = top-k by the deployed score tau_hat * v_hat XOR top-k by the reference score
+    tau_ref * v_ref.  For every unit the score gap telescopes EXACTLY in one fixed order:
+
+        tau_ref v_ref - tau_hat v_hat = (tau_ref - tau_hat) v_ref + tau_hat (v_ref - v_hat)
+
+    (CATE error evaluated at the REFERENCE value, then value error at the DEPLOYED CATE).
+    The terms are the means over M of the absolute pieces, |tau_ref - tau_hat| |v_ref|
+    (CATE term) and |tau_hat| |v_ref - v_hat| (value term), so their sum bounds the mean
+    absolute score gap over M and no cross term is dropped.  Returns
+    (cate_term, value_term, |M|)."""
+    pi_dep = set(target_topk(tau_hat * v_hat, k).tolist())
+    pi_ref = set(target_topk(tau_ref * v_ref, k).tolist())
+    m = np.array(sorted(pi_dep.symmetric_difference(pi_ref)), dtype=int)
+    if len(m) == 0:
+        return None
+    return (float((np.abs(tau_ref[m] - tau_hat[m]) * np.abs(v_ref[m])).mean()),
+            float((np.abs(tau_hat[m]) * np.abs(v_ref[m] - v_hat[m])).mean()), len(m))
+
+
 def regret_split(tau_ref, ltv_ref, tau_hat, ltv_hat, tau_true, ltv_true, k):
     """Order-free split of welfare regret into CATE error and value-model error.
 

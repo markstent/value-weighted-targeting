@@ -993,16 +993,25 @@ def add_robustness_extra_macros(M, rob):
         add_pct(M, base, comp(section, cell, key)[rkey], what,
                 src(section, cell, key) + f'/{rkey}',
                 f'= {baseline_name} mean welfare (robustness.json:{section}/cells/{cell}/welfare/{baseline_name}/mean)')
-    # G14: observational-diagnostic CATE share levels (percent of the telescoping bound)
+    # G14: observational-diagnostic CATE share: the per-replication LEVEL (mean over replications
+    # of the per-replication share, with CI) and, under its own name, the ratio of means (no CI)
     for vm, vtag in (('wellspec', 'Wellspec'), ('misspec', 'Misspec')):
         for tn in ('default', 'tuned'):
             for dk, dtag in (('plug-in', 'Plugin'), ('Oracle feasible', 'OracleFeasible'),
                              ('Oracle hindsight', 'OracleHindsight')):
                 d = rob['obs_diagnostic']['cells'][vm]['diagnostic'][tn][dk]
-                M.add(f'numRobustnessObsCateShare{vtag}{tn.capitalize()}{dtag}', fmt_pct(d['cate_share_pct'] / 100.0),
-                      f'CATE (tau) share of the telescoping bound over the misranked set, T-learner ({tn}), {vm} V, '
-                      f'versus the {dk} reference (a level, no CI)',
-                      f'robustness.json:obs_diagnostic/cells/{vm}/diagnostic/{tn}/{dk}/cate_share_pct')
+                dsrc = f'robustness.json:obs_diagnostic/cells/{vm}/diagnostic/{tn}/{dk}'
+                who = f'T-learner ({tn}), {vm} V, versus the {dk} reference'
+                add_ci_stat(M, f'numRobustnessObsCateSharePerRep{vtag}{tn.capitalize()}{dtag}',
+                            d['cate_share_per_rep'], lambda v: fmt_pct(v / 100.0),
+                            f'CATE (tau) share of the exactly telescoping error over the misranked set, '
+                            f'mean over replications of the per-replication share, {who}',
+                            dsrc + '/cate_share_per_rep')
+                M.add(f'numRobustnessObsCateShareRatioOfMeans{vtag}{tn.capitalize()}{dtag}',
+                      fmt_pct(d['cate_share_ratio_of_means_pct'] / 100.0),
+                      f'CATE (tau) share computed as a ratio of the replication-mean terms (a different '
+                      f'estimand from the per-replication level; no CI), {who}',
+                      dsrc + '/cate_share_ratio_of_means_pct')
     # G17: tuned AIPW calibration minus identity
     k = 'Calibrated (aipw) (tuned) vs Identity (g=1) (tuned)'
     add_test(M, 'numRobustnessDiffAipwCalibrationTuned', comp('aipw_calibration', 'main', k), fmt_welfare,

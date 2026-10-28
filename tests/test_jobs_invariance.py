@@ -19,7 +19,6 @@ def test_learners_simulate_same_for_1_and_2_jobs():
     for key in a['welfare']:
         np.testing.assert_array_equal(a['welfare'][key], b['welfare'][key])
     assert a['regret'] == b['regret']
-    assert a['diagnostic'] == b['diagnostic']
 
 
 def test_robustness_scenario_same_for_1_and_2_jobs():

@@ -334,7 +334,7 @@ def test_new_gap_macros_present():
             # G9-G11, G14, G16, G17
             'numRobustnessDiffSLearnerVsCateLtvMain', 'numRobustnessDiffTunedMainHolmP',
             'numRobustnessDiffTunedAdversarialKten', 'numRobustnessDiffLikeForLikeLoginSLearnerCiLo',
-            'numRobustnessObsCateShareWellspecDefaultPlugin', 'numBudgetBootstrapDraws',
+            'numRobustnessObsCateSharePerRepWellspecDefaultPlugin', 'numBudgetBootstrapDraws',
             'numRobustnessDiffAipwCalibrationTunedP',
             # G12
             'numMainDefaultGPct', 'numRobustnessLikeForLikeLoginCateOnlyPct',
@@ -415,9 +415,18 @@ def test_g7_g10_g14_macros_equal_json_values():
         assert mt.tex(cell_text) in rows[i]
     # G14: CATE-share levels
     d = rob['obs_diagnostic']['cells']['wellspec']['diagnostic']['tuned']['Oracle feasible']
-    assert items['numRobustnessObsCateShareWellspecTunedOracleFeasible'][0] == mt.fmt_pct(d['cate_share_pct'] / 100.0)
+    assert items['numRobustnessObsCateSharePerRepWellspecTunedOracleFeasible'][0] == mt.fmt_pct(
+        d['cate_share_per_rep']['mean'] / 100.0)
+    assert items['numRobustnessObsCateSharePerRepWellspecTunedOracleFeasibleCiLo'][0] == mt.fmt_pct(
+        d['cate_share_per_rep']['ci95'][0] / 100.0)
+    assert items['numRobustnessObsCateShareRatioOfMeansWellspecTunedOracleFeasible'][0] == mt.fmt_pct(
+        d['cate_share_ratio_of_means_pct'] / 100.0)
+    assert 'numRobustnessObsCateShareRatioOfMeansWellspecTunedOracleFeasibleCiLo' not in items
     d = rob['obs_diagnostic']['cells']['misspec']['diagnostic']['default']['plug-in']
-    assert items['numRobustnessObsCateShareMisspecDefaultPlugin'][0] == mt.fmt_pct(d['cate_share_pct'] / 100.0)
+    assert items['numRobustnessObsCateSharePerRepMisspecDefaultPlugin'][0] == mt.fmt_pct(
+        d['cate_share_per_rep']['mean'] / 100.0)
+    assert not any(n.startswith('numRobustnessObsCateShare') and not n.startswith(
+        ('numRobustnessObsCateSharePerRep', 'numRobustnessObsCateShareRatioOfMeans')) for n in items)
 
 
 def test_tab_frontier_and_tuned_robustness_column():

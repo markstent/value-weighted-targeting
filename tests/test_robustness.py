@@ -132,7 +132,9 @@ def test_obs_diagnostic_shares_and_references():
             for ref in ('plug-in', 'Oracle hindsight', 'Oracle feasible'):
                 r = cell['diagnostic'][arm][ref]
                 assert r['cate_term'] >= 0 and r['value_term'] >= 0
-                assert 0 <= r['cate_share_pct'] <= 100
+                assert 0 <= r['cate_share_ratio_of_means_pct'] <= 100
+                lvl = r['cate_share_per_rep']
+                assert 0 <= lvl['mean'] <= 100 and lvl['ci95'] is not None
                 assert 0 <= r['n_reps_used'] <= REPS
     for c in out['comparisons'].values():
         assert c['p_holm'] >= c['p_value'] - 1e-12
@@ -278,12 +280,12 @@ def test_component_update_equals_direct_estimator_calls():
 def test_obs_diagnostic_misspec_arm_equals_estimate_components_misspec():
     from core.dgp import generate_main
     from core.estimators import estimate_components_misspec
+    from core.policy import misrank_terms
     from study_main import SEED_BASE
     data, tr, te = _legacy_rep(generate_main, SEED_BASE)
     tau_hat, v_hat, _ = estimate_components_misspec(data, tr, te, seed=SEED_BASE)
     k = int(len(te) * 0.30)
-    expect = sr._misrank_terms(tau_hat, v_hat, data['true_tau'][te],
-                               data['true_ltv'][te], k)
+    expect = misrank_terms(tau_hat, v_hat, data['true_tau'][te], data['true_ltv'][te], k)
     got = sr._obs_rep(SEED_BASE, n_players=N, tuned=TUNED, kappa=0.30)
     assert got[('misspec', 'default', 'Oracle hindsight')] == expect
 
@@ -314,3 +316,17 @@ def test_aipw_calibration_stores_per_rep_regret():
         assert lo <= r['mean'] <= hi
         assert r['mean'] == pytest.approx(
             cell['welfare']['Oracle feasible']['mean'] - cell['welfare'][key]['mean'])
+
+
+def test_obs_diagnostic_level_is_per_rep_mean_and_ratio_of_means_is_separate():
+    out = _run('obs_diagnostic')
+    differs = 0
+    for cell in out['cells'].values():
+        for arm in ('default', 'tuned'):
+            for ref, r in cell['diagnostic'][arm].items():
+                assert 'cate_share_pct' not in r
+                a, b = r['cate_term'], r['value_term']
+                assert r['cate_share_ratio_of_means_pct'] == pytest.approx(100 * a / (a + b))
+                differs += r['cate_share_per_rep']['mean'] != pytest.approx(
+                    r['cate_share_ratio_of_means_pct'])
+    assert differs     # the two estimands are not the same number

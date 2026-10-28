@@ -61,15 +61,19 @@ Scenarios
       corr(tau, V) and the LTV-weighting advantage in percent.
   heavy_tail  Multiplicative log-normal LTV (orders-of-magnitude spread).
   obs_diagnostic  Plug-in regret diagnostic.  Over the misranked set M (top-k by
-      the deployed rule XOR top-k by a reference rule) the telescoping terms are
-      |tau_ref - tau_hat| |V_hat| (CATE) and |tau_hat| |V_ref - V_hat| (value).  The
-      observable reference is a cross-fitted X-learner tau with a richer value model;
-      the same terms against Oracle hindsight (true tau, V) and Oracle feasible
-      (tau_bar, V_bar) check that the proxy flags the same component.  Cells: wellspec
-      (full-feature T-learner) and misspec (login dropped from the CATE model).
-      Comparison per arm and reference: per-replication CATE share (percent) misspec
-      vs wellspec, over replications where both have a non-empty M.  The reported
-      share (cate_share_pct) is of the replication-mean terms.
+      the deployed rule XOR top-k by a reference rule) the exactly telescoping terms
+      (core.policy.misrank_terms; tau_ref V_ref - tau_hat V_hat = (tau_ref - tau_hat) V_ref
+      + tau_hat (V_ref - V_hat), one fixed order, no dropped cross term) are
+      |tau_ref - tau_hat| |V_ref| (CATE) and |tau_hat| |V_ref - V_hat| (value).  The
+      observable reference is a held-out (single estimation/test split)
+      X-learner tau with a richer value model; the same terms against Oracle hindsight
+      (true tau, V) and Oracle feasible (tau_bar, V_bar) check that the proxy flags the
+      same component.  Cells: wellspec (full-feature T-learner) and misspec (login dropped
+      from the CATE model).  The reported LEVEL is the per-replication CATE share (percent),
+      mean over replications with a non-empty M and its t-interval (cate_share_per_rep).
+      The ratio of replication-mean terms is kept only as cate_share_ratio_of_means_pct
+      (no CI).  Comparison per arm and reference: per-replication CATE share misspec vs
+      wellspec, over replications where both have a non-empty M.
   aipw_calibration  (also stores per_rep_diff_vs_identity, the per-replication
       calibrated-minus-identity true-welfare differences, and regret_vs_feasible, mean and
       t-interval over replications of feasible-oracle welfare minus each rule's welfare.)
@@ -120,7 +124,7 @@ from core.estimators import (
 )
 from core.io import add_common_args, resolve_run_size, save_json
 from core.policy import (
-    DEFAULT_BUDGET, THETA_GRID, calibrate_theta_all, f_churn_vec, target_topk,
+    DEFAULT_BUDGET, THETA_GRID, calibrate_theta_all, f_churn_vec, misrank_terms, target_topk,
 )
 from core.stats import holm_bonferroni, paired_test_raw, ratio_entry, t_mean_ci
 from study_learners import load_or_tune, welfare_at_kappa
@@ -455,25 +459,13 @@ def run_component_update(reps, n_players, tuned, n_jobs=1):
 # ---------------------------------------------------------------------------
 # obs_diagnostic
 # ---------------------------------------------------------------------------
-def _misrank_terms(tau_hat, v_hat, tau_ref, v_ref, k):
-    """(mean |tau_ref - tau_hat| |V_hat|, mean |tau_hat| |V_ref - V_hat|) over the
-    misranked set (top-k by deployed XOR by reference), or None if it is empty."""
-    pi_dep = set(target_topk(tau_hat * v_hat, k).tolist())
-    pi_ref = set(target_topk(tau_ref * v_ref, k).tolist())
-    m = np.array(sorted(pi_dep.symmetric_difference(pi_ref)), dtype=int)
-    if len(m) == 0:
-        return None
-    return (float((np.abs(tau_ref[m] - tau_hat[m]) * np.abs(v_hat[m])).mean()),
-            float((np.abs(tau_hat[m]) * np.abs(v_ref[m] - v_hat[m])).mean()))
-
-
 def _obs_rep(seed, *, n_players, tuned, kappa):
     dgp_func = DGPS['main']
     rep = _setup(dgp_func, seed, n_players)
     k = int(len(rep.te) * kappa)
     cm = _oracle_cm(rep, dgp_func)
     v_hat = _estimate_ltv_proxy(rep.Xtr, rep.Xte, seed)
-    # observable reference: X-learner tau (all features), richer value model on the same
+    # observable reference (held-out split): X-learner tau (all features), richer value model on the same
     # observable proxy target
     tau_ref = _estimate_cate_xlearner(rep.Xtr, rep.Xte, rep.Wtr, rep.Ytr)
     rng_v = np.random.RandomState(seed_from(seed, VALUE_STREAM_V43))
@@ -488,7 +480,7 @@ def _obs_rep(seed, *, n_players, tuned, kappa):
     for cell, cols in (('wellspec', ALL_COLS), ('misspec', LOGIN_DROP_COLS)):
         for pset, tau_hat in _tau_arms(rep, tuned, cols).items():
             for ref, (t, v) in refs.items():
-                out[(cell, pset, ref)] = _misrank_terms(tau_hat, v_hat, t, v, k)
+                out[(cell, pset, ref)] = misrank_terms(tau_hat, v_hat, t, v, k)
     return out
 
 
@@ -504,9 +496,14 @@ def run_obs_diagnostic(reps, n_players, tuned, n_jobs=1):
         used = [t for t in terms if t is not None]
         a = float(np.mean([t[0] for t in used])) if used else float('nan')
         b = float(np.mean([t[1] for t in used])) if used else float('nan')
+        per_rep = [100 * t[0] / (t[0] + t[1]) for t in used]
         cells[cell]['diagnostic'][pset][ref] = {
             'cate_term': a, 'value_term': b,
-            'cate_share_pct': 100 * a / (a + b) if used and a + b > 0 else float('nan'),
+            # the LEVEL: mean over replications of the per-replication CATE share, with CI
+            'cate_share_per_rep': t_mean_ci(per_rep) if per_rep else None,
+            # ratio of the replication-mean terms: a different estimand, no CI
+            'cate_share_ratio_of_means_pct': (100 * a / (a + b) if used and a + b > 0
+                                              else float('nan')),
             'n_reps_used': len(used)}
         shares[key] = [None if t is None else 100 * t[0] / (t[0] + t[1]) for t in terms]
     comps = {}

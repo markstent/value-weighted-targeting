@@ -1,8 +1,8 @@
 """CATE learner (T/X/S/DR/R) x value model comparison with frozen tuning, plus an
 order-free regret split.
 
-Replaces the legacy add-on scripts (the telescoping diagnostic and the end-to-end
-model both live here now) and compute_depth_ablation.py, whose depth-matched
+Replaces the legacy add-on scripts (the end-to-end model lives here now; the misranked-set
+diagnostic lives in study_robustness.obs_diagnostic) and compute_depth_ablation.py, whose depth-matched
 S/T comparison is superseded by the tuned comparison below.  (The like-for-like feature
 drop now lives in study_robustness.py.)
 
@@ -12,12 +12,13 @@ core.estimators), each with "default" params (the legacy fit for T/X/S, a depth-
 the comparison: with the propensity known and equal to 0.5, DR and R are
 algebraically the same estimator up to how E[Y|X] versus mu0, mu1 are estimated
 (2(W-1/2)(Y-m) and the AIPW pseudo-outcome have the same conditional mean, and R's
-weights (W-e)^2 are constant), and their tuned R-losses agree to six decimals;
-tests/test_estimators.py checks that their tau_hat correlate above 0.99.  Value models: misspec (the deliberately
+weights (W-e)^2 are constant); tests/test_estimators.py checks that their tau_hat
+correlate above 0.99.  (The R-loss is used only to select tuned params; no claim is made
+that DR and R tune to the same config.)  Value models: misspec (the deliberately
 misspecified proxy) and wellspec.  Rules: tau_hat * V_hat ("tauV") and tau_hat
 alone ("tau"), which ignores V and so is scored once per learner with no value-model
 dimension.  Every learner and value model is fitted ONCE per replication and
-reused across rules, kappas, the regret split and the diagnostic.  "E2E" is the
+reused across rules, kappas and the regret split.  "E2E" is the
 end-to-end model of the legacy add-on (one model trained on V_proxy * Y, scored by the
 treated-minus-control difference); its definition is unchanged and it is not tuned.
 Welfare is always evaluated on the realised TRUE tau and V of the test split.
@@ -56,11 +57,6 @@ pairs (core.stats.paired_ratio_ci).  Everything is unrounded in the JSON.
 Regret split (kappa = 0.30): core.policy.regret_split against the oracle
 (tau_bar, ltv_bar), per learner x params x value model: Shapley CATE/value shares
 that do not depend on the telescoping order, plus both single-path splits.
-
-Diagnostic: over the misranked set M = oracle top-k XOR estimated top-k,
-the telescoping bound terms |tau - tau_hat| |V| (CATE) and |tau_hat| |V - V_hat|
-(value) and the CATE share, for the full-feature T-learner and for one with login
-dropped from its features (CATE misspecification); V_hat is the misspec proxy.
 
 Usage:  python study_learners.py [--reps R] [--n-players N] [--smoke] [--retune] [--jobs J]
 """
@@ -256,7 +252,7 @@ def load_or_tune(n_players=N_PLAYERS, retune=False, n_jobs=1):
 
 
 # ---------------------------------------------------------------------------
-# End-to-end model and diagnostic
+# End-to-end model
 # ---------------------------------------------------------------------------
 def end_to_end_score(Xtr, Xte, Wtr, Ytr, seed):
     """E2E: one model trained on V_proxy * Y with treatment as a feature, scored by the
@@ -271,17 +267,6 @@ def end_to_end_score(Xtr, Xte, Wtr, Ytr, seed):
     n = len(Xte)
     return (model.predict(np.column_stack([Xte, np.ones(n)]))
             - model.predict(np.column_stack([Xte, np.zeros(n)])))
-
-
-def diagnostic_rep(tau_hat, v_hat, tau, v, k):
-    """(CATE term, value term, |M|) over the misranked set, or None if M is empty."""
-    pi_star = set(target_topk(tau * v, k).tolist())
-    pi_hat = set(target_topk(tau_hat * v_hat, k).tolist())
-    m = np.array(sorted(pi_star.symmetric_difference(pi_hat)), dtype=int)
-    if len(m) == 0:
-        return None
-    return (float((np.abs(tau[m] - tau_hat[m]) * np.abs(v[m])).mean()),
-            float((np.abs(tau_hat[m]) * np.abs(v[m] - v_hat[m])).mean()), len(m))
 
 
 # ---------------------------------------------------------------------------
@@ -338,30 +323,20 @@ def run_rep(rep, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, 
               for (l, p), tau_hat in taus.items() for vm in VALUE_MODELS}
     lap('regret')
 
-    diag = {}
-    if ('T', 'default') in taus:
-        cols = [i for i in range(Xtr.shape[1]) if i != LOGIN_COL]
-        tau_drop = _estimate_cate_tlearner(Xtr[:, cols], Xte[:, cols], Wtr, Ytr)
-        diag = {'cate_full': diagnostic_rep(taus[('T', 'default')], vs['misspec'],
-                                            true_tau, true_ltv, k),
-                'cate_login_dropped': diagnostic_rep(tau_drop, vs['misspec'],
-                                                     true_tau, true_ltv, k)}
-    lap('diagnostic')
-    return {'welfare': welfare, 'regret': regret, 'diagnostic': diag, 'timing': dict(t)}
+    return {'welfare': welfare, 'regret': regret, 'timing': dict(t)}
 
 
 def simulate(reps, n_players, tuned, dgp_name='main', learners=COMPARED_LEARNERS, kappas=KAPPAS,
              n_jobs=1):
-    """Per-rep welfare for every combo (and E2E), regret splits, diagnostics, timing.
+    """Per-rep welfare for every combo (and E2E), regret splits, timing.
 
     Returns {'welfare': {key: (reps, K) array}, 'regret': [per-rep dicts],
-    'diagnostic': [per-rep dicts], 'timing': [per-rep dicts], 'kappas': [...]}."""
+    'timing': [per-rep dicts], 'kappas': [...]}."""
     rows = Parallel(n_jobs=n_jobs)(
         delayed(run_rep)(r, n_players, tuned, dgp_name, learners, kappas) for r in range(reps))
     keys = rows[0]['welfare'].keys()
     return {'welfare': {key: np.array([row['welfare'][key] for row in rows]) for key in keys},
             'regret': [row['regret'] for row in rows],
-            'diagnostic': [row['diagnostic'] for row in rows],
             'timing': [row['timing'] for row in rows],
             'kappas': [float(kp) for kp in kappas]}
 
@@ -468,20 +443,6 @@ def summarise_regret(per_rep):
     return out
 
 
-def summarise_diagnostic(per_rep):
-    out = {}
-    for name in ('cate_full', 'cate_login_dropped'):
-        terms = [r[name] for r in per_rep if r.get(name)]
-        if not terms:
-            continue
-        a, b = (float(np.mean([t[i] for t in terms])) for i in (0, 1))
-        out[name] = {'cate_error_term': a, 'value_error_term': b,
-                     'cate_share_pct': 100 * a / (a + b),
-                     'mean_misranked_set_size': float(np.mean([t[2] for t in terms])),
-                     'n_reps': len(terms)}
-    return out
-
-
 def summarise_timing(per_rep):
     stages = {s for t in per_rep for s in t}
     mean = {s: float(np.mean([t.get(s, 0.0) for t in per_rep])) for s in sorted(stages)}
@@ -490,7 +451,6 @@ def summarise_timing(per_rep):
 
 def summarise(raw):
     return {**summarise_welfare(raw), 'regret_split_kappa_0.30': summarise_regret(raw['regret']),
-            'diagnostic': summarise_diagnostic(raw['diagnostic']),
             'timing': summarise_timing(raw['timing'])}
 
 
@@ -511,10 +471,6 @@ def _print_table(summary):
         print(f"{key:<30} {r['total']['mean']:>8.0f} {r['shapley_tau_share_of_mean']:>11.2f} "
               f"{r['shapley_v_share_of_mean']:>8.2f} {r['order_a_tau_share_of_mean']:>8.2f} "
               f"{r['order_b_tau_share_of_mean']:>8.2f}")
-    for name, d in summary['diagnostic'].items():
-        print(f"diagnostic [{name}] CATE-term={d['cate_error_term']:.0f} "
-              f"value-term={d['value_error_term']:.0f} CATE share={d['cate_share_pct']:.1f}% "
-              f"|M|~{d['mean_misranked_set_size']:.0f}")
     tm = summary['timing']
     print(f"per-rep runtime {tm['mean_seconds_per_rep']:.1f}s: "
           + ', '.join(f'{s} {v:.1f}' for s, v in tm['by_stage'].items()))
