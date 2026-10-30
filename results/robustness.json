@@ -5557,17 +5557,17 @@
     },
     "tuned_on": "main",
     "seconds_by_scenario": {
-      "slearner_scenarios": 219.4423656250001,
-      "asym": 98.70444845799648,
-      "effective_welfare": 99.01702937499795,
-      "component_update": 39.26233445901016,
-      "corr_sweep": 158.95328924999922,
-      "heavy_tail": 32.47294458298711,
-      "obs_diagnostic": 79.1229912090057,
-      "aipw_calibration": 44.946233791997656,
-      "adversarial": 34.27289008400112,
-      "like_for_like": 86.95494400001189
+      "slearner_scenarios": 234.653536333004,
+      "asym": 101.60130829195259,
+      "effective_welfare": 102.31704358401475,
+      "component_update": 40.412365124968346,
+      "corr_sweep": 149.8997842920362,
+      "heavy_tail": 32.74679816700518,
+      "obs_diagnostic": 82.50824145798106,
+      "aipw_calibration": 47.9650440000114,
+      "adversarial": 35.545530041039456,
+      "like_for_like": 87.89978362497641
     },
-    "seconds_per_rep": 4.465747354175037
+    "seconds_per_rep": 4.577747174584947
   }
 }

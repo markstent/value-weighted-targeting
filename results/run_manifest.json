@@ -1,6 +1,6 @@
 {
   "git": {
-    "sha": "76b3d30ca4bae964263b974eb08d5fcd9f1fd93a",
+    "sha": "bbd1e21999347d25a795ac1234c5e38eea5f6d35",
     "dirty": false
   },
   "python": "3.12.9",
@@ -26,48 +26,48 @@
     "n_players": null,
     "figures_only": false
   },
-  "started_utc": "2026-10-28T08:20:35Z",
+  "started_utc": "2026-10-30T17:48:43Z",
   "steps": [
     {
       "name": "study_main",
       "exit_code": 0,
-      "wall_seconds": 820.62,
+      "wall_seconds": 835.75,
       "log": "outputs/logs/study_main.log"
     },
     {
       "name": "study_harm",
       "exit_code": 0,
-      "wall_seconds": 860.77,
+      "wall_seconds": 877.7,
       "log": "outputs/logs/study_harm.log"
     },
     {
       "name": "study_budget",
       "exit_code": 0,
-      "wall_seconds": 914.26,
+      "wall_seconds": 935.53,
       "log": "outputs/logs/study_budget.log"
     },
     {
       "name": "study_learners",
       "exit_code": 0,
-      "wall_seconds": 199.47,
+      "wall_seconds": 203.88,
       "log": "outputs/logs/study_learners.log"
     },
     {
       "name": "study_robustness",
       "exit_code": 0,
-      "wall_seconds": 900.53,
+      "wall_seconds": 933.81,
       "log": "outputs/logs/study_robustness.log"
     },
     {
       "name": "make_figures",
       "exit_code": 0,
-      "wall_seconds": 1.24,
+      "wall_seconds": 0.72,
       "log": "outputs/logs/make_figures.log"
     },
     {
       "name": "make_tex",
       "exit_code": 0,
-      "wall_seconds": 0.85,
+      "wall_seconds": 0.9,
       "log": "outputs/logs/make_tex.log"
     }
   ],
@@ -75,33 +75,34 @@
     "main.json": "846e0e8e409b640c4836432d842957c812f58c3c4443331dcbf5c38efd45f614",
     "harm_sweep.json": "51e84a280049bafaffddcb1cf52dd5528769117a5dbb69988657460ab8557dc6",
     "budget_2x2.json": "b4c9df7a7f0040c587e278bad9d587b1f6858aefe3a822c214eb3960eba9f11c",
-    "learners.json": "24fd8c94a81843968327dad27346345c2bb0a4e7a8009b1840ec41575fd9caf2",
-    "robustness.json": "b9a97c6e903049590bb9508216d0a36c043dfa0bc279ee03b96dcd4292af58b9"
+    "learners.json": "212c0119487f04f54d2a1374f46c6baf7fc9a59d5b3c3d5e625a46808feed905",
+    "robustness.json": "e981decbf9142c14bca29c782e457e69c01a75678e24238c51ce04e19f8756de"
   },
   "figures": {
-    "paper/figures/fig_g_function.pdf": "153071f00ef3f9584c67d950582fcc204a40faf21899c3f2777f7315d809e6ed",
-    "paper/figures/fig_frontier.pdf": "39bac6b4f9a8741a67e10d1007a9aa64d2a1ede3e05aa701dc93d156ba9c8d2a",
-    "paper/figures/fig_welfare_bars.pdf": "24870f55c23b460a30cc2e870f941371ed3147054aee53a6acad963a4dfc051b",
-    "paper/figures/fig_harm_frontier.pdf": "8c36d3c39c2fe15103a7881c09ce1d922bb0867e2fca7c9451ade4ea211493cd"
+    "paper/figures/fig_g_function.pdf": "7eabaa2d2c925b3e1c1b01fe361f5ba9e2b6d17acf6cbe0c6483de23b64624cb",
+    "paper/figures/fig_frontier.pdf": "e5bbc3aa3f9b7c145921fd6b52176937d9c48b25ec4780b0d25d725d40fa0b64",
+    "paper/figures/fig_harm_frontier.pdf": "4ba78c23fb7d8993f44d5e67770fe4cc48def4950f82ef22f011ac168fe9df46"
   },
   "generated_tex": {
-    "paper/generated/numbers.tex": "412ce0bb9cef8f453fdaf2269337b599cad400d712e29e353305712edbaf885d",
-    "paper/generated/tab_main.tex": "c5cef3c626b5aa4e2b70ec04d37c8a2cacccf598b7ceac6ee6b4f413a8d587c3",
-    "paper/generated/tab_budget.tex": "32bce676211959d237d0dc994fe52967a7ab6158addb8b4e9fc8fcffb1b61fc5",
-    "paper/generated/tab_kappa_star.tex": "58f94777c835e16496ea3a5567375951db3b9c08219e24b866d6b6565be57378",
-    "paper/generated/tab_harm.tex": "edd4fb6d7581cd4812eda068ab8b36e14e629553b95a6028dd1a0f7599c63e6f",
+    "paper/generated/numbers.tex": "a952c0ac59e1ddc81c355d76d93cb3cb4c53520dde5d0b558818905f0df3b2ad",
+    "paper/generated/tab_main.tex": "7080ff10d947d64100512a534e8b3fd483bc867f1fa6a0549bb67c3c8885e4ff",
+    "paper/generated/tab_budget.tex": "49670f1174b403af8af3e15adec15fcef66b96d514ce1486403fed7d57dc99cf",
+    "paper/generated/tab_kappa_star.tex": "d51d70590b782d6fffb8b906764fb566692dd0755c626bb4a8c59001b445f0ab",
+    "paper/generated/tab_harm.tex": "3e98ae817d6612d6f292cf963a37940cd5f1131c1c72d6d2242b9330ab9c052f",
+    "paper/generated/tab_harm_kten.tex": "c12dccfad9c4717deff596f06db5138fca93a8a3af394f625077b83d34fdc8ea",
+    "paper/generated/tab_harm_budget.tex": "cde97fed684359415423c8b3e2b522c1d5c42e6fd2fa4d8f53dc17fe737953b5",
     "paper/generated/tab_harm_welfare.tex": "c9ddeabdbafd2cd3cf8e64a6168fea0f9244b5618bc56524fea39467be500083",
     "paper/generated/tab_harm_decoupled.tex": "bc73fec2f1066103103b30fc26f2d60716e3e1bbf711b3a90d3743289e09cea7",
-    "paper/generated/tab_learners.tex": "359a148d863c1a7bc76aabe8cca4bcd3c8d6941980e491d1be83d50b105d752a",
-    "paper/generated/tab_robustness.tex": "585fb81069c4d9f46091a5162aa564dc9f2e36a1cc2e61673e6593f95dff9da6",
-    "paper/generated/tab_calibration.tex": "c0278bf3db8ab55179b9fc8949a4308aa55cc9f6525dd95a2ad1badab2bde5eb",
+    "paper/generated/tab_learners.tex": "1ce57e071942eef414e0567f97240059cdc6e0541d216f33b27ef7366864fb0e",
+    "paper/generated/tab_robustness.tex": "cd71ec6744b0fcdfbf6a62c7bc737ec4ea34f0c4272a18b3bcc252dc5d3d68d5",
+    "paper/generated/tab_calibration.tex": "ef5418e00f238401d035842bac95402b0466ae787312fc719975fb459e76fde0",
     "paper/generated/tab_frontier.tex": "0512b8ebb1ab148576b7b18c6636a90179d2b3f6b53197eb633c54300c0f56f6"
   },
   "tuned_params": {
     "path": "config/tuned_params.json",
     "sha256": "22bdca41f85ab563220594c153d4ab56192495f559af3557cb29fe84d676e3c6"
   },
-  "total_wall_seconds": 1104.93,
+  "total_wall_seconds": 1140.59,
   "results": {
     "copied": [
       "results/main.json",
