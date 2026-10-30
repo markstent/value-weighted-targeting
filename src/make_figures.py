@@ -1,6 +1,6 @@
 """Generate the manuscript figures from the study outputs.
 
-Reads outputs/main.json (fig_frontier, fig_welfare_bars) and outputs/harm_sweep.json
+Reads outputs/main.json (fig_frontier) and outputs/harm_sweep.json
 (fig_harm_frontier); fig_g_function is analytic.  Writes vector PDFs to paper/figures/.
 With --smoke it reads the *_smoke.json outputs and writes to outputs/figures_smoke/
 instead, so a smoke run never overwrites the manuscript figures.  Re-run with:
@@ -173,80 +173,6 @@ def fig_frontier(data: dict, figdir: Path = FIGDIR) -> Path:
     return out
 
 
-def fig_welfare_bars(data: dict, figdir: Path = FIGDIR) -> Path:
-    order = [
-        "Random",
-        "CATE Only",
-        "CATE x LTV",
-        "Full Framework (Est.)",
-        "Full Framework (Cal.)",
-        "S-Learner",
-        "Oracle feasible (g=1)",
-        "Oracle hindsight (g=1)",
-        "Oracle feasible (theta0)",
-        "Oracle hindsight (theta0)",
-    ]
-    display = {
-        "Random": "Random",
-        "CATE Only": "CATE only",
-        "CATE x LTV": r"CATE $\times$ LTV",
-        "Full Framework (Est.)": "Full framework (est.)",
-        "Full Framework (Cal.)": "Full framework (cal., AIPW)",
-        "S-Learner": "S-learner",
-        "Oracle feasible (g=1)": r"Feasible oracle ($g\equiv 1$)",
-        "Oracle hindsight (g=1)": r"Hindsight oracle ($g\equiv 1$)",
-        "Oracle feasible (theta0)": r"Feasible oracle ($\theta_0$)",
-        "Oracle hindsight (theta0)": r"Hindsight oracle ($\theta_0$)",
-    }
-
-    welfares = [data["main_results"][k]["welfare_mean"] for k in order]
-    sds = [data["main_results"][k]["welfare_sd"] for k in order]
-    labels = [display[k] for k in order]
-
-    fig, ax = plt.subplots(figsize=(0.9 * TEXT_WIDTH_IN, 3.4))
-    y = np.arange(len(order))
-    colors = []
-    for k in order:
-        if k == "Oracle hindsight (g=1)":
-            colors.append("#1a5a1a")
-        elif k == "Oracle feasible (g=1)":
-            colors.append("#c58b1d")
-        elif k == "Oracle hindsight (theta0)":
-            colors.append("#2a7a2a")
-        elif k == "Oracle feasible (theta0)":
-            colors.append("#e0b050")
-        elif k == "S-Learner":
-            colors.append("#b34")
-        elif k == "Random":
-            colors.append("#888")
-        else:
-            colors.append("#1f3b5c")
-
-    ax.barh(y, welfares, color=colors, alpha=0.9)
-    # a missing SD (fewer than 2 replications) gets no error bar rather than a zero-width one
-    have = [i for i, sd in enumerate(sds) if sd is not None]
-    ax.errorbar([welfares[i] for i in have], y[have], xerr=[sds[i] for i in have], fmt="none", ecolor="#444", capsize=3)
-    ax.set_yticks(y)
-    ax.set_yticklabels(labels)
-    ax.invert_yaxis()
-    ax.set_xlabel(r"welfare $\mathcal{W}(\pi;\mathbf{1})$ (mean $\pm$ SD across replications)")
-    ax.grid(axis="y", visible=False)
-    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
-
-    # Place each value label past the end of its error bar (w + sd), not just
-    # past the bar end, so the whisker/cap does not overprint the leading digits.
-    sd_or_0 = [sd or 0.0 for sd in sds]
-    for yi, w, sd in zip(y, welfares, sd_or_0):
-        ax.text(w + sd + 700, yi, f"{w:,.0f}", va="center", fontsize=9)
-
-    ax.set_xlim(0, max(w + sd for w, sd in zip(welfares, sd_or_0)) * 1.16)
-    fig.tight_layout()
-    out = figdir / "fig_welfare_bars.pdf"
-    fig.savefig(out, bbox_inches="tight")
-    plt.close(fig)
-    return out
-
-
 def _ci_err(entry: dict) -> tuple[float, float]:
     """Asymmetric half-widths (lo, hi) from a {'mean', 'ci95'} entry; zero if no CI."""
     ci = entry.get("ci95")
@@ -270,7 +196,8 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
         "soft gate": ("#b34", "s", "soft weight"),
         "hard cap": ("#2a7a2a", "^", "hard cap"),
     }
-    fig, axes = plt.subplots(1, len(sigmas), figsize=(TEXT_WIDTH_IN, 3.0), sharey=True, squeeze=False)
+    # Shared axes: every panel has the same exposure and welfare ranges, so positions compare across panels.
+    fig, axes = plt.subplots(1, len(sigmas), figsize=(TEXT_WIDTH_IN, 3.0), sharex=True, sharey=True, squeeze=False)
     for ax, sigma in zip(axes[0], sigmas):
         for rule, (color, marker, _) in styles.items():
             for oracle in (False, True):
@@ -333,7 +260,7 @@ def fig_harm_frontier(harm: dict, figdir: Path = FIGDIR) -> Path:
     return out
 
 
-FIGURE_NAMES = ("fig_g_function.pdf", "fig_frontier.pdf", "fig_welfare_bars.pdf", "fig_harm_frontier.pdf")
+FIGURE_NAMES = ("fig_g_function.pdf", "fig_frontier.pdf", "fig_harm_frontier.pdf")
 
 
 def build_all(outdir: Path = OUTDIR, figdir: Path = FIGDIR, smoke: bool = False) -> list[Path]:
@@ -348,7 +275,6 @@ def build_all(outdir: Path = OUTDIR, figdir: Path = FIGDIR, smoke: bool = False)
     return [
         fig_g_function(figdir),
         fig_frontier(main, figdir),
-        fig_welfare_bars(main, figdir),
         fig_harm_frontier(harm, figdir),
     ]
 

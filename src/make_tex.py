@@ -215,9 +215,9 @@ STRATEGY_LABEL = {
     "Random": "Random",
     "CATE Only": r"CATE only",
     "CATE x LTV": r"CATE $\times$ LTV",
-    "Full Framework (Est.)": "Full framework (est.)",
-    "Full Framework (Cal.)": "Full framework (cal., AIPW)",
-    "Full Framework (Cal., plug-in)": "Full framework (cal., plug-in)",
+    "Full Framework (Est.)": "Churn-weighted (est.)",
+    "Full Framework (Cal.)": "Churn-weighted (cal., AIPW)",
+    "Full Framework (Cal., plug-in)": "Churn-weighted (cal., plug-in)",
     "S-Learner": "S-learner",
     "Oracle hindsight (g=1)": r"Oracle, hindsight ($g{=}1$)",
     "Oracle feasible (g=1)": r"Oracle, feasible ($g{=}1$)",
@@ -573,7 +573,7 @@ ROBUSTNESS_ROWS = (
     (
         "aipw_calibration",
         "main",
-        r"Full framework, AIPW-calibrated minus identity $g$",
+        r"Churn-weighted, AIPW-calibrated minus identity $g$",
         "Calibrated (aipw) vs Identity (g=1)",
     ),
     (
@@ -1099,16 +1099,21 @@ PCT_NOTE = (
 )
 
 
-def add_pct(M, base, ratio, what, src, baseline_src, sign=1):
+def add_pct(M, base, ratio, what, src, baseline_src, sign=1, magnitude=False):
     """A derived percentage <base> (must end in Pct) = sign * mean(D) / mean(B), computed by the
     study from per-replication arrays and stored as {'ratio', 'ci95'}; <base>CiLo/<base>CiHi
-    are its delta-method CI (reversed and sorted when sign is -1)."""
+    are its delta-method CI (reversed and sorted when sign is -1).
+
+    magnitude=True drops the explicit plus sign, for prose that states the direction in words
+    ("raises welfare by", "costs"); a value of the other sign keeps its minus, so it is never
+    silently misread."""
     assert base.endswith("Pct")
     lo, hi = sorted((sign * ratio["ci95"][0], sign * ratio["ci95"][1]))
     note = f"{what}; baseline {baseline_src}; {PCT_NOTE}"
-    M.add(base, fmt_signed(sign * ratio["ratio"], fmt_pct), note, src)
-    M.add(base + "CiLo", fmt_signed(lo, fmt_pct), f"lower 95% CI of {base}", src)
-    M.add(base + "CiHi", fmt_signed(hi, fmt_pct), f"upper 95% CI of {base}", src)
+    fmt = fmt_pct if magnitude else (lambda v: fmt_signed(v, fmt_pct))
+    M.add(base, fmt(sign * ratio["ratio"]), note, src)
+    M.add(base + "CiLo", fmt(lo), f"lower 95% CI of {base}", src)
+    M.add(base + "CiHi", fmt(hi), f"upper 95% CI of {base}", src)
 
 
 def float_tag(x):
@@ -1177,6 +1182,25 @@ def add_harm_extra_macros(M, harm):
                 f"= harm-blind tauV welfare ({bsrc})",
                 sign=-1,
             )
+        if components == "estimated":
+            # Companions without a plus sign for prose that names the direction in words:
+            # the soft gate's welfare gain and the cap's welfare cost
+            for base, comparison, sign, what in (
+                ("numHarmSoftGateWelfareGainPct", "soft gate vs tauV", 1, "welfare gain of the soft gate"),
+                ("numHarmHardCapWelfareCostPct", "hard cap vs tauV", -1, "welfare cost of the hard cap"),
+            ):
+                t = harm_test(harm, 1.0, 0.0, k, comparison, components)
+                add_pct(
+                    M,
+                    base,
+                    t["ratio_to_blind"],
+                    f"{what} relative to harm-blind welfare, {who}, c=1, sigma=0, kappa=0.30 "
+                    "(no plus sign; positive = a gain for the soft gate, a cost for the hard cap)",
+                    f"harm_sweep.json:paired_tests[{comparison},{components}]/ratio_to_blind",
+                    f"= harm-blind tauV welfare ({bsrc})",
+                    sign=sign,
+                    magnitude=True,
+                )
         t = harm_test(harm, 1.0, 0.0, k, "hard cap vs soft gate", components)
         add_pct(
             M,
@@ -1355,14 +1379,15 @@ HARM_SCOPE_CELLS = (
 
 
 # (c_harm, kappa) cells of the soft gate minus harm-blind test where harm does not rise with value
-HARM_SCOPE_SOFT_TESTS = ((-1.0, 0.3), (0.0, 0.3), (0.0, 0.1))
+HARM_SCOPE_SOFT_TESTS = ((-1.0, 0.3), (-0.5, 0.3), (0.0, 0.3), (0.0, 0.1))
 
 
 def add_harm_scope_macros(M, harm):
     """Scope of the harm results: the budget dependence of the exposure gap (kappa 0.10 next to
     the 0.30 reference), CATE-only ranking as a comparator with no harm input, the decoupled
-    feasible-oracle gap, and the soft gate's welfare gain where harm falls with value (c=-1)
-    or is independent of it (c=0, at both budgets).  All at sigma_h=0; gap/exposure/welfare cells at c_harm=1."""
+    feasible-oracle gap, and the soft gate's welfare gain where harm falls with value (c=-1 and
+    c=-0.5) or is independent of it (c=0, at both budgets).  All at sigma_h=0;
+    gap/exposure/welfare cells at c_harm=1."""
     for base, dgp, kappa, rule, field in HARM_SCOPE_CELLS:
         cell = harm_cell(harm, 1.0, 0.0, kappa, rule, dgp)
         src = f"harm_sweep.json:cells[dgp={dgp},c_harm=1,sigma_h=0,kappa={kappa:g},rule='{rule}']"
@@ -1774,14 +1799,14 @@ def add_main_extra_macros(M, main):
         "numMainDiffFullEstVsCateLtvKthirty",
         t,
         fmt_welfare,
-        "Full framework (est., default g) minus CATE x LTV, kappa=0.30",
+        "Churn-weighted (est., default g) minus CATE x LTV, kappa=0.30",
         src,
     )
     add_pct(
         M,
         "numMainDefaultGPct",
         t["ratio_to_b"],
-        "default-g cost: Full framework (est.) minus CATE x LTV, kappa=0.30",
+        "default-g cost: Churn-weighted (est.) minus CATE x LTV, kappa=0.30",
         src + "/ratio_to_b",
         "= CATE x LTV mean welfare (main.json:main_results/CATE x LTV/welfare_mean)",
     )

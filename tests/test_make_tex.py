@@ -441,6 +441,11 @@ def test_harm_safety_cost_orientation_and_hard_cap_minus_soft_gate_sign():
         assert pct.startswith("+") == (hard > soft) and diff.startswith("+") == (hard > soft)
         assert "positive = the hard cap has higher welfare" in items[f"numHarmHardCapMinusSoftGate{stag}Pct"][1]
     assert not any("CapSaving" in n for n in items)
+    # prose companions: the same magnitudes without a plus sign (gain for the soft gate, cost for the cap)
+    hard_r = mt.harm_test(harm, 1.0, 0.0, 0.3, "hard cap vs tauV", "estimated")["ratio_to_blind"]
+    assert items["numHarmSoftGateWelfareGainPct"][0] == mt.fmt_pct(r["ratio"])
+    assert items["numHarmHardCapWelfareCostPct"][0] == mt.fmt_pct(-hard_r["ratio"])
+    assert items["numHarmHardCapWelfareCostPctCiLo"][0] == mt.fmt_pct(-hard_r["ci95"][1])
 
 
 def test_g7_g10_g14_macros_equal_json_values():
@@ -626,7 +631,12 @@ def test_harm_scope_macros_equal_json_values():
             assert items[base][0] == mt.fmt_harm(cell["harm_exposure"]["mean"]), base
         else:
             assert items[base][0] == mt.fmt_welfare(cell["welfare"]["mean"]), base
-    for c, kappa, tag in ((-1.0, 0.3, "CMinusOne"), (0.0, 0.3, "CZero"), (0.0, 0.1, "CZeroKten")):
+    for c, kappa, tag in (
+        (-1.0, 0.3, "CMinusOne"),
+        (-0.5, 0.3, "CMinusHalf"),
+        (0.0, 0.3, "CZero"),
+        (0.0, 0.1, "CZeroKten"),
+    ):
         t = mt.harm_test(harm, c, 0.0, kappa, "soft gate vs tauV", "estimated")
         base = f"numHarmDiffSoftGateMinusTauV{tag}"
         assert items[base][0] == mt.fmt_signed(t["mean_diff"], mt.fmt_welfare)

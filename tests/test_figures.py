@@ -62,6 +62,8 @@ def test_harm_frontier_one_panel_per_sigma(tmp_path, harm_json, monkeypatch):
     out = mf.fig_harm_frontier(harm_json, tmp_path)
     assert out.name == "fig_harm_frontier.pdf" and out.stat().st_size > 1000
     assert len(seen["fig"].axes) == len(SIGMA_H_GRID)
+    # every panel shares one exposure range, so the panels line up
+    assert len({ax.get_xlim() for ax in seen["fig"].axes}) == 1
 
 
 def test_harm_frontier_handles_missing_ci(tmp_path, harm_json):
@@ -70,29 +72,8 @@ def test_harm_frontier_handles_missing_ci(tmp_path, harm_json):
     assert mf.fig_harm_frontier(harm_json, tmp_path).exists()
 
 
-def test_oracle_bars_have_distinct_colours(tmp_path):
-    import inspect
-
-    src = inspect.getsource(mf.fig_welfare_bars)
-    assert src.count("#1a5a1a") == 1
-    assert '"Oracle feasible (g=1)":\n            colors.append' in src
-
-
 def test_build_all_from_smoke_jsons(tmp_path, harm_json):
-    names = [
-        "Random",
-        "CATE Only",
-        "CATE x LTV",
-        "Full Framework (Est.)",
-        "Full Framework (Cal.)",
-        "S-Learner",
-        "Oracle feasible (g=1)",
-        "Oracle hindsight (g=1)",
-        "Oracle feasible (theta0)",
-        "Oracle hindsight (theta0)",
-    ]
     main = {
-        "main_results": {k: {"welfare_mean": 1000.0 + i * 100, "welfare_sd": 50.0} for i, k in enumerate(names)},
         "frontier": [
             {"config": "Calibrated", "risk_mean": 0.45, "welfare_mean": 1500.0},
             {"config": "No reg (g=1)", "risk_mean": 0.47, "welfare_mean": 1600.0},
@@ -109,37 +90,6 @@ def test_harm_frontier_raises_on_missing_rule(tmp_path, harm_json):
     harm_json["cells"] = [c for c in harm_json["cells"] if c["rule"] != "hard cap (oracle tau,V)"]
     with pytest.raises(ValueError, match="hard cap \\(oracle tau,V\\)"):
         mf.fig_harm_frontier(harm_json, tmp_path)
-
-
-def test_missing_sd_omits_error_bar(tmp_path):
-    names = [
-        "Random",
-        "CATE Only",
-        "CATE x LTV",
-        "Full Framework (Est.)",
-        "Full Framework (Cal.)",
-        "S-Learner",
-        "Oracle feasible (g=1)",
-        "Oracle hindsight (g=1)",
-        "Oracle feasible (theta0)",
-        "Oracle hindsight (theta0)",
-    ]
-    data = {"main_results": {k: {"welfare_mean": 1000.0 + 10 * i, "welfare_sd": None} for i, k in enumerate(names)}}
-    assert mf.fig_welfare_bars(data, tmp_path).exists()
-    import inspect
-
-    assert "or 0.0 for k in order" not in inspect.getsource(mf.fig_welfare_bars)
-
-
-def test_welfare_bars_label_calibrated_and_pair_oracles():
-    import inspect
-
-    src = inspect.getsource(mf.fig_welfare_bars)
-    assert '"Full framework (cal., AIPW)"' in src
-    order = src.split("order = [")[1].split("]")[0]
-    for pair in ("g=1", "theta0"):  # feasible immediately before hindsight, per pair
-        assert order.index(f"Oracle feasible ({pair})") < order.index(f"Oracle hindsight ({pair})")
-        assert order.index(f"Oracle hindsight ({pair})") - order.index(f"Oracle feasible ({pair})") < 40
 
 
 def test_harm_frontier_welfare_axis_has_thousands_separators(tmp_path, harm_json, monkeypatch):
