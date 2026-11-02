@@ -1375,6 +1375,12 @@ HARM_SCOPE_CELLS = (
     ("numHarmWelfareSoftGateKten", "main", 0.1, "soft gate", "welfare"),
     ("numHarmWelfareHardCapKten", "main", 0.1, "hard cap", "welfare"),
     ("numHarmWelfareCateOnlyKten", "main", 0.1, "CATE only", "welfare"),
+    ("numHarmExposureGapTauVOracleFeasibleTauVKten", "main", 0.1, "tauV" + HARM_SUFFIX, "gap"),
+    ("numHarmWelfareTauVOracleFeasibleTauVKten", "main", 0.1, "tauV" + HARM_SUFFIX, "welfare"),
+    ("numHarmExposureGapSoftGateOracleFeasibleTauVKten", "main", 0.1, "soft gate" + HARM_SUFFIX, "gap"),
+    ("numHarmWelfareSoftGateOracleFeasibleTauVKten", "main", 0.1, "soft gate" + HARM_SUFFIX, "welfare"),
+    ("numHarmExposureGapHardCapOracleFeasibleTauVKten", "main", 0.1, "hard cap" + HARM_SUFFIX, "gap"),
+    ("numHarmWelfareHardCapOracleFeasibleTauVKten", "main", 0.1, "hard cap" + HARM_SUFFIX, "welfare"),
 )
 
 
