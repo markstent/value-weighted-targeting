@@ -1360,8 +1360,12 @@ def add_diff_holm(M, base, t, fmt, what, src, ci_key="ci95"):
 
 
 # (macro base, dgp, kappa, rule, field) for the scope macros of add_harm_scope_macros; field
-# 'gap' emits the exposure gap with its CI, 'exposure' and 'welfare' the mean only.
+# 'gap' emits the exposure gap with its CI, 'exposure' and 'welfare' the mean only, and
+# 'gap_pct_of_pop' the mean gap as a percentage of the cell's mean population harm (point
+# estimate only; named PctOfPop, not Pct, because it has no delta-method CI).
 HARM_SCOPE_CELLS = (
+    ("numHarmExposureGapTauVPctOfPop", "main", 0.3, "tauV", "gap_pct_of_pop"),
+    ("numHarmExposureGapTauVKtenPctOfPop", "main", 0.1, "tauV", "gap_pct_of_pop"),
     ("numHarmExposureGapTauVKten", "main", 0.1, "tauV", "gap"),
     ("numHarmExposureGapSoftGateKten", "main", 0.1, "soft gate", "gap"),
     ("numHarmExposureGapHardCapKten", "main", 0.1, "hard cap", "gap"),
@@ -1409,6 +1413,14 @@ def add_harm_scope_macros(M, harm):
                 lambda v: fmt_signed(v, fmt_harm),
                 f"{who}: harm exposure minus population mean harm",
                 src + "/exposure_minus_pop",
+            )
+        elif field == "gap_pct_of_pop":
+            M.add(
+                base,
+                fmt_pct(cell["exposure_minus_pop"]["mean"] / cell["pop_mean_harm"]),
+                f"{who}: harm exposure minus population mean harm, as a percentage of the population "
+                "mean harm (ratio of the two cell means; no plus sign; point estimate, no CI)",
+                src + "/exposure_minus_pop/mean, " + src + "/pop_mean_harm",
             )
         elif field == "exposure":
             M.add(

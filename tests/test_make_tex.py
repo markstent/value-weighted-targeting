@@ -629,6 +629,9 @@ def test_harm_scope_macros_equal_json_values():
             assert base + "CiLo" in items and base + "CiHi" in items, base
         elif field == "exposure":
             assert items[base][0] == mt.fmt_harm(cell["harm_exposure"]["mean"]), base
+        elif field == "gap_pct_of_pop":
+            pct = cell["exposure_minus_pop"]["mean"] / cell["pop_mean_harm"]
+            assert items[base][0] == mt.fmt_pct(pct), base
         else:
             assert items[base][0] == mt.fmt_welfare(cell["welfare"]["mean"]), base
     for c, kappa, tag in (
@@ -642,6 +645,22 @@ def test_harm_scope_macros_equal_json_values():
         assert items[base][0] == mt.fmt_signed(t["mean_diff"], mt.fmt_welfare)
         assert items[base + "HolmP"][0] == mt.fmt_p(t["p_holm"])
         assert "Holm family" in items[base][1]
+
+
+def test_harm_gap_pct_of_pop_macros():
+    """The harm-blind exposure gap as a percentage of population mean harm, at both budgets."""
+    data = smoke_data()
+    harm, items = data["harm_sweep"], _macros()
+    for base, kappa in (("numHarmExposureGapTauVPctOfPop", 0.3), ("numHarmExposureGapTauVKtenPctOfPop", 0.1)):
+        cell = mt.harm_cell(harm, 1.0, 0.0, kappa, "tauV", "main")
+        gap, pop = cell["exposure_minus_pop"]["mean"], cell["pop_mean_harm"]
+        value, meaning, source = items[base]
+        assert value == mt.fmt_pct(gap / pop), base
+        assert value.endswith(r"\%") and not value.startswith("+"), base
+        assert "percentage of the population mean harm" in meaning and "no CI" in meaning
+        assert source.count("harm_sweep.json:cells[dgp=main,c_harm=1,sigma_h=0") == 2
+        assert f"kappa={kappa:g},rule='tauV']" in source
+        assert base + "CiLo" not in items
 
 
 def test_learner_count_and_effective_welfare_macros():
