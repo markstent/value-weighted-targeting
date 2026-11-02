@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper."
+title: "Value-Weighted Retention Targeting Can Concentrate Harm: Diagnostics and Safeguards for Online Gambling"
+authors:
+  - family-names: Stent
+    given-names: Mark
+    affiliation: "Independent Researcher, Surrey, United Kingdom"
+    orcid: "https://orcid.org/0009-0003-5751-6083"
+repository-code: "https://github.com/markstent/value-weighted-targeting"
+license: MIT
+keywords:
+  - policy learning
+  - budget-constrained targeting
+  - gambling harm
+  - uplift modelling
+  - responsible gambling
+preferred-citation:
+  type: article
+  title: "Value-Weighted Retention Targeting Can Concentrate Harm: Diagnostics and Safeguards for Online Gambling"
+  authors:
+    - family-names: Stent
+      given-names: Mark
+      orcid: "https://orcid.org/0009-0003-5751-6083"
+  year: 2026
+  status: preprint
+  url: "https://github.com/markstent/value-weighted-targeting"

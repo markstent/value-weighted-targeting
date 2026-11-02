@@ -8,7 +8,7 @@
 [![Build](https://img.shields.io/badge/build-LaTeX%20%2F%20tectonic-008080.svg)](#building-the-pdf)
 [![License](https://img.shields.io/badge/license-MIT%20(code)%20%2F%20CC%20BY%204.0%20(paper)-blue.svg)](LICENSE)
 
-Companion repository for the working paper *Value-Weighted Retention Targeting Can Concentrate Harm: Diagnostics and Safeguards for Online Gambling* by Mark Stent.
+Companion repository for the working paper *Value-Weighted Retention Targeting Can Concentrate Harm: Diagnostics and Safeguards for Online Gambling* by Mark Stent ([ORCID 0009-0003-5751-6083](https://orcid.org/0009-0003-5751-6083)).
 
 - **Repository:** <https://github.com/markstent/value-weighted-targeting>
 - **Read the paper:** [docs/stent-2026-value-weighted-targeting.pdf](docs/stent-2026-value-weighted-targeting.pdf)
@@ -51,6 +51,7 @@ All parameters are illustrative; there is no operator data.
 ## Repository Structure
 
 ```
+CITATION.cff                      Citation metadata (GitHub "Cite this repository", Zenodo)
 LICENSE
 README.md
 arxiv-metadata.txt                Title, abstract and categories for the arXiv listing
