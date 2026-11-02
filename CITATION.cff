@@ -6,6 +6,11 @@ authors:
     given-names: Mark
     affiliation: "Independent Researcher, Surrey, United Kingdom"
     orcid: "https://orcid.org/0009-0003-5751-6083"
+doi: "10.5281/zenodo.23883720"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23883721"
+    description: "Release v2.0, the version used for the paper"
 repository-code: "https://github.com/markstent/value-weighted-targeting"
 license: MIT
 keywords:
