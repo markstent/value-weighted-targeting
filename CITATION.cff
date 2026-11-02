@@ -28,4 +28,5 @@ preferred-citation:
       orcid: "https://orcid.org/0009-0003-5751-6083"
   year: 2026
   status: preprint
-  url: "https://github.com/markstent/value-weighted-targeting"
+  doi: "10.5281/zenodo.23883807"
+  url: "https://doi.org/10.5281/zenodo.23883807"

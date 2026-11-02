@@ -2,7 +2,8 @@
 
 [![Paper (PDF)](https://img.shields.io/badge/paper-PDF-b31b1b.svg)](docs/stent-2026-value-weighted-targeting.pdf)
 [![Repo](https://img.shields.io/badge/GitHub-value--weighted--targeting-181717.svg?logo=github)](https://github.com/markstent/value-weighted-targeting)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23883721.svg)](https://doi.org/10.5281/zenodo.23883721)
+[![Paper DOI](https://img.shields.io/badge/paper%20DOI-10.5281%2Fzenodo.23883807-blue.svg)](https://doi.org/10.5281/zenodo.23883807)
+[![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23883721.svg)](https://doi.org/10.5281/zenodo.23883721)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-f89939.svg)](https://scikit-learn.org/)
 [![Results](https://img.shields.io/badge/results-deterministic%20%26%20reproducible-2ea44f.svg)](#reproducing-the-results)
@@ -13,6 +14,7 @@ Companion repository for the working paper *Value-Weighted Retention Targeting C
 
 - **Repository:** <https://github.com/markstent/value-weighted-targeting>
 - **Code archive:** release v2.0 on Zenodo, [doi:10.5281/zenodo.23883721](https://doi.org/10.5281/zenodo.23883721); [10.5281/zenodo.23883720](https://doi.org/10.5281/zenodo.23883720) always points to the latest version.
+- **Paper on Zenodo:** [doi:10.5281/zenodo.23883807](https://doi.org/10.5281/zenodo.23883807)
 - **Read the paper:** [docs/stent-2026-value-weighted-targeting.pdf](docs/stent-2026-value-weighted-targeting.pdf)
 - The LaTeX source, figures and generated tables are private and are not part of this repository.
 
@@ -145,7 +147,8 @@ python src/build_paper.py
   author = {Stent, Mark},
   year   = {2026},
   note   = {Working paper},
-  url    = {https://github.com/markstent/value-weighted-targeting}
+  doi    = {10.5281/zenodo.23883807},
+  url    = {https://doi.org/10.5281/zenodo.23883807}
 }
 ```
 
